@@ -23,7 +23,7 @@ Try it without sending anything:
 ```bash
 .venv/Scripts/python -m src.main --force --dry-run
 ```
-`--force` ignores the "already done today / skip" gate; `--dry-run` writes the draft file but does not create a GitHub Issue. Run the tests with `.venv/Scripts/python -m pytest`.
+`--force` bypasses only the 5-6 AM ET hour check and the "already delivered today" skip (so it also re-runs a date that already has a GitHub Issue; the issue is never duplicated); `--dry-run` writes the draft file but does not create a GitHub Issue. Run the tests with `.venv/Scripts/python -m pytest`.
 
 ## Running it on GitHub (one-time setup)
 1. Make the token Claude uses in CI (uses my Max subscription, no API key): run `claude setup-token` and copy the token it prints.
@@ -33,7 +33,8 @@ Try it without sending anything:
    gh secret set ALPHA_VANTAGE_API_KEY
    gh secret set CLAUDE_CODE_OAUTH_TOKEN
    ```
-3. Test it once by hand: `gh workflow run daily.yml -f force=true`, then `gh run watch`.
+3. Merge the workflow file (`.github/workflows/daily.yml`) to the default branch (`main`) first: `gh workflow run` and the cron schedule only work for workflows on the default branch. Also make sure `main` and `data` have no branch protection that blocks the bot's push (the bot pushes `issues/` to main and force-pushes `cre.db` to `data`).
+4. Test it once by hand: `gh workflow run daily.yml -f force=true`, then `gh run watch`.
 
 After that it runs on its own every morning. The database lives on a `data` branch (one file, `cre.db`) so each run remembers the last one.
 

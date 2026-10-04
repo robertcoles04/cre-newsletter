@@ -93,7 +93,7 @@ A Python pipeline runs on GitHub Actions. The Claude steps run through Claude Co
 
 ### Scheduling
 
-GitHub's cron runs in UTC only, so two triggers are set: 09:00 UTC and 10:00 UTC. The script runs only when the time in America/New_York is 5 AM, which covers both daylight and standard time. `workflow_dispatch` allows manual runs.
+GitHub's cron runs in UTC only, so two triggers are set: 09:07 UTC and 10:07 UTC. The run proceeds when the America/New_York hour is 5 or 6 and that date has not already been delivered (a GitHub Issue exists), which covers both daylight and standard time. `workflow_dispatch` allows manual runs.
 
 ### Persistence
 
