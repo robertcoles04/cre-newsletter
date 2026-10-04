@@ -43,7 +43,8 @@ def test_friday_has_3_top_and_weekday_5():
         add_item(conn, n, importance=n, anchor=datetime(2026, 10, 9, 5, tzinfo=ET))
     fri = fs(conn, date(2026, 10, 9))
     assert len(fri["top"]) == 3
-    assert fri["quick_hits"] == []
+    assert len(fri["quick_hits"]) == 8  # R14: Friday gets Quick Hits
+    assert fri["quick_hits"][0]["title"] == "Title 8"
     conn2 = connect(":memory:")
     for n in range(14):
         add_item(conn2, n, importance=n)
@@ -51,7 +52,9 @@ def test_friday_has_3_top_and_weekday_5():
     assert len(wk["top"]) == 5
     assert len(wk["quick_hits"]) == 8
     assert wk["top"][0]["title"] == "Title 13"
-    assert set(wk["top"][0]) == {"id", "title", "source", "url", "summary", "also_covered"}
+    assert set(wk["top"][0]) == {"id", "title", "source", "url", "summary", "also_covered",
+                                  "section"}
+    assert wk["top"][0]["section"] == "top"
 
 
 def test_priority_breaks_importance_ties_and_also_covered_is_list():

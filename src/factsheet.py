@@ -47,6 +47,7 @@ def _story(row: sqlite3.Row) -> dict:
         "id": row["id"], "title": row["title"], "source": row["source"],
         "url": row["url"], "summary": row["summary"] or "",
         "also_covered": json.loads(row["also_covered"] or "[]"),
+        "section": row["section"],
     }
 
 
@@ -189,7 +190,7 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
     news = [r for r in window if r["section"] in ("top", "deal")]
     n_top = TOP_COUNT.get(dtype, 0)
     top = news[:n_top]
-    quick = news[n_top:n_top + QUICK_HITS_COUNT] if dtype == "weekday" else []
+    quick = news[n_top:n_top + QUICK_HITS_COUNT] if dtype in ("weekday", "friday") else []
 
     sheet = {
         "date": run_date.isoformat(),
