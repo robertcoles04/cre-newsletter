@@ -1,0 +1,9 @@
+httpx
+feedparser
+PyYAML
+rapidfuzz
+matplotlib
+python-dotenv
+pytest
+respx
+tzdata

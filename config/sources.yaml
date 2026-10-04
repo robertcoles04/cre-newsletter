@@ -1,0 +1,70 @@
+feeds:
+  - name: Commercial Observer
+    url: https://commercialobserver.com/feed/
+    priority: 90
+  - name: Bisnow
+    url: https://www.bisnow.com/feed
+    priority: 80
+  - name: Connect CRE
+    url: https://www.connectcre.com/feed/
+    priority: 70
+  - name: REBusiness Online
+    url: https://rebusinessonline.com/feed/
+    priority: 60
+  - name: Trepp
+    url: https://www.trepp.com/trepptalk/rss.xml
+    priority: 85
+  - name: PR Newswire Real Estate
+    url: https://www.prnewswire.com/rss/real-estate-latest-news/real-estate-latest-news-list.rss
+    priority: 40
+
+google_news:
+  - name: The Real Deal
+    query: "site:therealdeal.com"
+    priority: 75
+  - name: GlobeSt
+    query: "site:globest.com"
+    priority: 75
+  - name: Multi-Housing News
+    query: "site:multihousingnews.com"
+    priority: 65
+  - name: CPE
+    query: "site:cpexecutive.com"
+    priority: 65
+  - name: CRE sales
+    query: "\"commercial real estate\" sale"
+    priority: 30
+  - name: CMBS
+    query: CMBS
+    priority: 30
+  - name: CRE refinance
+    query: commercial real estate refinance loan
+    priority: 30
+  - name: AI in real estate
+    query: "\"real estate\" (AI OR \"artificial intelligence\" OR proptech)"
+    priority: 30
+
+fred_series:
+  - DGS10
+  - DGS5
+  - SOFR
+  - DFF
+
+reit_etf: VNQ
+
+reit_tickers:
+  - O
+  - PLD
+  - EQIX
+  - DLR
+  - VICI
+  - AVB
+  - EQR
+  - MAA
+  - ADC
+  - NNN
+  - STAG
+
+lookback_hours:
+  default: 30
+  monday: 78
