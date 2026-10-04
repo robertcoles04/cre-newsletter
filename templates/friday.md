@@ -24,6 +24,10 @@
 
 <!-- 2 or 3 stories from the fact sheet's `top` list, in order. For each: a ### headline, then 2 sentences with a name, place or number from the source, then a line starting "**Why it matters:**" with a concrete consequence for a borrower, lender, tenant, buyer or city, then [source](url). -->
 
+## Quick Hits
+
+<!-- 5 to 8 items from the fact sheet's `quick_hits` list. One line each: a plain one-sentence headline and its [source](url). No "why it matters". About 100 words total. -->
+
 ## Deals of the Week
 
 <!-- Deals come only from fact-sheet stories tagged as deals: a sale, purchase or financing of a named property. Never add a deal that is not in the fact sheet. For each: property, market, buyer, seller and price only as the source states them, plus [source](url). Never invent a missing field; leave it out. Keeping this short is fine in Phase 1. If there are no deal stories, delete this section. -->
@@ -34,6 +38,6 @@
 
 ## Term of the Day
 
-<!-- About 50 words on the fact sheet's `term`, using its definition_hint. Format: **Term:** plain definition, then one sentence that ties it to a story in today's issue. -->
+<!-- About 50 words on the fact sheet's `term`, using its definition_hint. Format: **Term:** plain definition, then tie the term to a story in this issue; no market rates — use a made-up round-number example if needed. -->
 
 For informational purposes only. Not investment advice.

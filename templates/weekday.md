@@ -34,6 +34,6 @@
 
 ## Term of the Day
 
-<!-- About 50 words on the fact sheet's `term`, using its definition_hint. Format: **Term:** plain definition, then one sentence that ties it to a story in today's issue. -->
+<!-- About 50 words on the fact sheet's `term`, using its definition_hint. Format: **Term:** plain definition, then tie the term to a story in this issue; no market rates — use a made-up round-number example if needed. -->
 
 For informational purposes only. Not investment advice.

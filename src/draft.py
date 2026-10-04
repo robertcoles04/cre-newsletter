@@ -83,8 +83,10 @@ Rubric:
 - Cut vague or unsupported lines: anything not backed by the fact sheet, generic
   "why it matters" lines with no concrete consequence, filler and throat-clearing.
 - Keep every `{{{{PLACEHOLDER}}}}` and every [source](url) link exactly unchanged.
-- Do not add any number. Remove any rate, percentage, price, odds or bps that is not a
-  placeholder and not written exactly in a fact-sheet story.
+- Do not add any number. Remove any market figure that is not a placeholder and not
+  written exactly in a fact-sheet story. That means every form: percent, %, pct,
+  bp/bps/basis points, $ amounts, bare decimals (like 4.62) and odds (like 81 to 19).
+- Term of the Day may use a made-up round-number example, but never a market rate.
 - If a claim seems doubtful but may be right, keep it and put [CHECK] right after it.
 - Keep sentences under 30 words, no exclamation points, at most two em dashes.
 - Remove these phrases if present:

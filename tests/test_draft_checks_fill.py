@@ -252,8 +252,8 @@ def test_templates_structure():
     heads = {
         "weekday": ["The Numbers", "Debt Markets", "Top Stories", "Quick Hits",
                     "AI in Real Estate", "Term of the Day"],
-        "friday": ["The Numbers", "Debt Markets", "Top Stories", "Deals of the Week",
-                   "AI in Real Estate", "Term of the Day"],
+        "friday": ["The Numbers", "Debt Markets", "Top Stories", "Quick Hits",
+                   "Deals of the Week", "AI in Real Estate", "Term of the Day"],
         "saturday": ["Week in Review", "AI in Real Estate Weekly", "Term of the Day"],
         "sunday": ["REIT Weekly", "Week Ahead", "Term of the Day"],
     }
@@ -263,6 +263,7 @@ def test_templates_structure():
         assert [h for h in got if h in want] == [h for h in want], day
         lines = [ln for ln in text.splitlines() if ln.strip()]
         assert lines[-1] == FOOTER, day
+        assert "no market rates" in text and "made-up round-number example" in text, day
         names = set(re.findall(r"\{\{(\w+)\}\}", text))
         assert names <= KNOWN, (day, names - KNOWN)
         if day in ("weekday", "friday"):
@@ -273,3 +274,74 @@ def test_templates_structure():
 def test_voice_has_sample_heading():
     text = (ROOT / "config" / "voice.md").read_text(encoding="utf8")
     assert "## Robert's sample issue" in text
+
+
+
+# --- fix round 1 regressions ---------------------------------------------
+
+def numbers_problems(text, fs=None):
+    md = issue("", numbers=f"{REQUIRED}\n\n{text}")
+    return [p for p in check_issue(md, fs or sheet(), BANNED) if p["kind"] == "model_number"]
+
+
+def test_unit_spellings_flagged_in_numbers():
+    for text in ("The 10Y rose 4.6 percent.", "It rose 4.6 per cent.", "Up 4.6 pct.",
+                 "A 25bp move.", "A 25-basis-point cut.", "A 25-bps move.",
+                 "A 25  bps move.", "A 1 basis point move.", "Debt hit $1.2 trillion.",
+                 "Debt hit $3 tn."):
+        assert numbers_problems(text), text
+
+
+def test_trillion_not_sourced_by_billion():
+    top = [story(1, summary="Issuance reached $1.2 billion.")]
+    ok = issue("## Top Stories\n\nIssuance reached $1.2 billion. [Src](https://x.com/1)")
+    bad = issue("## Top Stories\n\nIssuance reached $1.2 trillion. [Src](https://x.com/1)")
+    assert check_issue(ok, sheet(top=top), BANNED) == []
+    assert "unsourced_number" in kinds(check_issue(bad, sheet(top=top), BANNED))
+
+
+def test_bare_decimals_and_odds_flagged_in_market_sections():
+    assert numbers_problems("The 10Y closed at 4.62.")
+    assert numbers_problems("Fed odds 81 to 19.")
+    assert numbers_problems("VNQ closed at 91 dollars.")
+    assert not numbers_problems("The 10Y moved {{DGS10_CHG}}.")
+    assert not numbers_problems("The 10Y and 5Y moved before the Oct 28 meeting.")
+    sun = issue("## Week Ahead\n\nThe Fed meets Oct 28; odds are 81 to 19.")
+    assert "model_number" in kinds(check_issue(sun, sheet(day="sunday"), BANNED))
+
+
+def test_image_alt_text_number_flagged():
+    assert numbers_problems("![10Y at 4.6%](img/{{DATE}}-chart.png)")
+    assert not numbers_problems("![Chart of the Day](img/{{DATE}}-chart.png)")
+
+
+def test_term_of_the_day_flags_market_rates():
+    bad = issue("## Term of the Day\n\n**Spread:** the gap over a benchmark. "
+                "With the 10Y at 4.6%, a loan at 6% has a 140 bps spread.")
+    ok = issue("## Term of the Day\n\n**Cap rate:** income over price. "
+               "A $10 million building earning $500,000 trades at a 5% cap rate.")
+    fed = issue("## Term of the Day\n\nIf the Fed cuts 25 bps, floating loans get cheaper.")
+    assert "model_number" in kinds(check_issue(bad, sheet(), BANNED))
+    assert "model_number" in kinds(check_issue(fed, sheet(), BANNED))
+    assert check_issue(ok, sheet(), BANNED) == []
+
+
+def test_slop_pattern_flagged():
+    bad = issue("## Top Stories\n\nThis is not just a sale, but a signal.")
+    also = issue("## Top Stories\n\nIt is Not only cheaper but faster.")
+    ok = issue("## Top Stories\n\nThe sale is not final. But talks continue.")
+    assert "slop_pattern" in kinds(check_issue(bad, sheet(), BANNED))
+    assert "slop_pattern" in kinds(check_issue(also, sheet(), BANNED))
+    assert "slop_pattern" not in kinds(check_issue(ok, sheet(), BANNED))
+
+
+def test_edit_prompt_names_number_forms():
+    seen = {}
+
+    def fake_run(prompt, model):
+        seen["prompt"] = prompt
+        return "x"
+
+    draft.edit("x", sheet(), run=fake_run)
+    for form in ("percent", "%", "bp/bps/basis points", "$ amounts", "bare decimals"):
+        assert form in seen["prompt"], form

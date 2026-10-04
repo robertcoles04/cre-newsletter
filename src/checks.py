@@ -20,22 +20,30 @@ BUDGETS = {
 }
 # Market-data sections: every number there must come from a placeholder.
 MARKET_SECTIONS = {"The Numbers", "REIT Weekly", "Week Ahead"}
-# Term of the Day may use a made-up worked example, so its numbers are not checked.
-UNCHECKED_SECTIONS = {"Term of the Day"}
+# Term of the Day may use a made-up round-number example, so its numbers are only
+# checked in sentences that talk about market rates (TERM_RATE_WORDS).
+TERM_SECTION = "Term of the Day"
+TERM_RATE_WORDS = re.compile(r"\b(?:10Y|5Y|SOFR|Treasury|Treasuries|Fed|fed funds)\b", re.I)
 STORY_KEYS = ("top", "quick_hits", "debt", "ai", "week_top", "ai_week")
 
 PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 COMMENT = re.compile(r"<!--.*?-->", re.S)
-IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+IMAGE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 URL = re.compile(r"https?://\S+")
-# The brief's patterns: `\d+(\.\d+)?\s?(%|bps|basis points)` and `\$\d`. The dollar
-# form is widened to the whole amount so the sourced-number lookup compares
-# "$120 million", not just "$1".
+SLOP_PATTERN = re.compile(r"\bnot (?:just|only)\b[^.]{1,80}\bbut\b", re.I)
+# Based on the brief's `\d+(\.\d+)?\s?(%|bps|basis points)` and `\$\d`, widened to other
+# unit spellings ("4.6 percent", "25bp", "25-basis-point") and to the whole dollar
+# amount, so the sourced-number lookup compares "$120 million", not just "$1".
+RATE_UNIT = r"(?:%|percent\b|per cent\b|pct\b|bps?\b|basis[- ]points?\b)"
 NUMBER = re.compile(
-    r"\d+(?:\.\d+)?\s?(?:%|bps\b|basis points)"
-    r"|\$\d+(?:,\d{3})*(?:\.\d+)?(?:\s?(?:million|billion|bn|mm|m|b|k)\b)?",
+    r"\d+(?:\.\d+)?[\s-]{0,2}" + RATE_UNIT +
+    r"|\$\d+(?:,\d{3})*(?:\.\d+)?"
+    r"(?:\s?(?:million|billion|trillion|bn|tn|mm|m|b|k)\b)?",
     re.I)
+# Extra forms that only count in market-data sections: bare decimals ("4.62"),
+# "91 dollars" and odds like "81 to 19". "10Y", "5Y" and "Oct 28" do not match.
+MARKET_EXTRA = re.compile(r"\d+\.\d+|\d+\s+(?:dollars\b|to\s+\d+)", re.I)
 LIST_ITEM = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
 
@@ -59,9 +67,14 @@ def _plain(text: str) -> str:
     return PLACEHOLDER.sub(r"\1", text)
 
 
-def _no_numbers_source(text: str) -> str:
-    """Text the number check scans: drops placeholders as well as URLs/link targets."""
-    return _plain(PLACEHOLDER.sub(" ", text))
+def _number_text(text: str) -> str:
+    """Text the number check scans: no placeholders, comments, link targets or URLs.
+    Image alt text and link text are kept."""
+    text = PLACEHOLDER.sub(" ", text)
+    text = COMMENT.sub(" ", text)
+    text = IMAGE.sub(r" \1 ", text)
+    text = LINK.sub(r"\1", text)
+    return URL.sub(" ", text)
 
 
 def _words(text: str) -> int:
@@ -94,9 +107,21 @@ def _check_numbers(sections, factsheet) -> list[dict]:
     corpus = _story_corpus(factsheet)
     problems = []
     for name, body in sections:
-        if name in UNCHECKED_SECTIONS:
+        text = _number_text(body)
+        if name == TERM_SECTION:
+            for sentence in SENTENCE_END.split(text):
+                if TERM_RATE_WORDS.search(sentence):
+                    for m in NUMBER.finditer(sentence):
+                        if not m.group(0).startswith("$"):
+                            problems.append({"kind": "model_number",
+                                             "detail": f"{name}: {m.group(0)}"})
             continue
-        for m in NUMBER.finditer(_no_numbers_source(body)):
+        matches = list(NUMBER.finditer(text))
+        if name in MARKET_SECTIONS:
+            matches += [m for m in MARKET_EXTRA.finditer(text)
+                        if not any(m.start() < n.end() and n.start() < m.end()
+                                   for n in matches)]
+        for m in matches:
             label = f"{name or 'intro'}: {m.group(0)}"
             if name in MARKET_SECTIONS:
                 problems.append({"kind": "model_number", "detail": label})
@@ -146,6 +171,9 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     for phrase in banned:
         if re.search(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", flat, re.I):
             problems.append({"kind": "banned", "detail": phrase})
+
+    for m in SLOP_PATTERN.finditer(_plain(md)):
+        problems.append({"kind": "slop_pattern", "detail": m.group(0)})
 
     dashes = md.count("—")
     if dashes > MAX_EM_DASHES:
