@@ -88,6 +88,47 @@ def test_gate_bypassed_by_force_and_date(tmp_path, fakes):
     assert code == 0 and path.exists()
 
 
+def test_gate_runs_at_hour_6_and_skips_at_7(tmp_path, fakes):
+    code, path = run(tmp_path, now=datetime(2026, 10, 6, 6, 7, tzinfo=ET))
+    assert code == 0 and path.exists()
+    path.unlink()
+    code, path = run(tmp_path, now=datetime(2026, 10, 6, 7, 7, tzinfo=ET))
+    assert code == 0 and not path.exists()
+
+
+def test_already_delivered_date_skips_without_collecting(tmp_path, fakes, monkeypatch, capsys):
+    run(tmp_path, dry_run=False)  # delivers, sets gh_issue
+    capsys.readouterr()
+
+    def boom(*a, **k):
+        raise AssertionError("collector called")
+    monkeypatch.setattr(main, "collect_rates", boom)
+    monkeypatch.setattr(main.rss, "fetch_feed", boom)
+    code, _ = run(tmp_path, dry_run=False)
+    assert code == 0
+    assert "already delivered 2026-10-06; skipping" in capsys.readouterr().out
+    # --date alone still skips; --force bypasses
+    code, _ = run(tmp_path, dry_run=False, date="2026-10-06")
+    assert code == 0 and "already delivered" in capsys.readouterr().out
+    monkeypatch.undo()
+    code, path = run(tmp_path, dry_run=False, force=True)
+    assert code == 0 and path.exists()
+
+
+def test_missing_footer_is_appended(tmp_path, fakes):
+    code, path = run(tmp_path, claude=lambda p, m: DRAFT.replace(FOOTER, "").rstrip() + "\n")
+    text = path.read_text(encoding="utf-8")
+    assert code == 0 and text.rstrip().endswith(FOOTER)
+    assert "check/footer" in text  # signal kept
+
+
+def test_no_chart_removes_image_line(tmp_path, fakes, monkeypatch):
+    monkeypatch.setattr(main, "_make_chart", lambda *a, **k: None)
+    code, path = run(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    assert code == 0 and "Chart of the Day" not in text and "-chart.png" not in text
+
+
 def test_source_failure_recorded_and_run_continues(tmp_path, fakes, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("fred down")
@@ -213,7 +254,7 @@ def test_rerun_same_date_writes_twice_creates_one_gh_issue(tmp_path, fakes):
     code1, path = run(tmp_path, gh=gh, dry_run=False)
     first = path.read_text(encoding="utf-8")
     path.unlink()
-    code2, path = run(tmp_path, gh=gh, dry_run=False)
+    code2, path = run(tmp_path, gh=gh, dry_run=False, force=True)
     assert code1 == code2 == 0 and path.exists() and path.read_text(encoding="utf-8")
     assert first
     assert len([c for c in calls if c[:2] == ["issue", "create"]]) == 1

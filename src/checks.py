@@ -194,7 +194,7 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
         if n > budget * BUDGET_SLACK:
             problems.append({"kind": "budget", "detail": f"{name}: {n} words (budget {budget})"})
 
-    for key in ("top", "quick_hits"):
+    for key in ("top", "quick_hits", "debt", "ai", "week_top", "ai_week"):
         for s in factsheet.get(key) or []:
             if s["url"] not in md:
                 problems.append({"kind": "missing_link", "detail": s["url"]})

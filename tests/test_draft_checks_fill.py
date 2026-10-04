@@ -101,6 +101,13 @@ def test_missing_link_flagged():
     assert kinds(ps).count("missing_link") == 1
 
 
+def test_missing_link_checked_in_debt_and_ai_sections():
+    md = issue("## Debt\n\nA loan closed.")
+    ps = check_issue(md, sheet(debt=[story(3)], week_top=[story(4)]), BANNED)
+    assert {"kind": "missing_link", "detail": "https://x.com/3"} in ps
+    assert {"kind": "missing_link", "detail": "https://x.com/4"} in ps
+
+
 def test_banned_phrase_flagged():
     md = issue("## Top Stories\n\nLet us DELVE into it.")
     assert "banned" in kinds(check_issue(md, sheet(), BANNED))

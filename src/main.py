@@ -24,7 +24,8 @@ from src.store import connect, get_rates, save_items, save_quotes
 REPO_ROOT = Path(__file__).resolve().parent.parent
 COLLECT_HOURS = 78  # store keeps everything; the fact sheet applies the day's lookback
 CHART_DAYS = 45
-GATE_HOUR = 5
+GATE_HOURS = (5, 6)  # cron fires at 09:07 and 10:07 UTC: 5-6 AM ET in either DST state
+CHART_LINE = re.compile(r"^[ \t]*!\[Chart of the Day\]\([^)\n]*\)[ \t]*\n?", re.M)
 STRAY_BRACES = re.compile(r"\{\{.*?\}\}|\{\{|\}\}", re.S)
 
 
@@ -127,6 +128,13 @@ def _make_chart(conn, run_date: date, tmp: Path, problems: list[str]) -> Path | 
         return None
 
 
+def _ensure_footer(md: str) -> str:
+    lines = [ln.strip() for ln in md.splitlines() if ln.strip()]
+    if lines and lines[-1] == FOOTER:
+        return md
+    return md.rstrip("\n") + "\n\n" + FOOTER + "\n"
+
+
 def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
     """Draft, edit, check. Falls back to a fact-sheet-only issue if drafting fails."""
     try:
@@ -143,7 +151,7 @@ def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
             problems.append(f"check/{p['kind']}: {p['detail']}")
     except Exception as exc:
         problems.append(f"check: {_err(exc)}")
-    return md
+    return _ensure_footer(md)  # after the check, so a missing footer is still flagged
 
 
 def _scrub(text: str) -> tuple[str, str | None]:
@@ -184,8 +192,8 @@ def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude):
 def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=None,
         repo_root=REPO_ROOT) -> int:
     now = (now or datetime.now(ET)).astimezone(ET)
-    if not args.force and not args.date and now.hour != GATE_HOUR:
-        print(f"Not 5 AM ET (it is {now:%H:%M}); skipping. Use --force to run anyway.")
+    if not args.force and not args.date and now.hour not in GATE_HOURS:
+        print(f"Not 5-6 AM ET (it is {now:%H:%M}); skipping. Use --force to run anyway.")
         return 0
     run_date = date.fromisoformat(args.date) if args.date else now.date()
 
@@ -195,6 +203,12 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
     try:
         client = client or http_client()
         conn = connect(str(args.db))
+        if not args.force:
+            row = conn.execute("SELECT gh_issue FROM issues WHERE date=?",
+                               (run_date.isoformat(),)).fetchone()
+            if row is not None and row["gh_issue"] is not None:
+                print(f"already delivered {run_date.isoformat()}; skipping")
+                return 0
         sources = load_sources()
         odds, quotes, vnq_yield = _collect(conn, sources, run_date, client, problems)
 
@@ -210,6 +224,8 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
 
         with tempfile.TemporaryDirectory() as tmp:
             chart = _make_chart(conn, run_date, Path(tmp), problems)
+            if chart is None:
+                md = CHART_LINE.sub("", md)
             problems[:] = [_scrub(p)[0] for p in problems]
             try:
                 path = deliver_mod.deliver(
@@ -234,7 +250,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Draft the daily CRE Blurb issue.")
     p.add_argument("--date", help="run date YYYY-MM-DD (skips the 5 AM gate)")
     p.add_argument("--dry-run", action="store_true", help="write the file, skip the GitHub Issue")
-    p.add_argument("--force", action="store_true", help="run even if it is not 5 AM ET")
+    p.add_argument("--force", action="store_true", help="ignore the 5-6 AM ET hour check and the already-delivered skip")
     p.add_argument("--db", default=str(REPO_ROOT / "cre.db"))
     return run(p.parse_args(argv))
 
