@@ -124,10 +124,10 @@ def _pick_term(conn: sqlite3.Connection, run_date: date) -> dict:
     return {"term": chosen["term"], "definition_hint": chosen["hint"]}
 
 
-def _week_ahead(run_date: date, fed_top: str) -> dict:
+def _week_ahead(run_date: date) -> dict:
     end = run_date + timedelta(days=7)
     meetings = [d for d in _load_yaml("config/fomc.yaml") if run_date < d <= end]
-    return {"fomc_dates": [_day(d) for d in meetings], "FED_TOP": fed_top}
+    return {"fomc_dates": [_day(d) for d in meetings], "FED_TOP": "FED_TOP"}  # placeholder name
 
 
 def _reit_week(conn: sqlite3.Connection, run_date: date,
@@ -209,7 +209,7 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         sheet["week_top"] = [_story(r) for r in week][:WEEK_TOP_COUNT]
         sheet["ai_week"] = [_story(r) for r in week if r["section"] == "ai"][:AI_WEEK_COUNT]
     elif dtype == "sunday":
-        sheet["week_ahead"] = _week_ahead(run_date, values["FED_TOP"])
+        sheet["week_ahead"] = _week_ahead(run_date)
         reit_values, sheet["reit_week"] = _reit_week(conn, run_date, quotes)
         values.update(reit_values)
     return sheet

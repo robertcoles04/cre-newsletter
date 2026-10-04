@@ -168,7 +168,8 @@ def test_sunday_week_ahead_and_reit_week():
         for d, c in [(2, a), (9, b)]])
     odds = FedOdds("Oct", date(2026, 10, 28), [("No change", 0.9), ("Cut 25", 0.1)])
     sun = fs(conn, date(2026, 10, 11), odds)
-    assert sun["week_ahead"] == {"fomc_dates": [], "FED_TOP": "No change 90.0%"}
+    assert sun["week_ahead"] == {"fomc_dates": [], "FED_TOP": "FED_TOP"}
+    assert sun["values"]["FED_TOP"] == "No change 90.0%"
     v = sun["values"]
     assert sun["reit_week"] == {"best": ["REITW_BEST_1", "REITW_BEST_2", "REITW_BEST_3"],
                                 "worst": ["REITW_WORST_1", "REITW_WORST_2"]}
@@ -211,7 +212,7 @@ def test_reit_week_empty_with_one_day_and_no_fomc_in_range():
     assert sun["reit_week"] == {"best": [], "worst": []}
     assert sun["values"]["REITW_BEST_1"] == "n/a"
     assert sun["week_ahead"]["fomc_dates"] == []
-    assert sun["week_ahead"]["FED_TOP"] == "n/a"
+    assert sun["week_ahead"]["FED_TOP"] == "FED_TOP"
 
 
 def test_fed_meeting_from_calendar_without_odds():
