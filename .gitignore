@@ -1,0 +1,24 @@
+# Secrets and personal data
+.env
+*.key
+config.json
+data/*.csv
+data/*.xlsx
+!data/*.sample.*
+
+# Local database (rebuilt by the pipeline)
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+
+# Node (if ever used)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
