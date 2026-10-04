@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Fixture CRE Feed</title>
+    <link>https://example.com/</link>
+    <description>Test feed</description>
+    <item>
+      <title>Fresh deal: Office tower sells for $200M</title>
+      <link>https://example.com/fresh</link>
+      <pubDate>Sat, 03 Oct 2026 12:00:00 +0000</pubDate>
+      <description>&lt;p&gt;Buyer &amp;amp; seller close on a &lt;b&gt;big&lt;/b&gt; deal.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Old news from five days ago</title>
+      <link>https://example.com/old</link>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Stale item.</description>
+    </item>
+    <item>
+      <title>Undated item</title>
+      <link>https://example.com/undated</link>
+      <description>No pubDate here.</description>
+    </item>
+  </channel>
+</rss>

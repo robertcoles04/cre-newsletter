@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>"site:globest.com" - Google News</title>
+    <link>https://news.google.com/</link>
+    <description>Google News</description>
+    <item>
+      <title>Multifamily lending rebounds - GlobeSt</title>
+      <link>https://news.google.com/rss/articles/abc1</link>
+      <pubDate>Sat, 03 Oct 2026 14:00:00 GMT</pubDate>
+      <description>&lt;a href="https://news.google.com/rss/articles/abc1"&gt;Multifamily lending rebounds&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;GlobeSt&lt;/font&gt;</description>
+      <source url="https://www.globest.com">GlobeSt</source>
+    </item>
+    <item>
+      <title>Office CMBS delinquency ticks up - GlobeSt</title>
+      <link>https://news.google.com/rss/articles/abc2</link>
+      <pubDate>Sat, 03 Oct 2026 10:00:00 GMT</pubDate>
+      <description>Office CMBS delinquency ticks up</description>
+      <source url="https://www.globest.com">GlobeSt</source>
+    </item>
+  </channel>
+</rss>
