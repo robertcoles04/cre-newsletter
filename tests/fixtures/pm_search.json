@@ -1,0 +1,46 @@
+{
+  "events": [
+    {
+      "title": "Fed Decision in December?",
+      "endDate": "2026-12-10T04:59:00Z",
+      "markets": [
+        {
+          "groupItemTitle": "50+ bps decrease",
+          "question": "Will the Fed decrease interest rates by 50+ bps after the December 2026 meeting?",
+          "outcomePrices": "[\"0.0035\", \"0.9965\"]"
+        },
+        {
+          "groupItemTitle": "25 bps decrease",
+          "question": "Will the Fed decrease interest rates by 25 bps after the December 2026 meeting?",
+          "outcomePrices": "[\"0.0115\", \"0.9885\"]"
+        },
+        {
+          "groupItemTitle": "No change",
+          "question": "Will there be no change in Fed interest rates after the December 2026 meeting?",
+          "outcomePrices": "[\"0.255\", \"0.745\"]"
+        }
+      ]
+    },
+    {
+      "title": "Fed Decision in October?",
+      "endDate": "2026-10-29T03:59:00Z",
+      "markets": [
+        {
+          "groupItemTitle": "50+ bps decrease",
+          "question": "Will the Fed decrease interest rates by 50+ bps after the October 2026 meeting?",
+          "outcomePrices": "[\"0.0025\", \"0.9975\"]"
+        },
+        {
+          "groupItemTitle": "25 bps decrease",
+          "question": "Will the Fed decrease interest rates by 25 bps after the October 2026 meeting?",
+          "outcomePrices": "[\"0.0045\", \"0.9955\"]"
+        },
+        {
+          "groupItemTitle": "No change",
+          "question": "Will there be no change in Fed interest rates after the October 2026 meeting?",
+          "outcomePrices": "[\"0.825\", \"0.175\"]"
+        }
+      ]
+    }
+  ]
+}
