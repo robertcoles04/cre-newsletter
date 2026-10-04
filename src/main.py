@@ -5,6 +5,7 @@ which deliver() prints as a banner at the top of the draft.
 """
 
 import argparse
+import re
 import sys
 import tempfile
 from datetime import date, datetime, timedelta
@@ -24,6 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 COLLECT_HOURS = 78  # store keeps everything; the fact sheet applies the day's lookback
 CHART_DAYS = 45
 GATE_HOUR = 5
+STRAY_BRACES = re.compile(r"\{\{.*?\}\}|\{\{|\}\}", re.S)
 
 
 def _err(exc: Exception) -> str:
@@ -101,8 +103,8 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
     if not av_key:
         problems.append("reits: missing ALPHA_VANTAGE_API_KEY")
     else:
-        etf = sources["reit_etf"]
         try:
+            etf = sources["reit_etf"]
             quotes, failed = reits.fetch_quotes(
                 [etf] + list(sources.get("reit_tickers", [])), av_key, client)
             save_quotes(conn, quotes)
@@ -126,15 +128,15 @@ def _make_chart(conn, run_date: date, tmp: Path, problems: list[str]) -> Path | 
 
 
 def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
-    """Draft, edit, check. Falls back to a fact-sheet-only issue if Claude fails."""
+    """Draft, edit, check. Falls back to a fact-sheet-only issue if drafting fails."""
     try:
         md = draft.write(factsheet, run=claude)
-    except llm.LLMError as exc:
+    except Exception as exc:  # LLMError or anything unexpected: same fallback
         problems.append(f"claude: {_err(exc)}")
         return fallback_markdown(factsheet)
     try:
         md = draft.edit(md, factsheet, run=claude)
-    except llm.LLMError as exc:
+    except Exception as exc:
         problems.append(f"claude: {_err(exc)}")
     try:
         for p in check_issue(md, factsheet, load_banned()):
@@ -142,6 +144,41 @@ def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
     except Exception as exc:
         problems.append(f"check: {_err(exc)}")
     return md
+
+
+def _scrub(text: str) -> tuple[str, str | None]:
+    """Replace any leftover {{...}} or stray double braces with n/a. Returns (text, snippet)."""
+    snippet = None
+
+    def sub(m: re.Match) -> str:
+        nonlocal snippet
+        snippet = snippet or m.group(0)[:40]
+        return "n/a"
+
+    return STRAY_BRACES.sub(sub, text), snippet
+
+
+def _stub_markdown(problems: list[str]) -> str:
+    lines = ["# Pipeline error: fact sheet unavailable", ""]
+    lines += [f"- {p}" for p in problems]
+    return "\n".join(lines + ["", FOOTER, ""])
+
+
+def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude):
+    """Returns (markdown, term or None)."""
+    try:
+        factsheet = build_factsheet(conn, run_date, odds, quotes, problems, vnq_yield)
+    except Exception as exc:
+        problems.append(f"factsheet: {_err(exc)}")
+        return _stub_markdown(problems), None
+    md = _write_issue(factsheet, problems, claude)
+    values = {**factsheet["values"], "DATE": run_date.isoformat()}
+    try:
+        md, missing = fill(md, values)
+        problems += [f"fill: missing {name}" for name in missing]
+    except Exception as exc:
+        problems.append(f"fill: {_err(exc)}")
+    return md, factsheet["term"]["term"]
 
 
 def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=None,
@@ -152,11 +189,12 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
         return 0
     run_date = date.fromisoformat(args.date) if args.date else now.date()
 
-    conn = connect(str(args.db))
     own_client = client is None
-    client = client or http_client()
+    conn = None
     problems: list[str] = []
     try:
+        client = client or http_client()
+        conn = connect(str(args.db))
         sources = load_sources()
         odds, quotes, vnq_yield = _collect(conn, sources, run_date, client, problems)
 
@@ -165,24 +203,29 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
         except Exception as exc:
             problems.append(f"classify: {_err(exc)}")
 
-        factsheet = build_factsheet(conn, run_date, odds, quotes, problems, vnq_yield)
-        md = _write_issue(factsheet, problems, claude)
-        values = {**factsheet["values"], "DATE": run_date.isoformat()}
-        md, missing = fill(md, values)
-        problems += [f"fill: missing {name}" for name in missing]
+        md, term = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude)
+        md, snippet = _scrub(md)
+        if snippet:
+            problems.append(f"fill: stray braces {snippet}")
 
         with tempfile.TemporaryDirectory() as tmp:
             chart = _make_chart(conn, run_date, Path(tmp), problems)
-            path = deliver_mod.deliver(
-                conn, run_date, md, problems, chart, repo_root, day_type(run_date),
-                factsheet["term"]["term"], gh=gh, dry_run=args.dry_run)
+            problems[:] = [_scrub(p)[0] for p in problems]
+            try:
+                path = deliver_mod.deliver(
+                    conn, run_date, md, problems, chart, repo_root, day_type(run_date),
+                    term, gh=gh, dry_run=args.dry_run)
+            except Exception as exc:
+                print(f"delivery failed: {_err(exc)}", file=sys.stderr)
+                return 1
     except Exception as exc:
-        print(f"delivery failed: {_err(exc)}", file=sys.stderr)
+        print(f"pipeline error before delivery: {_err(exc)}", file=sys.stderr)
         return 1
     finally:
-        if own_client:
+        if own_client and client is not None:
             client.close()
-        conn.close()
+        if conn is not None:
+            conn.close()
     print(f"Delivered {path} ({len(problems)} problem(s))")
     return 0
 

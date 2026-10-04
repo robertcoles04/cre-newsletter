@@ -71,9 +71,9 @@ def fakes(monkeypatch):
     monkeypatch.setattr(main, "collect_rates", rates)
 
 
-def run(tmp_path, claude=good_claude, now=NOW_5AM, **kw):
+def run(tmp_path, claude=good_claude, now=NOW_5AM, gh=lambda a: "x/1", **kw):
     args = Args(db=str(tmp_path / "t.db"), **kw)
-    code = main.run(args, client=FakeClient(), claude=claude, gh=lambda a: "x/1",
+    code = main.run(args, client=FakeClient(), claude=claude, gh=gh,
                     now=now, repo_root=tmp_path)
     return code, tmp_path / "issues" / f"{D.isoformat()}.md"
 
@@ -101,8 +101,11 @@ def test_feed_failure_does_not_stop_run(tmp_path, fakes, monkeypatch):
     def boom(*a, **k):
         raise ValueError("bad xml")
     monkeypatch.setattr(main.rss, "fetch_feed", boom)
+    monkeypatch.setattr(main, "load_sources", lambda: {
+        "feeds": [{"name": "Test Feed", "url": "http://x", "priority": 1}],
+        "fred_series": ["DGS10"], "reit_etf": "VNQ", "reit_tickers": []})
     code, path = run(tmp_path)
-    assert code == 0 and "feed/Commercial Observer" in path.read_text(encoding="utf-8")
+    assert code == 0 and "feed/Test Feed" in path.read_text(encoding="utf-8")
 
 
 def test_missing_keys_become_problems(tmp_path, fakes, monkeypatch):
@@ -153,3 +156,72 @@ def test_delivery_failure_returns_1(tmp_path, fakes, monkeypatch):
         raise OSError("disk full")
     monkeypatch.setattr(main.deliver_mod, "deliver", boom)
     assert run(tmp_path)[0] == 1
+
+
+def test_factsheet_failure_delivers_stub(tmp_path, fakes, monkeypatch):
+    def boom(*a, **k):
+        raise KeyError("lookback_hours")
+    monkeypatch.setattr(main, "build_factsheet", boom)
+    code, path = run(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    assert code == 0
+    assert "# Pipeline error: fact sheet unavailable" in text
+    assert "factsheet: KeyError" in text and text.rstrip().endswith(FOOTER)
+
+
+@pytest.mark.parametrize("which", ["write", "edit"])
+def test_non_llm_error_in_draft_is_handled(tmp_path, fakes, monkeypatch, which):
+    def boom(*a, **k):
+        raise ValueError("odd")
+    monkeypatch.setattr(main.draft, which, boom)
+    code, path = run(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    assert code == 0 and "claude: ValueError: odd" in text
+    if which == "write":
+        assert "# Claude unavailable: fact sheet only" in text
+    else:
+        assert "Big deal closes" in text and "4.20%" in text
+
+
+def test_fill_and_check_failures_continue(tmp_path, fakes, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("nope")
+    monkeypatch.setattr(main, "check_issue", boom)
+    monkeypatch.setattr(main, "fill", boom)
+    code, path = run(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    assert code == 0 and "check: RuntimeError" in text and "fill: RuntimeError" in text
+    assert "{{" not in text and FOOTER in text
+
+
+def test_stray_braces_are_scrubbed(tmp_path, fakes):
+    bad = DRAFT.replace("{{DGS10_CHG}}", "{{ DGS10 }}").replace(
+        "{{FED_TOP}}", "{{DGS-10}}") + "\nstray }} and {{\n"
+    code, path = run(tmp_path, claude=lambda p, m: bad)
+    text = path.read_text(encoding="utf-8")
+    assert code == 0
+    assert "{{" not in text and "}}" not in text
+    assert "fill: stray braces {{" not in text and "fill: stray braces" in text
+
+
+def test_rerun_same_date_writes_twice_creates_one_gh_issue(tmp_path, fakes):
+    calls = []
+
+    def gh(args):
+        calls.append(args)
+        return "https://github.com/o/r/issues/7\n"
+    code1, path = run(tmp_path, gh=gh, dry_run=False)
+    first = path.read_text(encoding="utf-8")
+    path.unlink()
+    code2, path = run(tmp_path, gh=gh, dry_run=False)
+    assert code1 == code2 == 0 and path.exists() and path.read_text(encoding="utf-8")
+    assert first
+    assert len([c for c in calls if c[:2] == ["issue", "create"]]) == 1
+
+
+def test_connect_failure_returns_1(tmp_path, fakes, monkeypatch, capsys):
+    def boom(path):
+        raise OSError("locked")
+    monkeypatch.setattr(main, "connect", boom)
+    assert run(tmp_path)[0] == 1
+    assert "pipeline error before delivery" in capsys.readouterr().err
