@@ -1,0 +1,14 @@
+{
+  "Global Quote": {
+    "01. symbol": "VNQ",
+    "02. open": "90.1000",
+    "03. high": "91.2000",
+    "04. low": "89.9000",
+    "05. price": "90.8700",
+    "06. volume": "3456789",
+    "07. latest trading day": "2026-10-02",
+    "08. previous close": "89.7700",
+    "09. change": "1.1000",
+    "10. change percent": "1.2345%"
+  }
+}
