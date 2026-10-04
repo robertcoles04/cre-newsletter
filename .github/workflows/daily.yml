@@ -1,0 +1,96 @@
+name: Daily CRE Blurb
+
+on:
+  schedule:
+    # Two triggers so the run lands around 5-6 AM ET in both EST and EDT.
+    # The pipeline is idempotent (one file + one GitHub Issue per date).
+    - cron: "0 9 * * *"
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force a run even if the gate says skip"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+# Never let the two cron triggers overlap.
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code CLI
+        run: npm i -g @anthropic-ai/claude-code
+
+      - name: Restore database from data branch (ok if it does not exist yet)
+        run: |
+          git fetch origin data && git show origin/data:cre.db > cre.db || true
+          # An empty file from a failed show would confuse sqlite; drop it.
+          [ -s cre.db ] || rm -f cre.db
+
+      - name: Create draft label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create draft --color BFD4F2 || true
+
+      - name: Run pipeline
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          args="--db cre.db"
+          if [ "$FORCE" = "true" ]; then args="$args --force"; fi
+          python -m src.main $args
+
+      - name: Commit issues/ to main
+        run: |
+          git config user.name "cre-blurb-bot"
+          git config user.email "cre-blurb-bot@users.noreply.github.com"
+          if [ -n "$(git status --porcelain issues/)" ]; then
+            git add issues/
+            git commit -m "draft: issue for $(date -u +%F)"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Save database to data branch
+        run: |
+          if [ -f cre.db ]; then
+            git config user.name "cre-blurb-bot"
+            git config user.email "cre-blurb-bot@users.noreply.github.com"
+            wt="$(mktemp -d)"
+            cp cre.db "$wt/cre.db"
+            git worktree add --detach "$wt/wt" HEAD
+            cd "$wt/wt"
+            git checkout --orphan data-snapshot
+            git rm -rf --quiet .
+            cp "$wt/cre.db" cre.db
+            git add -f cre.db
+            git commit -m "data: cre.db snapshot"
+            git push -f origin HEAD:data
+          fi

@@ -3,7 +3,13 @@
 CRE Blurb: daily commercial real estate (CRE) newsletter for Substack. A scheduled Python pipeline collects news + data, Claude drafts the issue, Robert (the owner, the user) reviews and publishes. Full original spec: `BRIEF.md`. Design spec: `docs/superpowers/specs/2026-10-04-cre-newsletter-design.md`.
 
 ## Status
-Spec written 2026-10-04; next is the Phase 1 implementation plan. No pipeline code yet. Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery).
+Phase 1 built on branch phase1-mvp (2026-10-04); pending: merge, secrets, first scheduled run. Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery). Workflow: `.github/workflows/daily.yml` (cron 09:00 + 10:00 UTC, DB kept on the `data` branch).
+
+## Commands
+- Setup: `python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt`; copy `.env.example` to `.env`.
+- Test: `.venv/Scripts/python -m pytest`
+- Local run: `.venv/Scripts/python -m src.main --force --dry-run` (flags: `--date`, `--dry-run`, `--force`, `--db`)
+- CI: `gh workflow run daily.yml -f force=true`, then `gh run watch`.
 
 ## Decisions so far (override BRIEF.md where they differ)
 - Runs 7 days: Mon-Fri detailed (~1,000 words), Sat/Sun lighter (~500).
