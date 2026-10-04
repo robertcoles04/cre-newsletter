@@ -19,19 +19,24 @@ def env(name: str, required: bool = True) -> str | None:
 
     Args:
         name: The environment variable name
-        required: If True, raises RuntimeError if the variable is missing
+        required: If True, raises RuntimeError if the variable is missing or empty
 
     Returns:
-        The environment variable value, or None if not required and missing
+        The environment variable value, or None if not required and missing/empty
 
     Raises:
-        RuntimeError: If the variable is required and not found
+        RuntimeError: If the variable is required and not found or is empty
     """
     load_dotenv()  # Load from .env if present (no-op if .env doesn't exist)
     value = os.getenv(name)
 
-    if value is None and required:
+    # Treat empty string as missing
+    if (value is None or value == "") and required:
         raise RuntimeError(f"missing env {name}")
+
+    # Return None for empty strings when not required
+    if value == "":
+        return None
 
     return value
 

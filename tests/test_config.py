@@ -31,3 +31,23 @@ def test_env_missing_raises():
     # Should raise RuntimeError for missing required env var
     with pytest.raises(RuntimeError, match=f"missing env {test_var_name}"):
         env(test_var_name, required=True)
+
+
+def test_env_empty_string_raises():
+    """Test that env() treats empty strings as missing and raises RuntimeError when required."""
+    # Set up an empty environment variable
+    test_var_name = "TEST_EMPTY_VAR_ABC456"
+    os.environ[test_var_name] = ""
+
+    try:
+        # Should raise RuntimeError for empty required env var
+        with pytest.raises(RuntimeError, match=f"missing env {test_var_name}"):
+            env(test_var_name, required=True)
+
+        # Should return None for empty non-required env var
+        result = env(test_var_name, required=False)
+        assert result is None, f"Expected None for empty non-required env var, got {result!r}"
+    finally:
+        # Clean up
+        if test_var_name in os.environ:
+            del os.environ[test_var_name]
