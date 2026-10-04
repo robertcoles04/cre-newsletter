@@ -75,3 +75,12 @@ def test_rates_and_quotes_roundtrip():
     assert get_rates(conn, "DGS10", date(2026, 10, 2))[0].date == date(2026, 10, 2)
     save_quotes(conn, [ReitQuote("PLD", date(2026, 10, 1), 120.0, 1.5)])
     assert conn.execute("SELECT close FROM reit_quotes").fetchone()[0] == 120.0
+
+
+def test_get_quotes_filters_by_date():
+    from src.store import get_quotes
+    conn = connect(":memory:")
+    save_quotes(conn, [ReitQuote("O", date(2026, 9, 1), 50.0, 0.1),
+                       ReitQuote("O", date(2026, 10, 2), 51.0, 2.0)])
+    got = get_quotes(conn, date(2026, 10, 1))
+    assert [(q.ticker, q.date, q.close) for q in got] == [("O", date(2026, 10, 2), 51.0)]

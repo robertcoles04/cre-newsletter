@@ -1,0 +1,61 @@
+# Term of the Day rotation, in order.
+- term: NNN lease
+  hint: 'Triple-net lease: tenant pays property taxes, insurance and maintenance on top of base rent.'
+- term: Absolute NNN
+  hint: Lease where the tenant also covers structural and roof costs; landlord has almost no responsibilities.
+- term: CAM
+  hint: 'Common area maintenance: tenants'' share of costs for shared spaces like lobbies, parking and landscaping.'
+- term: Cap rate
+  hint: Net operating income divided by price; a quick yardstick of yield and risk.
+- term: NOI
+  hint: 'Net operating income: rent and other income minus operating expenses, before debt service.'
+- term: DSCR
+  hint: 'Debt service coverage ratio: NOI divided by loan payments; lenders want it comfortably above 1.'
+- term: LTV
+  hint: 'Loan-to-value: loan amount as a percent of the property''s value.'
+- term: Debt yield
+  hint: NOI divided by loan amount; lender's return ignoring rate and amortization.
+- term: SOFR
+  hint: 'Secured Overnight Financing Rate: the benchmark behind most floating-rate CRE loans.'
+- term: Interest rate swap
+  hint: Contract that trades a floating rate for a fixed one, used to hedge loan costs.
+- term: CMBS
+  hint: 'Commercial mortgage-backed securities: loans pooled and sold to bond investors.'
+- term: Special servicing
+  hint: Loan servicer that takes over troubled CMBS loans to modify, extend or foreclose.
+- term: Extend and pretend
+  hint: Lender extends a struggling loan's maturity instead of recognizing a loss.
+- term: Leasing commission
+  hint: Fee paid to brokers for securing a tenant, usually a percent of lease value.
+- term: TI allowance
+  hint: 'Tenant improvement allowance: landlord money toward building out a tenant''s space.'
+- term: GP/LP
+  hint: General partner runs the deal; limited partners provide most of the capital.
+- term: Promote
+  hint: GP's extra share of profits once investors hit return hurdles.
+- term: Preferred return
+  hint: Minimum annual return investors get before the GP shares in profits.
+- term: Entitlements
+  hint: Government approvals (zoning, permits) needed to build or change a property's use.
+- term: FFO
+  hint: 'Funds from operations: REIT earnings adjusted by adding back depreciation and removing property gains.'
+- term: AFFO
+  hint: 'Adjusted FFO: FFO less recurring capex and straight-line rent; closer to distributable cash.'
+- term: NAV discount
+  hint: REIT share price trading below the estimated value of its underlying properties.
+- term: Absorption
+  hint: Net change in occupied space over a period; shows whether demand is outpacing supply.
+- term: Vacancy rate
+  hint: Percent of a market's or building's space that is empty and available.
+- term: Rent roll
+  hint: Property-level list of tenants, lease terms, rents and expirations.
+- term: Mezzanine debt
+  hint: Subordinate financing between the senior loan and equity, with higher interest.
+- term: Bridge loan
+  hint: Short-term loan that covers a gap until a property is stabilized or refinanced.
+- term: 1031 exchange
+  hint: Tax rule letting an owner defer capital gains by reinvesting sale proceeds in similar property.
+- term: Sale-leaseback
+  hint: Owner sells a property and leases it back, freeing up capital but keeping occupancy.
+- term: Loss-to-lease
+  hint: Gap between in-place rents and current market rents; potential upside on renewals.

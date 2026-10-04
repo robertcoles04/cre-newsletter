@@ -178,3 +178,13 @@ def recent_items(conn: sqlite3.Connection, since: datetime) -> list[sqlite3.Row]
         " ORDER BY published_at DESC",
         (_iso(since),),
     ).fetchall()
+
+
+def get_quotes(conn: sqlite3.Connection, since: date) -> list[ReitQuote]:
+    rows = conn.execute(
+        "SELECT ticker, date, close, change_pct FROM reit_quotes WHERE date >= ?"
+        " ORDER BY ticker, date",
+        (since.isoformat(),),
+    ).fetchall()
+    return [ReitQuote(r["ticker"], date.fromisoformat(r["date"]), r["close"], r["change_pct"])
+            for r in rows]
