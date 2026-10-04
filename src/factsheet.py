@@ -6,13 +6,13 @@ them into {{PLACEHOLDERS}}, so the model never writes numbers. Missing data is "
 
 import json
 import sqlite3
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import yaml
 
 from src.config import ET, load_sources
-from src.models import FedOdds, RatePoint, ReitQuote
+from src.models import FedOdds, ReitQuote
 from src.rates import fmt_bps, latest_with_change
 from src.store import get_quotes, get_rates, recent_items
 
@@ -82,11 +82,14 @@ def _rate_values(conn: sqlite3.Connection, run_date: date) -> tuple[dict, float 
     return values, dgs10
 
 
-def _fed_values(odds: FedOdds | None) -> dict:
-    if odds is None or not odds.outcomes:
-        return {"FED_MEETING": NA, "FED_TOP": NA}
-    label, prob = odds.outcomes[0]
-    return {"FED_MEETING": _day(odds.end_date), "FED_TOP": f"{label} {prob * 100:.1f}%"}
+def _fed_values(odds: FedOdds | None, run_date: date) -> dict:
+    # Meeting date comes from the FOMC calendar, independent of the odds feed.
+    nxt = next((d for d in sorted(_load_yaml("config/fomc.yaml")) if d >= run_date), None)
+    values = {"FED_MEETING": _day(nxt) if nxt else NA, "FED_TOP": NA}
+    if odds is not None and odds.outcomes:
+        label, prob = odds.outcomes[0]
+        values["FED_TOP"] = f"{label} {prob * 100:.1f}%"
+    return values
 
 
 def _market_values(quotes: list[ReitQuote]) -> dict:
@@ -100,7 +103,8 @@ def _market_values(quotes: list[ReitQuote]) -> dict:
         best = max(others, key=lambda q: q.change_pct)
         worst = min(others, key=lambda q: q.change_pct)
         values["REIT_UP"] = f"{best.ticker} {_pct(best.change_pct)}"
-        values["REIT_DOWN"] = f"{worst.ticker} {_pct(worst.change_pct)}"
+        if len(others) > 1:
+            values["REIT_DOWN"] = f"{worst.ticker} {_pct(worst.change_pct)}"
     return values
 
 
@@ -123,16 +127,19 @@ def _pick_term(conn: sqlite3.Connection, run_date: date) -> dict:
 def _week_ahead(run_date: date, fed_top: str) -> dict:
     end = run_date + timedelta(days=7)
     meetings = [d for d in _load_yaml("config/fomc.yaml") if run_date < d <= end]
-    return {"fomc_dates": [d.isoformat() for d in meetings], "FED_TOP": fed_top}
+    return {"fomc_dates": [_day(d) for d in meetings], "FED_TOP": fed_top}
 
 
-def _reit_week(conn: sqlite3.Connection, run_date: date, quotes: list[ReitQuote]) -> list[dict]:
-    """Best 3 and worst 3 non-VNQ tickers by % change first->last close over the week.
+def _reit_week(conn: sqlite3.Connection, run_date: date,
+               quotes: list[ReitQuote]) -> tuple[dict, dict]:
+    """Best/worst non-VNQ tickers by % change, first -> last close in the window.
 
-    Uses whatever quote days exist; needs at least 2 days per ticker. Returned as one
-    list, best first; with 6 or fewer tickers there is no overlap (each appears once).
+    The window starts 9 days back so a Sunday run's first close is the prior Friday.
+    Needs at least 2 days per ticker. Returns (values, placeholder-name lists); the
+    numbers live only in `values` as REITW_BEST_n / REITW_WORST_n. No ticker is in
+    both lists (with <=6 tickers they split into top half and bottom half).
     """
-    merged = {(q.ticker, q.date): q for q in get_quotes(conn, run_date - timedelta(days=7))}
+    merged = {(q.ticker, q.date): q for q in get_quotes(conn, run_date - timedelta(days=9))}
     for q in quotes:
         merged[(q.ticker, q.date)] = q
     by_ticker: dict[str, list[ReitQuote]] = {}
@@ -145,9 +152,19 @@ def _reit_week(conn: sqlite3.Connection, run_date: date, quotes: list[ReitQuote]
         if len(qs) >= 2 and qs[0].close:
             changes.append((ticker, (qs[-1].close / qs[0].close - 1) * 100))
     changes.sort(key=lambda c: -c[1])
-    picked = changes if len(changes) <= 2 * REIT_WEEK_PICKS else (
-        changes[:REIT_WEEK_PICKS] + changes[-REIT_WEEK_PICKS:])
-    return [{"ticker": t, "change_pct_str": _pct(c)} for t, c in picked]
+    n_best = min(REIT_WEEK_PICKS, (len(changes) + 1) // 2)
+    n_worst = min(REIT_WEEK_PICKS, len(changes) - n_best)
+    best = changes[:n_best]
+    worst = changes[len(changes) - n_worst:][::-1] if n_worst else []  # worst first
+    values = {f"REITW_{side}_{i}": NA for side in ("BEST", "WORST")
+              for i in range(1, REIT_WEEK_PICKS + 1)}
+    names = {"best": [], "worst": []}
+    for side, picks in (("best", best), ("worst", worst)):
+        for i, (ticker, chg) in enumerate(picks, 1):
+            key = f"REITW_{side.upper()}_{i}"
+            values[key] = f"{ticker} {_pct(chg)}"
+            names[side].append(key)
+    return values, names
 
 
 def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | None,
@@ -159,7 +176,7 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
     lookback = hours["monday"] if run_date.weekday() == 0 else hours["default"]
 
     values, dgs10 = _rate_values(conn, run_date)
-    values.update(_fed_values(odds))
+    values.update(_fed_values(odds, run_date))
     values.update(_market_values(quotes))
     if vnq_yield is None:
         values["VNQ_YIELD"] = values["SPREAD_10Y"] = NA
@@ -193,5 +210,6 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         sheet["ai_week"] = [_story(r) for r in week if r["section"] == "ai"][:AI_WEEK_COUNT]
     elif dtype == "sunday":
         sheet["week_ahead"] = _week_ahead(run_date, values["FED_TOP"])
-        sheet["reit_week"] = _reit_week(conn, run_date, quotes)
+        reit_values, sheet["reit_week"] = _reit_week(conn, run_date, quotes)
+        values.update(reit_values)
     return sheet

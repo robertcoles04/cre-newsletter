@@ -75,7 +75,7 @@ def test_monday_uses_78h_lookback():
 def test_missing_rates_render_na():
     conn = connect(":memory:")
     v = fs(conn, date(2026, 10, 6))["values"]
-    for k in ("DGS10", "DGS10_CHG", "DGS5", "SOFR", "DFF", "RATES_ASOF", "FED_MEETING",
+    for k in ("DGS10", "DGS10_CHG", "DGS5", "SOFR", "DFF", "RATES_ASOF",
               "FED_TOP", "VNQ", "VNQ_CHG", "REIT_UP", "REIT_DOWN", "VNQ_YIELD", "SPREAD_10Y"):
         assert v[k] == "n/a", k
 
@@ -91,7 +91,7 @@ def test_rates_and_market_formats():
     v = fs(conn, date(2026, 10, 6), odds, quotes, 0.041)["values"]
     assert v["DGS10"] == "4.62%" and v["DGS10_CHG"] == "+2 bps"
     assert v["RATES_ASOF"] == "Oct 2"
-    assert v["FED_MEETING"] == "Oct 29" and v["FED_TOP"] == "No change 82.5%"
+    assert v["FED_MEETING"] == "Oct 28" and v["FED_TOP"] == "No change 82.5%"
     assert v["VNQ"] == "$85.12" and v["VNQ_CHG"] == "+0.8%"
     assert v["REIT_UP"] == "O +2.1%" and v["REIT_DOWN"] == "PLD -1.2%"
     assert v["VNQ_YIELD"] == "4.10%"
@@ -160,31 +160,71 @@ def test_saturday_sections():
 
 def test_sunday_week_ahead_and_reit_week():
     conn = connect(":memory:")
+    # Prior Friday (Oct 2) close is the base, so Monday's move counts.
     save_quotes(conn, [
         ReitQuote(t, date(2026, 10, d), c, 0.0)
         for t, a, b in [("O", 100, 103.4), ("PLD", 100, 98.0), ("SPG", 100, 101.0),
                         ("AMT", 100, 99.0), ("EQIX", 100, 105.0), ("VNQ", 100, 150.0)]
-        for d, c in [(5, a), (9, b)]])
+        for d, c in [(2, a), (9, b)]])
     odds = FedOdds("Oct", date(2026, 10, 28), [("No change", 0.9), ("Cut 25", 0.1)])
     sun = fs(conn, date(2026, 10, 11), odds)
     assert sun["week_ahead"] == {"fomc_dates": [], "FED_TOP": "No change 90.0%"}
-    assert [(r["ticker"], r["change_pct_str"]) for r in sun["reit_week"]] == [
-        ("EQIX", "+5.0%"), ("O", "+3.4%"), ("SPG", "+1.0%"),
-        ("AMT", "-1.0%"), ("PLD", "-2.0%")]  # 5 non-VNQ tickers: no overlap
+    v = sun["values"]
+    assert sun["reit_week"] == {"best": ["REITW_BEST_1", "REITW_BEST_2", "REITW_BEST_3"],
+                                "worst": ["REITW_WORST_1", "REITW_WORST_2"]}
+    assert (v["REITW_BEST_1"], v["REITW_BEST_2"], v["REITW_BEST_3"]) == (
+        "EQIX +5.0%", "O +3.4%", "SPG +1.0%")
+    assert (v["REITW_WORST_1"], v["REITW_WORST_2"]) == ("PLD -2.0%", "AMT -1.0%")
+    assert v["REITW_WORST_3"] == "n/a"
+
+
+def test_reit_week_fri_to_fri_includes_monday_move():
+    conn = connect(":memory:")
+    save_quotes(conn, [ReitQuote("O", date(2026, 10, 2), 100.0, 0.0),
+                       ReitQuote("O", date(2026, 10, 5), 110.0, 10.0),
+                       ReitQuote("O", date(2026, 10, 9), 105.0, 0.0)])
+    v = fs(conn, date(2026, 10, 11))["values"]
+    assert v["REITW_BEST_1"] == "O +5.0%"
+
+
+def test_reit_week_more_than_six_tickers_no_overlap():
+    conn = connect(":memory:")
+    save_quotes(conn, [ReitQuote(f"T{i}", date(2026, 10, d), c, 0.0)
+                       for i in range(8) for d, c in [(5, 100.0), (9, 100.0 + i)]])
+    sun = fs(conn, date(2026, 10, 11))
+    names = sun["reit_week"]
+    assert len(names["best"]) == 3 and len(names["worst"]) == 3
+    v = sun["values"]
+    tickers = [v[k].split()[0] for k in names["best"] + names["worst"]]
+    assert tickers == ["T7", "T6", "T5", "T0", "T1", "T2"]
 
 
 def test_week_ahead_lists_fomc_within_7_days():
     conn = connect(":memory:")
-    assert fs(conn, date(2026, 10, 25))["week_ahead"]["fomc_dates"] == ["2026-10-28"]
+    assert fs(conn, date(2026, 10, 25))["week_ahead"]["fomc_dates"] == ["Oct 28"]
 
 
 def test_reit_week_empty_with_one_day_and_no_fomc_in_range():
     conn = connect(":memory:")
     save_quotes(conn, [ReitQuote("O", date(2026, 10, 9), 100.0, 1.0)])
     sun = fs(conn, date(2026, 10, 11))
-    assert sun["reit_week"] == []
+    assert sun["reit_week"] == {"best": [], "worst": []}
+    assert sun["values"]["REITW_BEST_1"] == "n/a"
     assert sun["week_ahead"]["fomc_dates"] == []
     assert sun["week_ahead"]["FED_TOP"] == "n/a"
+
+
+def test_fed_meeting_from_calendar_without_odds():
+    conn = connect(":memory:")
+    v = fs(conn, date(2026, 10, 6))["values"]
+    assert v["FED_MEETING"] == "Oct 28" and v["FED_TOP"] == "n/a"
+    assert fs(conn, date(2026, 10, 28))["values"]["FED_MEETING"] == "Oct 28"
+
+
+def test_single_non_vnq_quote_leaves_reit_down_na():
+    conn = connect(":memory:")
+    v = fs(conn, date(2026, 10, 6), quotes=[ReitQuote("O", date(2026, 10, 5), 60.0, 2.1)])["values"]
+    assert v["REIT_UP"] == "O +2.1%" and v["REIT_DOWN"] == "n/a"
 
 
 def test_chart_writes_png(tmp_path):
