@@ -24,12 +24,15 @@ google_news:
     priority: 75
   - name: GlobeSt
     query: "site:globest.com"
+    when: 7d
     priority: 75
   - name: Multi-Housing News
     query: "site:multihousingnews.com"
+    when: 7d
     priority: 65
   - name: CPE
     query: "site:cpexecutive.com"
+    when: 7d
     priority: 65
   - name: CRE sales
     query: "\"commercial real estate\" sale"

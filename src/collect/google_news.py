@@ -13,8 +13,9 @@ def build_url(query: str, when: str = "2d") -> str:
     return f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
 
 
-def fetch(name: str, query: str, priority: int, since: datetime, client) -> list[Item]:
+def fetch(name: str, query: str, priority: int, since: datetime, client,
+          when: str = "2d") -> list[Item]:
     """Fetch a Google News query. Raises on HTTP errors; malformed body returns []."""
-    response = client.get(build_url(query))
+    response = client.get(build_url(query, when))
     response.raise_for_status()
     return parse_items(response.text, name, priority, since, use_source_tag=True)

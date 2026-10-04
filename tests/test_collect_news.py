@@ -71,3 +71,20 @@ def test_gnews_source_from_tag(client):
     items = google_news.fetch("GlobeSt Query", "site:globest.com", 75, SINCE, client)
     assert len(items) == 2
     assert items[0].source == "GlobeSt"
+
+
+@respx.mock
+def test_gnews_when_override(client):
+    body = (FIXTURES / "gnews.xml").read_text(encoding="utf-8")
+    route = respx.get(url__startswith="https://news.google.com/rss/search").mock(
+        return_value=httpx.Response(200, text=body)
+    )
+    google_news.fetch("GlobeSt", "site:globest.com", 75, SINCE, client, when="7d")
+    assert "when%3A7d" in str(route.calls.last.request.url)
+
+
+@respx.mock
+def test_http_error_raises(client):
+    respx.get(FEED_URL).mock(return_value=httpx.Response(500))
+    with pytest.raises(httpx.HTTPStatusError):
+        rss.fetch_feed("Fixture", FEED_URL, 50, SINCE, client)
