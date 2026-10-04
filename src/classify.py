@@ -58,11 +58,13 @@ def _parse(reply: str, valid_ids: set) -> dict:
         if not isinstance(row, dict):
             continue
         id_, imp, market = row.get("id"), row.get("importance"), row.get("market")
-        if (isinstance(id_, bool) or id_ not in valid_ids
-                or row.get("section") not in SECTIONS
-                or row.get("asset_class") not in ASSET_CLASSES
+        section, asset = row.get("section"), row.get("asset_class")
+        if (isinstance(id_, bool) or not isinstance(id_, int)
+                or not isinstance(section, str) or not isinstance(asset, str)
+                or not isinstance(market, str)
                 or isinstance(imp, bool) or not isinstance(imp, int)
-                or not isinstance(market, str)):
+                or id_ not in valid_ids
+                or section not in SECTIONS or asset not in ASSET_CLASSES):
             continue
         out[id_] = {"section": row["section"], "asset_class": row["asset_class"],
                     "market": market.strip()[:60] or "national",

@@ -106,3 +106,18 @@ def test_batches_of_40():
 def test_heuristic_default():
     assert heuristic("Office tower sells", "") == {
         "section": "top", "asset_class": "none", "market": "national", "importance": 5}
+
+
+def test_unhashable_reply_values_dropped_not_crash():
+    conn = connect(":memory:")
+    _add(conn, 1, "CMBS delinquency rises")
+    _add(conn, 2, "Other story")
+    reply = json.dumps([
+        {"id": 1, "section": ["debt"], "asset_class": "office",
+         "market": "x", "importance": 5},
+        {"id": [2], "section": "top", "asset_class": "none",
+         "market": "x", "importance": 5},
+    ])
+    assert classify(conn, run=lambda p, m: reply) == 2
+    assert _row(conn, 1)["section"] == "debt"
+    assert _row(conn, 2)["section"] == "top"
