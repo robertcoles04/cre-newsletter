@@ -197,5 +197,5 @@ issues/  tips.md  tests/  .env.example
 
 ## 11. Open items (decided later, not blocking Phase 1)
 
-- Brand name. Taken names to avoid: CRE Daily, capstack, rentroll, theclose, cap-rate.
+- Brand name: **CRE Vantage** (chosen 2026-10-04). crevantage.substack.com was free; crevantage.com appears registered, check .co or alternatives.
 - Exact Alpha Vantage, FMP and Exa free-tier limits, confirmed during the build.
