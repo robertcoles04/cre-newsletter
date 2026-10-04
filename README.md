@@ -1,4 +1,4 @@
-# CRE Vantage
+# CRE Blurb
 
 A daily commercial real estate briefing for Substack. Every morning a program gathers rates, debt news, deals, REIT moves and top stories, and Claude writes a draft. I review it and hit publish.
 
