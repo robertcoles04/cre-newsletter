@@ -7,7 +7,7 @@ Spec written 2026-10-04; next is the Phase 1 implementation plan. No pipeline co
 
 ## Decisions so far (override BRIEF.md where they differ)
 - Runs 7 days: Mon-Fri detailed (~1,000 words), Sat/Sun lighter (~500).
-- Sections: The Numbers (+ daily REIT move, Chart of the Day), Debt Markets (+ Distress Watch), Top Stories, AI in Real Estate (only when real news), Term of the Day. Fri: Deals of the Week. Sat: Week in Review, AI in RE Weekly, Market Spotlight. Sun: REIT Weekly, Week Ahead, Careers Corner.
+- Sections: The Numbers (+ daily REIT move, Chart of the Day), Debt Markets (+ Distress Watch), Top Stories, Quick Hits, AI in Real Estate (only when real news), Term of the Day. Fri: Deals of the Week. Sat: Week in Review, AI in RE Weekly, Market Spotlight. Sun: REIT Weekly, Week Ahead, Careers Corner.
 - Everything free for now; no paid tier.
 - Runtime: Python on GitHub Actions cron; Claude steps via Claude Code headless on Robert's Max subscription (CLAUDE_CODE_OAUTH_TOKEN), no API key.
 - Blocked feeds (The Real Deal, GlobeSt, Multi-Housing News, CPE, CoStar) -> Google News `site:` queries, headline only. Never bypass bot protection.
