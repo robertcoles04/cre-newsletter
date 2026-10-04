@@ -19,8 +19,8 @@ A 7-day-a-week commercial real estate (CRE) briefing on Substack. A scheduled pi
 
 | Day | Length | Sections |
 |---|---|---|
-| Mon to Thu | ~1,000 words | The Numbers, Debt Markets, Top Stories (3 to 5), AI in Real Estate (only when there's real news), Term of the Day |
-| Fri | ~1,000 words | Same as Mon to Thu, but Top Stories drops to 2 or 3, plus Deals of the Week |
+| Mon to Thu | ~1,100 words | The Numbers, Debt Markets, Top Stories (3 to 5), Quick Hits, AI in Real Estate (only when there's real news), Term of the Day |
+| Fri | ~1,100 words | Same as Mon to Thu, but Top Stories drops to 2 or 3, plus Deals of the Week |
 | Sat | ~500 words | Week in Review, AI in Real Estate Weekly, Market Spotlight |
 | Sun | ~500 words | REIT Weekly, Week Ahead, Careers Corner |
 
@@ -39,6 +39,7 @@ Monday's issue also covers weekend news.
 - **Debt Markets** (~200 words): financings, refis, CMBS and CRE CLO issuance, lender moves, spreads.
   - **Distress Watch** line: defaults, foreclosures, special servicing, and monthly delinquency figures when released (for example Trepp's CMBS rate).
 - **Top Stories:** each story is 2 sentences, plus a "why it matters" line with a concrete consequence, plus a source link. Smaller deals ($1M to $10M) are explicitly in scope.
+- **Quick Hits** (weekdays, ~100 words): 5 to 8 one-line headlines with links. They cover the rest of the last 24 hours (the weekend, for Monday's issue) that didn't make Top Stories. No "why it matters" line.
 - **AI in Real Estate:** one item, and only when something real happened. The Saturday weekly covers tools, proptech funding and adoption.
 - **Term of the Day** (~50 words): one term, explained with an example from today's issue. It's drawn from `config/terms.yaml`, which is seeded with terms readers actually ask about: NNN vs absolute NNN, CAM, cap rate, leasing commissions, rate swaps, GP fees, entitlements.
 - **Deals of the Week** (Fri, ~400 words): 1 or 2 deals per asset class (multifamily, industrial, office, retail, hospitality, alternatives). Each deal lists property, market, buyer, seller, price, $/SF or $/unit, cap rate if disclosed, and source.
