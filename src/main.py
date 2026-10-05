@@ -5,6 +5,7 @@ which deliver() prints as a banner at the top of the draft.
 """
 
 import argparse
+import base64
 import re
 import sys
 import tempfile
@@ -209,8 +210,10 @@ def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude):
 
 def _preview(md, factsheet, problems, chart, run_date) -> str | None:
     """HTML preview; a render failure is a problem line, never a failed delivery."""
-    chart_rel = f"img/{run_date.isoformat()}-chart.png" if chart is not None else None
     try:
+        # Embed the chart so the preview survives being opened alone, emailed or pasted.
+        chart_rel = ("data:image/png;base64," + base64.b64encode(Path(chart).read_bytes()).decode()
+                     if chart is not None else None)
         return render_issue_html(md, factsheet, problems, chart_rel, run_date=run_date)
     except Exception as exc:
         problems.append(f"html: {_err(exc)}")
