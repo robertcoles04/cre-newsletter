@@ -627,7 +627,7 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
 .chg.down { color: var(--down); }
 .chg.unch { color: var(--muted); }
 .tri { flex: none; }
-.na { color: var(--ghost); cursor: help; }
+.na { color: var(--muted); font-style: italic; cursor: help; }
 .caption { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
 .data-room dl { margin: 0; }
 .data-room .intro { color: var(--muted); font-size: 15px; }

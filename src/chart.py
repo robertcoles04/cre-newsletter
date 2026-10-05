@@ -246,9 +246,11 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
             ax.plot(xs, now, color=NAVY, linewidth=2.2, marker="o", markersize=5, zorder=3)
             for x, v in zip(xs, now):
                 below = x in ago_at and ago_at[x] > v  # label on the side away from the old line
-                ax.annotate(f"{v:.2f}%", (x, v), xytext=(0, -15 if below else 8),
+                # White backing keeps the label readable where it crosses a line.
+                ax.annotate(f"{v:.2f}%", (x, v), xytext=(0, -17 if below else 10),
                             textcoords="offset points", ha="center", fontsize=9.5,
-                            color=INK, fontweight="bold")
+                            color=INK, fontweight="bold", zorder=4,
+                            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
             # Key above the plot: a short line swatch + word for each series, no legend box.
             keys = [("Today", NAVY, INK)] + ([("A month ago", NAVY_TINT, MUTED)]
                                              if len(ago) >= 2 else [])

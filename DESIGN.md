@@ -13,7 +13,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - Gold (cover rule, h2 rule, list markers; never text): `#B08D3C`
 - Ink (body text): `#1B2430`; muted (captions, footer): `#56616F`
 - Hairline (table rows, footer rule): `#D9DDE3`
-- Up `#1F7A4D`, down `#B23A3A`, unch = muted, ghost n/a `#A3ABB5`
+- Up `#1F7A4D`, down `#B23A3A`, unch = muted, n/a = muted italic
 - Editor notes: amber bg `#FBF4E4`, line `#E3C88A`, ink `#6E4A0B`
 
 ## Type
@@ -65,7 +65,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
   stays in the label, e.g. "Bank CRE delinquency (Q1 2026)".
 - **Change marks:** authored inline SVG triangle + signed text + color. Color is
   never the only signal.
-- **n/a:** the muted text "n/a" (ghost color) with `title="Data unavailable today"`.
+- **n/a:** the muted italic text "n/a" (muted color, AA contrast) with `title="Data unavailable today"`.
 - **No dashes:** no em or en dashes anywhere on the site. Code text uses commas or
   hyphens; model prose is told not to use them and `no_dashes()` replaces any that
   slip through at render time ("a — b" becomes "a, b").
