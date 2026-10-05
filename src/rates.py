@@ -47,9 +47,11 @@ def _treasury_points(today: date, start: date, client: httpx.Client) -> list[Rat
 
 def collect_rates(conn: sqlite3.Connection, series: list[str], api_key: str | None,
                   client: httpx.Client, today: date) -> list[SourceResult]:
-    """Fetch 45 days per series from FRED; DGS10/DGS5 fall back to Treasury.
+    """Fetch 45 days per series from FRED.
 
-    Returns one SourceResult per series (name = series id).
+    DGS10/DGS5 also consult Treasury.gov (once per run): FRED posts a business day
+    late, so any Treasury point newer than FRED's latest is saved too. If FRED fails,
+    Treasury is the fallback. Returns one SourceResult per series (name = series id).
     """
     start = today - timedelta(days=LOOKBACK_DAYS)
     results = []
@@ -57,7 +59,18 @@ def collect_rates(conn: sqlite3.Connection, series: list[str], api_key: str | No
     treasury_error = ""
     treasury_tried = False
 
+    def treasury_points() -> list[RatePoint]:
+        nonlocal treasury_cache, treasury_error, treasury_tried
+        if not treasury_tried:
+            treasury_tried = True
+            try:
+                treasury_cache = _treasury_points(today, start, client)
+            except Exception as exc:
+                treasury_error = type(exc).__name__
+        return treasury_cache
+
     for sid in series:
+        is_treasury_series = sid in treasury.COLUMN_TO_SERIES.values()
         try:
             if not api_key:
                 raise RuntimeError("no FRED api key")
@@ -65,19 +78,19 @@ def collect_rates(conn: sqlite3.Connection, series: list[str], api_key: str | No
             if not points:
                 raise RuntimeError("no observations")
             save_rates(conn, points)
+            if is_treasury_series:
+                latest = max(p.date for p in points)
+                newer = [p for p in treasury_points()
+                         if p.series == sid and p.date > latest]
+                if newer:
+                    save_rates(conn, newer)
             results.append(SourceResult(sid, True))
             continue
         except Exception as exc:  # any FRED failure -> try fallback
             error = type(exc).__name__
 
-        if sid in treasury.COLUMN_TO_SERIES.values():
-            if not treasury_tried:
-                treasury_tried = True
-                try:
-                    treasury_cache = _treasury_points(today, start, client)
-                except Exception as exc:
-                    treasury_error = type(exc).__name__
-            fallback = [p for p in treasury_cache if p.series == sid]
+        if is_treasury_series:
+            fallback = [p for p in treasury_points() if p.series == sid]
             if fallback:
                 save_rates(conn, fallback)
                 results.append(SourceResult(sid, True, "fallback: treasury"))

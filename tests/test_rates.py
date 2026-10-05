@@ -66,3 +66,36 @@ def test_total_failure_reports_not_ok(tmp_path):
     assert [(r.name, r.ok) for r in results] == [("DGS10", False), ("MORTGAGE30US", False)]
     assert all(r.error for r in results)
     assert get_rates(conn, "DGS10", date(2026, 1, 1)) == []
+
+
+def _fred_json(last_day, last_val):
+    import json
+    return json.dumps({"observations": [
+        {"date": "2026-09-30", "value": "5.29"},
+        {"date": last_day, "value": last_val}]})
+
+
+@respx.mock
+def test_treasury_newer_than_fred_wins_for_dgs10(tmp_path):
+    respx.get(FRED_URL).mock(return_value=httpx.Response(200, text=_fred_json("2026-10-01", "5.24")))
+    respx.get(url__regex=TREASURY_RE).mock(
+        return_value=httpx.Response(200, text=(FIX / "treasury.csv").read_text()))
+    conn = connect(str(tmp_path / "t.db"))
+    with httpx.Client() as client:
+        results = rates.collect_rates(conn, ["DGS10", "DGS5"], "k", client, date(2026, 10, 4))
+    assert all(r.ok and r.error == "" for r in results)
+    saved = get_rates(conn, "DGS10", date(2026, 9, 1))
+    assert saved[-1] == RatePoint("DGS10", date(2026, 10, 2), 5.28)
+    assert rates.latest_with_change(saved)[1] == 4
+    assert get_rates(conn, "DGS5", date(2026, 9, 1))[-1] == RatePoint("DGS5", date(2026, 10, 2), 5.06)
+
+
+@respx.mock
+def test_treasury_failure_keeps_fred_data_ok(tmp_path):
+    respx.get(FRED_URL).mock(return_value=httpx.Response(200, text=_fred_json("2026-10-01", "5.24")))
+    respx.get(url__regex=TREASURY_RE).mock(return_value=httpx.Response(503))
+    conn = connect(str(tmp_path / "t.db"))
+    with httpx.Client() as client:
+        results = rates.collect_rates(conn, ["DGS10", "DGS5"], "k", client, date(2026, 10, 4))
+    assert all(r.ok and r.error == "" for r in results)
+    assert get_rates(conn, "DGS10", date(2026, 9, 1))[-1] == RatePoint("DGS10", date(2026, 10, 1), 5.24)
