@@ -11,27 +11,24 @@ permissions:
   pages: write
   id-token: write
 
-# One publish at a time; never cancel a deploy half-way.
-concurrency:
-  group: publish
-  cancel-in-progress: false
-
 jobs:
-  publish:
-    # Runs for a manual rebuild, or when `approved` is added to a draft Issue.
+  # Step 1: check the draft and record the date in issues/published.json.
+  # Runs once per approved Issue; never cancelled, so no approval is dropped.
+  record:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.label.name == 'approved' &&
-      startsWith(github.event.issue.title, 'Draft: CRE Blurb '))
+      github.event_name == 'issues' &&
+      github.event.label.name == 'approved' &&
+      startsWith(github.event.issue.title, 'Draft: CRE Blurb ')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+    timeout-minutes: 10
+    concurrency:
+      group: record-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    outputs:
+      day: ${{ steps.day.outputs.day }}
     steps:
       - name: Read the date from the Issue title
         id: day
-        if: github.event_name == 'issues'
         env:
           TITLE: ${{ github.event.issue.title }}
           ISSUE: ${{ github.event.issue.number }}
@@ -58,12 +55,11 @@ jobs:
 
       - name: Check the issue is safe to publish
         id: gate
-        if: github.event_name == 'issues'
         env:
           DAY: ${{ steps.day.outputs.day }}
         run: |
           set -o pipefail
-          python -m src.publish "$DAY" | tee gate.txt
+          python -m src.publish "$DAY" 2>&1 | tee gate.txt
 
       - name: Report gate failure and remove the label
         if: failure() && steps.gate.outcome == 'failure'
@@ -81,16 +77,62 @@ jobs:
           gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label approved
 
       - name: Save the published list
-        if: github.event_name == 'issues'
+        env:
+          DAY: ${{ steps.day.outputs.day }}
         run: |
           git config user.name "cre-blurb-bot"
           git config user.email "cre-blurb-bot@users.noreply.github.com"
           git add issues/published.json
-          if ! git diff --cached --quiet; then
-            git commit -m "publish: $(date -u +%F)"
-            git pull --rebase origin main
-            git push origin HEAD:main
+          if git diff --cached --quiet; then
+            exit 0
           fi
+          git commit -m "publish: $DAY"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push attempt $attempt failed; retrying"
+            sleep 5
+          done
+          exit 1
+
+      - name: Report a failure after the check passed
+        if: failure() && steps.gate.outcome == 'success'
+        env:
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --body "Publishing failed after the check passed; remove and re-add the approved label to retry. Run: $RUN_URL"
+          gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label approved
+
+  # Step 2: rebuild the whole site from main and deploy it. A newer deploy
+  # replaces an older one; every recorded date is in main, so nothing is lost.
+  deploy:
+    needs: record
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' || needs.record.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main  # fresh checkout so it includes the just-pushed published.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
 
       - name: Build the site
         run: python -m src.site build --out site
@@ -106,9 +148,10 @@ jobs:
       - name: Comment and close the Issue
         if: github.event_name == 'issues'
         env:
-          DAY: ${{ steps.day.outputs.day }}
+          DAY: ${{ needs.record.outputs.day }}
           ISSUE: ${{ github.event.issue.number }}
           GH_TOKEN: ${{ github.token }}
+        # Site URL is hard-coded; keep it in sync with SITE_URL in src/site.py.
         run: |
           gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
             --body "Published: https://robertcoles04.github.io/cre-newsletter/issues/$DAY/"
