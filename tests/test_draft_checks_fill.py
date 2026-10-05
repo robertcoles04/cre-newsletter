@@ -352,3 +352,17 @@ def test_edit_prompt_names_number_forms():
     draft.edit("x", sheet(), run=fake_run)
     for form in ("percent", "%", "bp/bps/basis points", "$ amounts", "bare decimals"):
         assert form in seen["prompt"], form
+
+
+def test_dollar_unit_spellings_match_each_other():
+    # Headline "$631M" sources "$631 million" (and vice versa); value must still match.
+    top = [story(1, summary="IMT Capital Lands $631M Refi as Large-Scale Deals Continue")]
+    ok = issue("## Top Stories\n\nIMT Capital landed a $631 million refinancing. "
+               "[Src](https://x.com/1)")
+    bad = issue("## Top Stories\n\nIMT Capital landed a $631 billion refinancing. "
+                "[Src](https://x.com/1)")
+    assert check_issue(ok, sheet(top=top), BANNED) == []
+    assert "unsourced_number" in kinds(check_issue(bad, sheet(top=top), BANNED))
+    top2 = [story(1, summary="A $1.2 billion loan closed.")]
+    ok2 = issue("## Top Stories\n\nA $1.2B loan closed. [Src](https://x.com/1)")
+    assert check_issue(ok2, sheet(top=top2), BANNED) == []
