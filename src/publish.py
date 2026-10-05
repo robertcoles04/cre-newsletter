@@ -11,8 +11,8 @@ from datetime import date
 from pathlib import Path
 
 BANNER = "> **Review before publishing:**"
-FALLBACK_HEADING = "# Claude unavailable: fact sheet only"
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+FALLBACK_PREFIX = "# Claude unavailable"
+BOM = "﻿"
 
 
 def _snip(line: str) -> str:
@@ -28,7 +28,7 @@ def check(md: str) -> list[str]:
         ("an unfilled {{placeholder}} is still in the text",
          lambda s: "{{" in s),
         ("this is the fact-sheet-only fallback (Claude was unavailable)",
-         lambda s: s.strip() == FALLBACK_HEADING),
+         lambda s: " ".join(s.split()).startswith(FALLBACK_PREFIX)),
     ]
     reasons = []
     for message, hit in rules:
@@ -40,21 +40,28 @@ def check(md: str) -> list[str]:
 
 
 def strip_banner(md: str) -> str:
-    """Remove the editor-notes banner (and the blank line after it)."""
-    lines = md.replace("\r\n", "\n").split("\n")
-    out = []
+    """Remove the editor-notes banner (and the blank line after it).
+
+    Only a banner that is the first non-blank line is stripped; a banner-like
+    line anywhere else stays in the text so it gets checked normally.
+    """
+    text = md.lstrip(BOM).replace("
+", "
+")
+    lines = text.split("
+")
     i = 0
-    while i < len(lines):
-        if lines[i].startswith(BANNER):
-            i += 1
-            while i < len(lines) and lines[i].startswith(">"):
-                i += 1
-            if i < len(lines) and lines[i].strip() == "":
-                i += 1
-            continue
-        out.append(lines[i])
+    while i < len(lines) and lines[i].strip() == "":
         i += 1
-    return "\n".join(out)
+    if i >= len(lines) or not lines[i].startswith(BANNER):
+        return text
+    i += 1
+    while i < len(lines) and lines[i].startswith(">"):
+        i += 1
+    if i < len(lines) and lines[i].strip() == "":
+        i += 1
+    return "
+".join(lines[i:])
 
 
 def _published_path(root: Path) -> Path:
@@ -81,7 +88,7 @@ def gate(root: Path, day: str) -> list[str]:
     reasons = []
     md_path = issues / f"{day}.md"
     if md_path.exists():
-        md = md_path.read_bytes().decode("utf-8")
+        md = md_path.read_bytes().decode("utf-8-sig")
         reasons += check(strip_banner(md))
     else:
         reasons.append(f"issues/{day}.md not found")
@@ -92,7 +99,7 @@ def gate(root: Path, day: str) -> list[str]:
 
 
 def _valid_date(arg: str) -> bool:
-    if not DATE_RE.match(arg):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", arg, re.ASCII):
         return False
     try:
         date.fromisoformat(arg)

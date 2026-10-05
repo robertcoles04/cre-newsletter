@@ -82,3 +82,37 @@ def test_main_success_records(tmp_path, capsys):
     assert publish.main(["2026-10-05", "--root", str(tmp_path)]) == 0
     assert "published 2026-10-05" in capsys.readouterr().out
     assert publish.load_published(tmp_path) == ["2026-10-05"]
+
+
+def test_banner_mid_document_not_stripped():
+    md = "# T\n\n> **Review before publishing:**\n> - {{X}}\n\ntext\n"
+    assert publish.strip_banner(md) == md
+    assert len(publish.check(publish.strip_banner(md))) == 1
+
+
+def test_banner_after_leading_blank_lines_stripped():
+    md = "\n\n> **Review before publishing:**\n> - x\n\n# T\n"
+    assert publish.strip_banner(md) == "# T\n"
+
+
+def test_bom_does_not_hide_fallback_or_banner():
+    bom = "\ufeff"
+    assert len(publish.check(bom + "# Claude unavailable: fact sheet only\n")) == 1
+    assert publish.strip_banner(bom + "> **Review before publishing:**\n> - x\n\n# T\n") == "# T\n"
+
+
+def test_fallback_heading_variant_with_extra_spaces():
+    assert len(publish.check("#  Claude  unavailable:  fact sheet only\n")) == 1
+
+
+def test_gate_bom_file_blocks(tmp_path):
+    d = tmp_path / "issues"
+    d.mkdir()
+    (d / "2026-10-05.md").write_bytes(b"\xef\xbb\xbf# Claude unavailable: fact sheet only\n")
+    (d / "2026-10-05.json").write_text("{}")
+    assert len(publish.gate(tmp_path, "2026-10-05")) == 1
+
+
+def test_main_trailing_newline_date_rejected(tmp_path):
+    assert publish.main(["2026-10-05\n", "--root", str(tmp_path)]) == 2
+    assert not (tmp_path / "issues").exists()
