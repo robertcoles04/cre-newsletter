@@ -317,3 +317,13 @@ def test_story_lines_escape_feed_html():
                           "source": "Feed"}])[0]
     assert "<script>" not in line
     assert "&lt;script&gt;x&lt;/script&gt; A&amp;B" in line
+
+
+def test_story_lines_drop_non_http_urls():
+    from src.main import _story_lines
+    lines = _story_lines([
+        {"title": "Good", "url": "https://e.com/a", "source": "F"},
+        {"title": "Plain", "url": "http://e.com/b", "source": "F"},
+        {"title": "Bad", "url": "javascript:alert(1)", "source": "F"},
+        {"title": "Rel", "url": "/x", "source": "F"}])
+    assert [l.split("]")[0] for l in lines] == ["- [Good", "- [Plain"]

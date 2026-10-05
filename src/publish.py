@@ -4,6 +4,7 @@ Usage: python -m src.publish <YYYY-MM-DD> [--root .]
 Exit 0 = publish, 1 = refused (reasons on stdout), 2 = bad date.
 """
 import argparse
+import html
 import json
 import re
 import sys
@@ -16,9 +17,24 @@ BOM = "\ufeff"
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 AUTOLINK = re.compile(r"<https?://[^<>\s]*>", re.I)  # <https://...> is allowed
 RAW_HTML = re.compile(r"<[A-Za-z/!?]")
-# [text](javascript:...), ![alt]( DATA:...), [ref]: vbscript:...
-UNSAFE_LINK = re.compile(
-    r"(\]\(\s*<?|^\s*\[[^\]]*\]:\s*<?)\s*(javascript|data|vbscript)\s*:", re.I)
+# Link/image targets: inline [text](target) and reference definitions [id]: target.
+INLINE_TARGET = re.compile(r"\]\(\s*(<[^>\n]*>|[^\s)]*)")
+REF_TARGET = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>\n]*>|\S*)")
+SAFE_PREFIXES = ("http://", "https://", "mailto:", "#")
+CONTROL_OR_SPACE = re.compile(r"[\x00-\x20\x7f-\x9f]")
+
+
+def _safe_target(raw: str) -> bool:
+    """Allowlist: web/mail links, #anchors, or relative paths (no scheme)."""
+    t = CONTROL_OR_SPACE.sub("", html.unescape(raw.strip("<>")))
+    if t.lower().startswith(SAFE_PREFIXES):
+        return True
+    return ":" not in t.split("/", 1)[0]
+
+
+def _unsafe_link(line: str) -> bool:
+    targets = INLINE_TARGET.findall(line) + REF_TARGET.findall(line)
+    return any(not _safe_target(t) for t in targets)
 
 
 def _snip(line: str) -> str:
@@ -47,8 +63,8 @@ def check(md: str) -> list[str]:
     html_rules = [
         ("raw HTML is not allowed on the website (use plain markdown)",
          lambda s: RAW_HTML.search(AUTOLINK.sub("", s))),
-        ("a link or image points at a javascript:, data: or vbscript: address",
-         lambda s: UNSAFE_LINK.search(s)),
+        ("a link or image must be an http(s)://, mailto:, # or relative address",
+         _unsafe_link),
     ]
     for message, hit in html_rules:
         for line in visible:

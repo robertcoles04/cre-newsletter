@@ -144,3 +144,22 @@ def test_autolinks_comments_and_plain_text_allowed():
 def test_html_inside_comment_ignored_but_after_comment_blocked():
     assert publish.check("<!-- <script> -->\nok\n") == []
     assert len(publish.check("<!-- note --> <b>bold</b>\n")) == 1
+
+
+def test_entity_encoded_script_links_blocked():
+    for line in ["[x](&#106;avascript:alert(1))",
+                 "[x](java&#x09;script:alert(1))",
+                 "[r]: &#106;avascript:alert(1)",
+                 "[x](ftp://example.com/file)",
+                 "[x](foo:bar/baz)"]:
+        reasons = publish.check(f"# T\n\nok\n{line}\nmore\n")
+        assert len(reasons) == 1, (line, reasons)
+        assert line[:30] in reasons[0]
+
+
+def test_allowed_link_targets_pass():
+    md = ("# T\n\n[a](https://example.com/x?y=1) [b](http://e.com) "
+          "[c](mailto:me@example.com) [d](#top)\n"
+          "![Chart of the Day](img/2026-10-05-chart.png) [e](../issues/2026-10-05/)\n"
+          '[f](https://e.com "a title")\n\n[ref]: https://example.com/ref\n')
+    assert publish.check(md) == []

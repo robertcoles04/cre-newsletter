@@ -52,7 +52,7 @@ The website is at https://robertcoles04.github.io/cre-newsletter/ (GitHub Pages)
 2. Add the `approved` label to the Issue.
 3. About 2 minutes later the issue is live. GitHub comments on the Issue with the link and closes it.
 
-What blocks a publish: any leftover `[CHECK]` or `{{` in the text, the "Claude unavailable: fact sheet only" heading, raw HTML tags (like `<b>` or `<script>`), or a link that starts with `javascript:`, `data:` or `vbscript:`. Plain links and `<https://...>` links are fine. The "Review before publishing" banner is removed automatically. If a check fails, GitHub comments on the Issue with what to fix and removes the `approved` label. Fix the file, then add `approved` again.
+What blocks a publish: any leftover `[CHECK]` or `{{` in the text, the "Claude unavailable: fact sheet only" heading, raw HTML tags (like `<b>` or `<script>`), or a link or image whose address is not `http://`, `https://`, `mailto:`, a `#` anchor or a relative path (so `javascript:` and `data:` links are refused, even when disguised with HTML codes like `&#106;`). `<https://...>` links are fine. The "Review before publishing" banner is removed automatically. If a check fails, GitHub comments on the Issue with what to fix and removes the `approved` label. Fix the file, then add `approved` again.
 
 The Market Summary numbers on the website come from `issues/<date>.json`, not from the `.md` file. To correct a number, edit the `.json` file.
 

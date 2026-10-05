@@ -38,9 +38,11 @@ def _err(exc: Exception) -> str:
 
 
 def _story_lines(stories: list[dict]) -> list[str]:
-    # Feed text is untrusted: escape it so a title can never become raw HTML.
+    # Feed text is untrusted: escape it so a title can never become raw HTML,
+    # and keep only http(s) links.
     return [f"- [{html.escape(s['title'], quote=False)}]({s['url']}) "
-            f"({html.escape(s['source'], quote=False)})" for s in stories]
+            f"({html.escape(s['source'], quote=False)})" for s in stories
+            if str(s.get("url", "")).lower().startswith(("http://", "https://"))]
 
 
 def fallback_markdown(factsheet: dict) -> str:
