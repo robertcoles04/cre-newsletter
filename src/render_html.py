@@ -230,6 +230,32 @@ def _updated(key: str, values: dict, run_date: date | None) -> bool:
     return run_date - timedelta(days=UPDATED_DAYS) <= d <= run_date
 
 
+# Small line icons authored here as inline SVG (no emoji, no unicode glyphs, no files):
+# 24-unit grid, stroke 2, drawn at 18px, so the stroke is 1.5px. Navy via currentColor.
+ICON_PATHS = {
+    "sun": ('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5'
+            'M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'),
+    "waves": ('<path d="M2 7q2.5-2.5 5 0t5 0 5 0 5 0M2 12q2.5-2.5 5 0t5 0 5 0 5 0'
+              'M2 17q2.5-2.5 5 0t5 0 5 0 5 0"/>'),
+    "globe": ('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9'
+              's-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/>'),
+    "database": ('<ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3'
+                 's8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'),
+    "calendar": '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    "book": ('<path d="M12 6.5C10 5 7 4.5 3 4.5v14c4 0 7 .5 9 2 2-1.5 5-2 9-2v-14'
+             'c-4 0-7 .5-9 2zM12 6.5v14"/>'),
+}
+HEADING_ICONS = {"Sun Belt": "sun", "West Coast": "waves", "International": "globe",
+                 "Week Ahead": "calendar", "Data Room": "database", "Term of the Day": "book"}
+
+
+def icon(name: str) -> str:
+    return ('<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" '
+            'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+            'stroke-linejoin="round" aria-hidden="true" focusable="false">'
+            f'{ICON_PATHS[name]}</svg>')
+
+
 def data_room(values: dict, run_date: date | None) -> str:
     """The Data Room block (slower-moving credit rows), or "" when it has no rows."""
     cells = []
@@ -245,31 +271,82 @@ def data_room(values: dict, run_date: date | None) -> str:
     if not cells:
         return ""
     return ('<section class="data-room" aria-labelledby="dataroom-h">'
-            '<h2 id="dataroom-h">Data Room</h2>'
+            f'<h2 id="dataroom-h">{icon("database")}Data Room</h2>'
             f'<p class="intro">{_esc(DATA_ROOM_INTRO)}</p><dl>{"".join(cells)}</dl></section>')
 
 
-def market_summary(values: dict, chart_rel: str | None, prose_html: str) -> str:
-    groups = []
+# Code-generated charts (src/chart.py), keyed by name. "chart" is the 10-Year Treasury
+# line (file name kept from before the other charts existed).
+CHART_CAPTIONS = {
+    "chart": "10-Year Treasury yield, last 45 days.",
+    "curve": ("Treasury yields by maturity, today vs. a month ago. "
+              "Upward slope = longer loans cost more."),
+    "mortgage": "30-year mortgage rate, last six months (Freddie Mac).",
+    "fed": "What prediction markets expect at the next Fed meeting.",
+    "reits": "Daily move for the REITs we track. Shows which property types had a good day.",
+}
+CHART_NAMES = tuple(CHART_CAPTIONS)
+DEFAULT_ALT = {"chart": "Line chart of the 10-Year Treasury yield over the last 45 days"}
+# Charts that follow a Market Summary group, in order.
+GROUP_CHARTS = {"Rates": ("curve", "mortgage"), "Federal Reserve": ("fed",),
+                "REITs": ("reits",)}
+
+
+def as_charts(charts) -> dict:
+    """Normalize the chart argument: a dict {name: {"src", "alt", "width", "height"}},
+    or a plain string (the 10-Year chart's src, the older call style), or None."""
+    if not charts:
+        return {}
+    if isinstance(charts, str):
+        return {"chart": {"src": charts}}
+    return dict(charts)
+
+
+def figure(name: str, charts: dict) -> str:
+    """<figure> for one chart, or "" when it is missing. Images are lazy; the first image
+    on the page is made eager by render_issue_html."""
+    c = charts.get(name) or {}
+    if not c.get("src"):
+        return ""
+    w, h = c.get("width") or 800, c.get("height") or 400
+    alt = c.get("alt") or DEFAULT_ALT.get(name, "Chart")
+    img = (f'<img src="{_esc(c["src"])}" alt="{_esc(alt)}" width="{int(w)}" '
+           f'height="{int(h)}" loading="lazy">')
+    sm = c.get("sm") or {}
+    if sm.get("src"):  # phone variant: a narrower chart whose text stays readable
+        img = (f'<picture><source media="(max-width: 600px)" srcset="{_esc(sm["src"])}" '
+               f'width="{int(sm.get("width") or w)}" height="{int(sm.get("height") or h)}">'
+               f'{img}</picture>')
+    return (f'<figure class="chart chart-{name}">{img}'
+            f'<figcaption>{_esc(CHART_CAPTIONS[name])}</figcaption></figure>')
+
+
+def market_summary(values: dict, charts, prose_html: str) -> str:
+    """The Market Summary: groups of rows, each followed by its charts, then the prose
+    ("What it means", REIT movers) and the 10-Year chart."""
+    charts = as_charts(charts)
+    asof = values.get("RATES_ASOF")
+    parts = ['<section class="summary" aria-labelledby="summary-h">',
+             '<h2 id="summary-h">Market Summary</h2>']
     for title, rows in SUMMARY_GROUPS:
         if title in DATA_ROOM_GROUPS:
             continue
         cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if has_row(k, ck, values)]
         if cells:
-            groups.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
-                          f'<dl>{"".join(cells)}</dl></div>')
-    asof = values.get("RATES_ASOF")
-    parts = ['<section class="summary" aria-labelledby="summary-h">',
-             '<h2 id="summary-h">Market Summary</h2>', *groups]
-    if not _is_na(asof):
-        parts.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
+            parts.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
+                         f'<dl>{"".join(cells)}</dl></div>')
+        if title == "Rates" and not _is_na(asof):
+            parts.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
+        figs = [f for f in (figure(n, charts) for n in GROUP_CHARTS.get(title, ())) if f]
+        if title == "Rates" and figs:  # yield curve + mortgage: 2-up on desktop
+            parts.append(f'<div class="chart-pair">{"".join(figs)}</div>')
+        else:
+            parts += figs
     if prose_html:
         parts.append(f'<div class="takeaway">{prose_html}</div>')
-    if chart_rel:
-        parts.append(f'<figure class="chart"><img src="{_esc(chart_rel)}" '
-                     'alt="Line chart of the 10-Year Treasury yield over the last 45 days" '
-                     'width="800" height="400" loading="lazy">'
-                     '<figcaption>10-Year Treasury yield, last 45 days.</figcaption></figure>')
+    chart = figure("chart", charts)
+    if chart:
+        parts.append(chart)
     parts.append("</section>")
     return "\n".join(parts)
 
@@ -301,7 +378,8 @@ def _numbers_prose(body: str) -> str:
 
 
 def _term(body: str) -> str:
-    return (f'<section class="term" aria-labelledby="term-h"><h2 id="term-h">Term of the Day</h2>'
+    return (f'<section class="term" aria-labelledby="term-h">'
+            f'<h2 id="term-h">{icon("book")}Term of the Day</h2>'
             f'{_md(body)}</section>')
 
 
@@ -339,15 +417,99 @@ def _notes(problems: list[str]) -> str:
             f'Editor notes, not for publishing</h2><ul>{items}</ul></aside>')
 
 
+# Visible link text must never be a raw URL (long Google News links): autolinks, bare
+# URLs and [url](url) links get a short source label instead.
+URL_TEXT_LINK = re.compile(r"\[(https?://[^\]\s]+)\]\(")
+AUTOLINK = re.compile(r"<(https?://[^>\s]+)>")
+BARE_URL = re.compile(r"(?<![(<\"'=])\bhttps?://[^\s)<>\]]+")
+LINK_PART = re.compile(r"\[[^\]\n]*\]\([^)\n]*\)")
+HOST_LABELS = {"news.google.com": "Google News"}
+
+
+def url_label(url: str) -> str:
+    """"https://www.bisnow.com/x" -> "bisnow.com"; Google News links -> "Google News"."""
+    host = re.sub(r"^https?://", "", url, flags=re.I).split("/", 1)[0].split(":", 1)[0].lower()
+    host = host[4:] if host.startswith("www.") else host
+    return HOST_LABELS.get(host, host or "link")
+
+
+def tame_urls(md: str) -> str:
+    md = URL_TEXT_LINK.sub(lambda m: f"[{url_label(m.group(1))}](", md)
+    md = AUTOLINK.sub(lambda m: f"[{url_label(m.group(1))}]({m.group(1)})", md)
+    out, last = [], 0
+    for m in LINK_PART.finditer(md):  # leave existing [text](target) links alone
+        out += [BARE_URL.sub(lambda u: f"[{url_label(u.group(0))}]({u.group(0)})",
+                             md[last:m.start()]), m.group(0)]
+        last = m.end()
+    out.append(BARE_URL.sub(lambda u: f"[{url_label(u.group(0))}]({u.group(0)})", md[last:]))
+    return "".join(out)
+
+
+H2_PLAIN = re.compile(r"<h2>(.*?)</h2>", re.S)
+H3_PLAIN = re.compile(r"<h3>(.*?)</h3>", re.S)
+H2_ANY = re.compile(r'<h2 id="([^"]+)"[^>]*>(.*?)</h2>', re.S)
+TAGS = re.compile(r"<[^>]+>")
+TOC_SKIP = {"The Brief"}
+TOC_MIN = 3
+
+
+def slug(text: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", html.unescape(TAGS.sub("", text)).lower()).strip("-")
+    return s or "section"
+
+
+def _decorate(section_html: str, used: set[str], icons_h3: bool = False) -> str:
+    """Give markdown h2s an id (jump-list anchor) and an icon when HEADING_ICONS names one;
+    Market Watch h3s get their region icon."""
+    def h2(m: re.Match) -> str:
+        text = m.group(1)
+        base = sid = slug(text)
+        n = 2
+        while sid in used:
+            sid, n = f"{base}-{n}", n + 1
+        used.add(sid)
+        name = HEADING_ICONS.get(html.unescape(TAGS.sub("", text)).strip())
+        return f'<h2 id="{sid}">{icon(name) if name else ""}{text}</h2>'
+
+    def h3(m: re.Match) -> str:
+        name = HEADING_ICONS.get(html.unescape(TAGS.sub("", m.group(1))).strip())
+        return f"<h3>{icon(name)}{m.group(1)}</h3>" if name else m.group(0)
+
+    out = H2_PLAIN.sub(h2, section_html)
+    return H3_PLAIN.sub(h3, out) if icons_h3 else out
+
+
+def jump_list(body_html: str) -> str:
+    """"In this issue": plain links to each h2 after The Brief. "" below TOC_MIN links."""
+    links = []
+    for sid, inner in H2_ANY.findall(body_html):
+        text = html.unescape(TAGS.sub("", inner)).strip()
+        if text in TOC_SKIP or sid == "notes-h":
+            continue
+        links.append(f'<li><a href="#{_esc(sid)}">{_esc(text)}</a></li>')
+    if len(links) < TOC_MIN:
+        return ""
+    return ('<nav class="toc" aria-labelledby="toc-h"><p class="toc-title" id="toc-h">'
+            f'In this issue</p><ul>{"".join(links)}</ul></nav>')
+
+
+def _first_eager(body_html: str) -> str:
+    """Only the first image on the page loads right away; the rest stay lazy."""
+    return body_html.replace(' loading="lazy"', "", 1)
+
+
 def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
-                      chart_rel: str | None, run_date: date | None = None, *,
+                      chart_rel=None, run_date: date | None = None, *,
                       head_extra: str = "", nav: str = "", extra_body: str = "",
-                      title: str | None = None) -> str:
+                      title: str | None = None, charts: dict | None = None) -> str:
+    """`chart_rel` is the 10-Year chart's src (older call style); `charts` maps chart names
+    (CHART_NAMES) to {"src", "alt", "width", "height"} and wins over `chart_rel`."""
     md = COMMENT.sub("", md)
     md = CHART_IMG.sub("", md)
     md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
     md = md.replace("{{", "").replace("}}", "")
-    md = tidy(no_dashes(md))
+    md = tidy(no_dashes(tame_urls(md)))
+    all_charts = {**as_charts(chart_rel), **(charts or {})}
 
     values = (factsheet or {}).get("values") or {}
     if run_date is None and factsheet and factsheet.get("date"):
@@ -355,13 +517,14 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     day_type = (factsheet or {}).get("day_type")
 
     pre, sections = _split(md)
-    body = [_md(pre)] if pre.strip() else []
+    used = {"summary-h", "dataroom-h", "term-h", "notes-h", "toc-h", "content", "top"}
+    body = [_decorate(_md(pre), used)] if pre.strip() else []
     summary_done = factsheet is None
     room = data_room(values, run_date) if factsheet is not None else ""
     brief_at = None  # index in body just after The Brief
     for heading, text in sections:
         if heading == "The Numbers" and not summary_done:
-            body.append(market_summary(values, chart_rel, _numbers_prose(text)))
+            body.append(market_summary(values, all_charts, _numbers_prose(text)))
             summary_done = True
         elif heading == "The Numbers":
             continue
@@ -371,14 +534,19 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
                 body.append(room)
                 room = ""
         else:
-            body.append(f'<section>{_md(f"## {heading}{text}")}</section>')
+            body.append("<section>" + _decorate(_md(f"## {heading}{text}"), used,
+                                                icons_h3=heading == "Market Watch")
+                        + "</section>")
             if heading == "The Brief" and brief_at is None:
                 brief_at = len(body)
     if not summary_done:  # weekend issues have no Numbers section: lead with the summary
         at = brief_at if brief_at is not None else (1 if pre.strip() else 0)
-        body.insert(at, market_summary(values, chart_rel, ""))
+        body.insert(at, market_summary(values, all_charts, ""))
     if room:  # no Term of the Day: the Data Room goes last
         body.append(room)
+    toc = jump_list("\n".join(body))
+    if toc:  # right after The Brief, else at the top
+        body.insert(brief_at if brief_at is not None else (1 if pre.strip() else 0), toc)
 
     if title is None:
         title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
@@ -386,7 +554,8 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
         title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
         cover=_cover(run_date, day_type, read_minutes(md)), nav=_slot(nav),
         notes=_notes(problems),
-        body="\n".join(body), extra_body=_slot(extra_body), footer=_esc(FOOTER))
+        body=_first_eager("\n".join(body)), extra_body=_slot(extra_body),
+        footer=_esc(FOOTER))
 
 
 def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = "") -> str:
@@ -465,11 +634,34 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
 .tag { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em;
   text-transform: uppercase; margin-left: 4px; }
 .takeaway { margin-top: 18px; }
-.chart { margin: 24px 0 0; }
-.chart img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline); }
-.chart figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
-.term { background: var(--navy-wash); padding: 4px 24px 8px; margin: 2.4rem 0 0; }
-.term h2 { margin-top: 1.2rem; }
+.chart { margin: 24px 0 0; min-width: 0; }
+.chart picture { display: block; }
+.chart img { display: block; width: 100%; max-width: 100%; height: auto;
+  border: 1px solid var(--hairline); }
+.chart figcaption { color: var(--muted); font-size: 14px; line-height: 1.45; margin-top: 8px; }
+.chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0 24px; }
+.chart + .group, .chart-pair + .group { margin-top: 28px; }
+.term, .data-room { background: var(--navy-wash); padding: 4px 24px 12px; margin: 2.8rem 0 0; }
+.term h2, .data-room h2 { margin-top: 1.2rem; }
+.icon { flex: none; color: var(--navy); }
+h2 .icon, h3 .icon { display: inline-block; vertical-align: -0.12em; margin-right: 8px; }
+h3 .icon { vertical-align: -0.18em; }
+.toc { margin: 1.6rem 0 0; padding: 12px 0; border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline); }
+.toc-title { font-weight: 600; font-size: 14px; color: var(--navy); margin: 0 0 4px; }
+.toc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap;
+  gap: 2px 20px; font-size: 15px; }
+.toc li { margin: 0; }
+.skip { position: absolute; left: 8px; top: -60px; background: var(--navy); color: #FFFFFF;
+  padding: 10px 14px; z-index: 10; text-decoration: none; }
+.skip:focus { top: 8px; }
+.issue-nav { margin: 2.8rem 0 0; padding-top: 14px; border-top: 1px solid var(--hairline);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
+  font-size: 15px; }
+.issue-nav .top { margin-left: auto; }
+main { overflow-wrap: break-word; }
+main img, main svg { max-width: 100%; }
 .term p:first-of-type strong { font-family: var(--serif); font-weight: 700; color: var(--navy);
   font-size: 1.12rem; }
 .notes { background: var(--amber-bg); border: 1px solid var(--amber-line); color: var(--amber-ink);
@@ -490,11 +682,20 @@ footer p { margin: 0 0 4px; }
   main { padding: 0 16px; }
   .notes { margin: 16px 16px 0; padding: 12px 14px; }
   footer { margin: 32px 16px 0; }
-  .term { padding: 2px 16px 6px; }
+  .term, .data-room { padding: 2px 16px 10px; }
   h2 { font-size: 1.4rem; }
-  .row { gap: 10px; }
-  dd { white-space: normal; }
-  .chg { margin-left: 6px; min-width: 4.8em; }
+  .row { gap: 12px; }
+  /* Value over change, right-aligned, so long values never wrap awkwardly. */
+  dd { display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+    max-width: 52vw; }
+  .val { white-space: normal; text-align: right; }
+  .chg { margin-left: 0; min-width: 0; font-size: 14px; }
+  .toc a, .issue-nav a, .issue-list a { display: inline-flex; align-items: center;
+    min-height: 44px; }
+  .toc ul { gap: 0 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 """
 
@@ -510,10 +711,11 @@ PAGE = """<!doctype html>
 <style>{css}</style>
 </head>
 <body>
-<div class="sheet">
+<a class="skip" href="#content">Skip to content</a>
+<div class="sheet" id="top">
 {cover}{nav}
 {notes}
-<main>
+<main id="content">
 {body}{extra_body}
 </main>
 <footer>

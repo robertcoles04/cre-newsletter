@@ -287,7 +287,8 @@ def test_dry_run_writes_factsheet_json(tmp_path, fakes):
     import json
     code, path = run(tmp_path)
     data = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
-    assert code == 0 and set(data) == {"date", "day_type", "values"}
+    assert code == 0 and set(data) == {"date", "day_type", "values", "charts"}
+    assert data["charts"]["chart"]["alt"].startswith("Line chart of the 10-Year Treasury yield, from ")
 
 
 def test_fallback_and_stub_write_html(tmp_path, fakes, monkeypatch):

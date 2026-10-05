@@ -12,7 +12,7 @@ from src.store import save_rates
 LOOKBACK_DAYS = 45
 # Weekly/quarterly series need a longer window so there are always 2 observations.
 SERIES_LOOKBACK_DAYS = {
-    "MORTGAGE30US": 60,      # weekly (Thursday)
+    "MORTGAGE30US": 190,     # weekly (Thursday); 26 weeks feed the mortgage trend chart
     "CREACBW027SBOG": 60,   # weekly, H.8 bank CRE loans
     "DRCRELEXFACBS": 400,    # quarterly, bank CRE delinquency rate
 }

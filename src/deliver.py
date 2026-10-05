@@ -40,7 +40,10 @@ def _create_issue(gh, run_date: str, body_file: Path) -> int:
 def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | None,
             repo_root: Path, day_type: str, term: str | None,
             gh=run_gh, dry_run: bool = False, html: str | None = None,
-            factsheet: dict | None = None) -> Path:
+            factsheet: dict | None = None, charts: dict | None = None) -> Path:
+    """`charts` maps chart names to {"path", "alt", "width", "height"}: each PNG is copied
+    to issues/img/<date>-<name>.png and its alt text and size go into the JSON so the
+    website can show it. `chart` (the 10-Year PNG) is the older single-chart argument."""
     key = run_date.isoformat()
     repo_root = Path(repo_root)
     if key in load_published(repo_root):
@@ -54,16 +57,30 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
     if html is not None:
         (issues_dir / f"{key}.html").write_text(html, encoding="utf-8")
 
+    charts = dict(charts or {})
     if factsheet is not None:
         data = {"date": factsheet["date"], "day_type": factsheet["day_type"],
                 "values": factsheet["values"]}
+        if charts:
+            data["charts"] = {}
+            for name, c in charts.items():
+                rec = {k: c[k] for k in ("alt", "width", "height") if k in c}
+                if c.get("sm"):
+                    rec["sm"] = {"width": c["sm"]["width"], "height": c["sm"]["height"]}
+                data["charts"][name] = rec
         (issues_dir / f"{key}.json").write_text(
             json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
+    copies = {name: c["path"] for name, c in charts.items() if c.get("path")}
+    copies.update({f"{name}-sm": c["sm"]["path"] for name, c in charts.items()
+                   if c.get("sm") and c["sm"].get("path")})
     if chart is not None:
+        copies.setdefault("chart", chart)
+    if copies:
         img_dir = issues_dir / "img"
         img_dir.mkdir(exist_ok=True)
-        shutil.copyfile(chart, img_dir / f"{key}-chart.png")
+        for name, src in copies.items():
+            shutil.copyfile(src, img_dir / f"{key}-{name}.png")
 
     conn.execute(
         """INSERT INTO issues(date, day_type, status, markdown, source_problems, term)

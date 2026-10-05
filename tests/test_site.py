@@ -111,6 +111,9 @@ def test_relative_links_resolve(built):
         for href in re.findall(r'(?:href|src)="([^"]*)"', _read(page)):
             if re.match(r"[a-z]+:", href) or href.startswith("//"):
                 continue
+            if href.startswith("#"):  # in-page anchor: the id must exist on the page
+                assert f'id="{href[1:]}"' in _read(page), (page, href)
+                continue
             target = (page.parent / href).resolve()
             assert target.is_file() or (target / "index.html").is_file(), (page, href)
 

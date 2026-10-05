@@ -381,6 +381,20 @@ def _market_values(quotes: list[ReitQuote]) -> dict:
     return values
 
 
+def reit_moves(quotes: list[ReitQuote], info: dict) -> list[dict]:
+    """Every tracked REIT's daily move for the REIT scoreboard chart, best first.
+    VNQ (the fund) is left out; tickers whose quote failed are simply absent. `type` is
+    the short property type (`group` in reit_info), e.g. "warehouse"."""
+    rows = []
+    for q in quotes:
+        if q.ticker == VNQ_TICKER:
+            continue
+        meta = (info or {}).get(q.ticker) or {}
+        rows.append({"ticker": q.ticker, "name": meta.get("name") or q.ticker,
+                     "type": meta.get("group") or "", "chg_pct": round(q.change_pct, 2)})
+    return sorted(rows, key=lambda r: -r["chg_pct"])
+
+
 def _pick_term(conn: sqlite3.Connection, run_date: date) -> dict:
     terms = _load_yaml("config/terms.yaml")
     # Ignore today's own row so a same-day rerun picks the same term.
@@ -492,6 +506,8 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
             [r for r in window
              if r["section"] == "ai" and (r["importance"] or 0) >= AI_MIN_IMPORTANCE])][:1],
         "term": _pick_term(conn, run_date),
+        # Chart data only (REIT scoreboard); kept out of the model's copy of the sheet.
+        "reit_moves": reit_moves(quotes, sources.get("reit_info") or {}),
     }
 
     if dtype in ("weekday", "friday"):

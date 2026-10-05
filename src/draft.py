@@ -22,7 +22,9 @@ TONE = ("in plain English for a smart college student new to CRE: define any ter
 
 
 def _sheet_for_model(factsheet: dict) -> str:
-    sheet = {k: v for k, v in factsheet.items() if k != "values"}
+    # Numbers stay out of the model's view: values are placeholders only, and reit_moves
+    # is chart data for code.
+    sheet = {k: v for k, v in factsheet.items() if k not in ("values", "reit_moves")}
     # *_DATE values are machine dates for the page (Data Room "Updated" tags), not prose.
     sheet["placeholders"] = sorted(k for k in factsheet.get("values", {})
                                    if not k.endswith("_DATE"))

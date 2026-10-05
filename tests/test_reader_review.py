@@ -223,7 +223,7 @@ def test_weekend_summary_goes_after_the_brief():
           + FOOTER + "\n")
     html = render_issue_html(md, {"values": ROOM_VALUES, "date": "2026-10-10",
                                   "day_type": "saturday"}, [], None)
-    assert html.index("The Brief") < html.index('id="summary-h"') < html.index("Week in Review")
+    assert html.index("The Brief") < html.index('id="summary-h"') < html.index('id="week-in-review"')
     assert 'id="dataroom-h"' in html  # no Term of the Day: Data Room goes last
 
 

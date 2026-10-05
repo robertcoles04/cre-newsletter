@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from src import classify, deliver as deliver_mod, draft, llm, trepp
+from src import chart as charts_mod
 from src.chart import rate_chart
 from src.checks import FOOTER, check_issue, load_banned
 from src.collect import calendar, google_news, polymarket, reits, rss
@@ -216,6 +217,92 @@ def _make_chart(conn, run_date: date, tmp: Path, problems: list[str]) -> Path | 
         return None
 
 
+CURVE_SERIES = (("2Y", "DGS2"), ("5Y", "DGS5"), ("10Y", "DGS10"), ("30Y", "DGS30"))
+CURVE_AGO_DAYS = 30
+MORTGAGE_DAYS = 190
+
+
+def _meta(path: Path, alt: str, figsize, sm: Path | None = None, sm_size=None) -> dict:
+    """Chart record for the page: PNG path, alt text, logical size, and the optional
+    phone variant ("sm") of a full-width chart."""
+    w, h = charts_mod.size_px(figsize)
+    meta = {"path": path, "alt": alt, "width": w, "height": h}
+    if sm is not None:
+        sw, sh = charts_mod.size_px(sm_size)
+        meta["sm"] = {"path": sm, "width": sw, "height": sh}
+    return meta
+
+
+def curve_points(conn, run_date: date) -> tuple[list, date | None]:
+    """[(maturity, latest %, % about a month before that)] and the month-ago date (from
+    the 10Y). Month ago = the last observation at least CURVE_AGO_DAYS before the latest."""
+    rows, ago_date = [], None
+    for label, sid in CURVE_SERIES:
+        pts = sorted(get_rates(conn, sid, run_date - timedelta(days=CHART_DAYS)),
+                     key=lambda p: p.date)
+        if not pts:
+            rows.append((label, None, None))
+            continue
+        last = pts[-1]
+        older = [p for p in pts if p.date <= last.date - timedelta(days=CURVE_AGO_DAYS)]
+        ago = older[-1] if older else None
+        if ago is not None and (sid == "DGS10" or ago_date is None):
+            ago_date = ago.date
+        rows.append((label, last.value, ago.value if ago else None))
+    return rows, ago_date
+
+
+def _make_extra_charts(conn, run_date: date, factsheet: dict | None, tmp: Path,
+                       problems: list[str]) -> dict:
+    """Yield curve, mortgage trend, Fed odds bar and REIT scoreboard. Each is optional:
+    too little data skips it quietly; an error skips it with a problem note."""
+    out: dict = {}
+    if factsheet is None:
+        return out
+    values = factsheet.get("values") or {}
+
+    def curve():
+        rows, ago_date = curve_points(conn, run_date)
+        path = charts_mod.yield_curve(rows, tmp / "curve.png")
+        return path and _meta(path, charts_mod.curve_alt(rows, ago_date),
+                              charts_mod.PAIR_FIGSIZE)
+
+    def mortgage():
+        pts = get_rates(conn, "MORTGAGE30US", run_date - timedelta(days=MORTGAGE_DAYS))
+        path = charts_mod.mortgage_trend(pts, tmp / "mortgage.png")
+        return path and _meta(path, charts_mod.mortgage_alt(pts), charts_mod.PAIR_FIGSIZE)
+
+    def fed():
+        odds = {k: values.get(f"FED_{k.upper()}") for k in ("cut", "hold", "hike")}
+        path = charts_mod.fed_odds_bar(odds, tmp / "fed.png")
+        if path is None:
+            return None
+        meeting = values.get("FED_MEETING")
+        meeting = meeting if meeting and meeting != "n/a" else None
+        return _meta(path, charts_mod.fed_alt(odds, meeting), charts_mod.FED_FIGSIZE,
+                     charts_mod.fed_odds_bar(odds, tmp / "fed-sm.png", narrow=True),
+                     charts_mod.FED_NARROW)
+
+    def reits():
+        moves = factsheet.get("reit_moves") or []
+        path = charts_mod.reit_scoreboard(moves, tmp / "reits.png")
+        if path is None:
+            return None
+        return _meta(path, charts_mod.reit_alt(moves), charts_mod.reit_figsize(moves),
+                     charts_mod.reit_scoreboard(moves, tmp / "reits-sm.png", narrow=True),
+                     charts_mod.reit_figsize(moves, narrow=True))
+
+    for name, build in (("curve", curve), ("mortgage", mortgage), ("fed", fed),
+                        ("reits", reits)):
+        try:
+            made = build()
+            if made:
+                out[name] = made
+        except Exception as exc:
+            problems.append(f"chart/{name}: {_err(exc)}")
+    return out
+
+
 def _ensure_footer(md: str) -> str:
     lines = [ln.strip() for ln in md.splitlines() if ln.strip()]
     if lines and lines[-1] == FOOTER:
@@ -306,13 +393,25 @@ def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extra
     return md, factsheet
 
 
-def _preview(md, factsheet, problems, chart, run_date) -> str | None:
+def _preview(md, factsheet, problems, chart, run_date, charts=None) -> str | None:
     """HTML preview; a render failure is a problem line, never a failed delivery."""
     try:
-        # Embed the chart so the preview survives being opened alone, emailed or pasted.
+        # Embed the charts so the preview survives being opened alone, emailed or pasted.
         chart_rel = ("data:image/png;base64," + base64.b64encode(Path(chart).read_bytes()).decode()
                      if chart is not None else None)
-        return render_issue_html(md, factsheet, problems, chart_rel, run_date=run_date)
+        def uri(path) -> str:
+            return "data:image/png;base64," + base64.b64encode(Path(path).read_bytes()).decode()
+
+        embedded = {}
+        for name, c in (charts or {}).items():
+            embedded[name] = {**{k: v for k, v in c.items() if k not in ("path", "sm")},
+                              "src": uri(c["path"])}
+            if c.get("sm"):
+                embedded[name]["sm"] = {"src": uri(c["sm"]["path"]),
+                                        "width": c["sm"]["width"],
+                                        "height": c["sm"]["height"]}
+        return render_issue_html(md, factsheet, problems, chart_rel, run_date=run_date,
+                                 charts=embedded)
     except Exception as exc:
         problems.append(f"html: {_err(exc)}")
         return None
@@ -357,14 +456,26 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
             chart = _make_chart(conn, run_date, Path(tmp), problems)
             if chart is None:
                 md = CHART_LINE.sub("", md)
+            charts = _make_extra_charts(conn, run_date, factsheet, Path(tmp), problems)
+            if chart is not None:
+                ten = get_rates(conn, "DGS10", run_date - timedelta(days=CHART_DAYS))
+                try:  # phone variant; the page falls back to the wide chart without it
+                    small = rate_chart(ten, Path(tmp) / "chart-sm.png",
+                                       "10-Year Treasury Yield", narrow=True)
+                except Exception as exc:
+                    problems.append(f"chart/chart-sm: {_err(exc)}")
+                    small = None
+                charts = {"chart": _meta(chart, charts_mod.rate_alt(ten),
+                                         charts_mod.RATE_FIGSIZE, small,
+                                         charts_mod.RATE_NARROW), **charts}
             problems[:] = [_scrub(p)[0] for p in problems]
-            html = _preview(md, factsheet, problems, chart, run_date)
+            html = _preview(md, factsheet, problems, chart, run_date, charts)
             term = factsheet["term"]["term"] if factsheet else None
             try:
                 path = deliver_mod.deliver(
                     conn, run_date, md, problems, chart, repo_root, day_type(run_date),
                     term, gh=gh, dry_run=args.dry_run, html=html,
-                    factsheet=factsheet)
+                    factsheet=factsheet, charts=charts)
             except Exception as exc:
                 print(f"delivery failed: {_err(exc)}", file=sys.stderr)
                 return 1

@@ -14,7 +14,7 @@ def test_sources_has_feeds_and_series():
     assert len(feeds) == 6, f"Expected 6 feeds, got {len(feeds)}"
 
     # Check FRED series
-    expected_fred_series = ["DGS10", "DGS5", "SOFR", "DFF", "DFEDTARL", "DFEDTARU", "DGS2", "T10Y2Y",
+    expected_fred_series = ["DGS10", "DGS5", "SOFR", "DFF", "DFEDTARL", "DFEDTARU", "DGS2", "T10Y2Y", "DGS30",
                             "BAMLH0A0HYM2", "MORTGAGE30US", "CREACBW027SBOG",
                             "DRCRELEXFACBS"]
     actual_fred_series = sources.get("fred_series", [])

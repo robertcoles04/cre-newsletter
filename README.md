@@ -18,7 +18,9 @@ The table at the top of each issue is built by code, never by Claude. Each row h
 - **REITs:** VNQ (the real estate stock fund), the day's biggest gain and drop by company name, VNQ's dividend yield and its spread to the 10-Year. Under the table, a "Why it moved" line cites a news story about the company, or says there was no company-specific news.
 - **Data Room** (after Term of the Day, not in the table): the high-yield bond spread, total bank CRE loans (weekly), the bank CRE delinquency rate (quarterly, labeled e.g. "Q2 2026") and Trepp's monthly CMBS delinquency rate, read from Trepp's headline. Rows updated in the last 7 days are tagged "Updated".
 
-Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Alpha Vantage, Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar plus FRED's release calendar (major data releases only). The site also publishes an RSS feed at `feed.xml`. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
+Charts (all drawn by our own code from the same data, never pictures from the web): the 10-Year Treasury trend, the yield curve (today vs. a month ago), the 30-year mortgage over six months, the Fed odds as one bar, and a REIT scoreboard of every tracked REIT's daily move. Any chart without enough data is simply left out.
+
+Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Alpha Vantage, Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar plus FRED's release calendar (major data releases only). The site also publishes an RSS feed at `feed.xml`. Each issue page has an "In this issue" jump list and Previous / Next issue links. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
 
 ## Local setup
 ```bash

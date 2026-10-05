@@ -145,7 +145,7 @@ def test_site_hooks_placed():
                             nav='<nav class="site-nav">N</nav>', extra_body="<section>R</section>",
                             title="T")
     assert '<title>T</title>\n<meta name="x">' in out
-    assert out.index('class="cover-rule"') < out.index('class="site-nav"') < out.index("<main>")
+    assert out.index('class="cover-rule"') < out.index('class="site-nav"') < out.index('<main id="content">')
     assert out.index("<section>R</section>") < out.index("</main>")
 
 
