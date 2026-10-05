@@ -309,3 +309,11 @@ def test_fallback_uses_friendly_labels():
     assert "DGS10:**" not in md and "REITW" not in md
     sunday = main.fallback_markdown({**fs, "day_type": "sunday"})
     assert "{{REITW_BEST_1}}" in sunday
+
+
+def test_story_lines_escape_feed_html():
+    from src.main import _story_lines
+    line = _story_lines([{"title": "<script>x</script> A&B", "url": "https://e.com",
+                          "source": "Feed"}])[0]
+    assert "<script>" not in line
+    assert "&lt;script&gt;x&lt;/script&gt; A&amp;B" in line

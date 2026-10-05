@@ -9,6 +9,8 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
+from src.publish import load_published
+
 
 def run_gh(args: list[str]) -> str:
     cmd = [shutil.which("gh") or "gh", *args]
@@ -41,6 +43,8 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
             factsheet: dict | None = None) -> Path:
     key = run_date.isoformat()
     repo_root = Path(repo_root)
+    if key in load_published(repo_root):
+        raise RuntimeError(f"{key} is already published; not overwriting issues/{key}.md")
     issues_dir = repo_root / "issues"
     issues_dir.mkdir(parents=True, exist_ok=True)
 

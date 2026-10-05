@@ -13,6 +13,12 @@ from pathlib import Path
 BANNER = "> **Review before publishing:**"
 FALLBACK_PREFIX = "# Claude unavailable"
 BOM = "\ufeff"
+COMMENT = re.compile(r"<!--.*?-->", re.S)
+AUTOLINK = re.compile(r"<https?://[^<>\s]*>", re.I)  # <https://...> is allowed
+RAW_HTML = re.compile(r"<[A-Za-z/!?]")
+# [text](javascript:...), ![alt]( DATA:...), [ref]: vbscript:...
+UNSAFE_LINK = re.compile(
+    r"(\]\(\s*<?|^\s*\[[^\]]*\]:\s*<?)\s*(javascript|data|vbscript)\s*:", re.I)
 
 
 def _snip(line: str) -> str:
@@ -33,6 +39,19 @@ def check(md: str) -> list[str]:
     reasons = []
     for message, hit in rules:
         for line in lines:
+            if hit(line):
+                reasons.append(f'{message}: "{_snip(line)}"')
+                break
+    # Comments are dropped by the renderer; raw HTML and script links are not.
+    visible = COMMENT.sub("", "\n".join(lines)).split("\n")
+    html_rules = [
+        ("raw HTML is not allowed on the website (use plain markdown)",
+         lambda s: RAW_HTML.search(AUTOLINK.sub("", s))),
+        ("a link or image points at a javascript:, data: or vbscript: address",
+         lambda s: UNSAFE_LINK.search(s)),
+    ]
+    for message, hit in html_rules:
+        for line in visible:
             if hit(line):
                 reasons.append(f'{message}: "{_snip(line)}"')
                 break

@@ -125,3 +125,18 @@ def test_factsheet_json_written(conn, tmp_path):
 def test_no_factsheet_no_json(conn, tmp_path):
     _go(conn, tmp_path, lambda a: "", dry_run=True)
     assert not (tmp_path / "issues" / f"{D.isoformat()}.json").exists()
+
+
+def test_refuses_to_overwrite_published_date(conn, tmp_path):
+    issues = tmp_path / "issues"
+    issues.mkdir()
+    (issues / "published.json").write_text(json.dumps([D.isoformat()]), encoding="utf-8")
+    (issues / f"{D.isoformat()}.md").write_text("ORIGINAL", encoding="utf-8")
+    gh = FakeGh()
+    with pytest.raises(RuntimeError, match="already published"):
+        deliver(conn, D, "# New\n", [], None, tmp_path, "weekday", None, gh=gh,
+                html="<p>x</p>", factsheet={"date": "d", "day_type": "w", "values": {}})
+    assert (issues / f"{D.isoformat()}.md").read_text(encoding="utf-8") == "ORIGINAL"
+    assert not (issues / f"{D.isoformat()}.html").exists()
+    assert not (issues / f"{D.isoformat()}.json").exists()
+    assert gh.calls == []

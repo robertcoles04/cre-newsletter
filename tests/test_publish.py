@@ -116,3 +116,31 @@ def test_gate_bom_file_blocks(tmp_path):
 def test_main_trailing_newline_date_rejected(tmp_path):
     assert publish.main(["2026-10-05\n", "--root", str(tmp_path)]) == 2
     assert not (tmp_path / "issues").exists()
+
+
+def test_raw_html_and_unsafe_links_blocked():
+    bad = ["<script>alert(1)</script>",
+           'See <img src=x onerror="alert(1)"> here',
+           "Click [here](javascript:alert(1))",
+           "Click [here]( JavaScript:alert(1))",
+           "![chart](DATA:image/png;base64,AAAA)",
+           "[x](vbscript:msgbox)",
+           "</div>"]
+    for line in bad:
+        reasons = publish.check(f"# T\n\nok\n{line}\nmore\n")
+        assert len(reasons) == 1, (line, reasons)
+        assert line.strip()[:40] in reasons[0]
+
+
+def test_autolinks_comments_and_plain_text_allowed():
+    md = ("# T\n\n<!-- a template note\nspanning lines -->\n"
+          "Read it at <https://example.com/a?b=1>.\n"
+          "Rates < 5% and spreads > 100 bps; A&B Realty.\n"
+          "**What it means:** <!-- one sentence --> Costs rise.\n"
+          "[source](https://example.com) ![Chart of the Day](img/x.png)\n")
+    assert publish.check(md) == []
+
+
+def test_html_inside_comment_ignored_but_after_comment_blocked():
+    assert publish.check("<!-- <script> -->\nok\n") == []
+    assert len(publish.check("<!-- note --> <b>bold</b>\n")) == 1

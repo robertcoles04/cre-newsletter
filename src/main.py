@@ -6,6 +6,7 @@ which deliver() prints as a banner at the top of the draft.
 
 import argparse
 import base64
+import html
 import re
 import sys
 import tempfile
@@ -37,7 +38,9 @@ def _err(exc: Exception) -> str:
 
 
 def _story_lines(stories: list[dict]) -> list[str]:
-    return [f"- [{s['title']}]({s['url']}) ({s['source']})" for s in stories]
+    # Feed text is untrusted: escape it so a title can never become raw HTML.
+    return [f"- [{html.escape(s['title'], quote=False)}]({s['url']}) "
+            f"({html.escape(s['source'], quote=False)})" for s in stories]
 
 
 def fallback_markdown(factsheet: dict) -> str:

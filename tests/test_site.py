@@ -172,12 +172,12 @@ def test_blocked_and_missing_dates_skipped(tmp_path, capsys):
 
 def test_head_values_escaped(tmp_path):
     root = tmp_path / "repo"
-    _issue(root, "2026-10-05", '# T\n\n## Top Stories\n\nA "quoted" <b> & more.\n')
+    _issue(root, "2026-10-05", '# T\n\n## Top Stories\n\nA "quoted" < 5 > & more.\n')
     _published(root, ["2026-10-05"])
     out = tmp_path / "site"
     site.build(root, out)
     page = _read(out / "issues/2026-10-05/index.html")
-    assert 'content="A &quot;quoted&quot; &lt;b&gt; &amp; more."' in page
+    assert 'content="A &quot;quoted&quot; &lt; 5 &gt; &amp; more."' in page
 
 
 def test_describe():
@@ -192,3 +192,14 @@ def test_describe():
     only = "# T\n\n## The Numbers\n\nSome prose.\n"
     assert site.describe(only, day) == (
         "Daily commercial real estate briefing for October 5, 2026.")
+
+
+def test_raw_html_date_skipped(tmp_path, capsys):
+    root = tmp_path / "repo"
+    _issue(root, "2026-10-05", MD_05)
+    _issue(root, "2026-10-06", MD_06 + "\n<script>alert(1)</script>\n")
+    _published(root, ["2026-10-05", "2026-10-06"])
+    out = tmp_path / "site"
+    assert site.build(root, out) == ["2026-10-05"]
+    assert "2026-10-06" in capsys.readouterr().out
+    assert not (out / "issues/2026-10-06").exists()
