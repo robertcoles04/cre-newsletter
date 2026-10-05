@@ -61,6 +61,7 @@ def fakes(monkeypatch):
     monkeypatch.setattr(main.google_news, "fetch", lambda *a, **k: [])
     monkeypatch.setattr(main.polymarket, "fetch_fed_odds", lambda client, today: None)
     monkeypatch.setattr(main.reits, "fetch_quotes", lambda t, k, c: ([], []))
+    monkeypatch.setattr(main, "sleep", lambda s: None)
     monkeypatch.setattr(main.reits, "fetch_etf_yield", lambda e, k, c: None)
 
     def rates(conn, series, key, client, today):
@@ -102,6 +103,7 @@ def test_already_delivered_date_skips_without_collecting(tmp_path, fakes, monkey
 
     def boom(*a, **k):
         raise AssertionError("collector called")
+    fake_rates, fake_feed = main.collect_rates, main.rss.fetch_feed
     monkeypatch.setattr(main, "collect_rates", boom)
     monkeypatch.setattr(main.rss, "fetch_feed", boom)
     code, _ = run(tmp_path, dry_run=False)
@@ -110,7 +112,10 @@ def test_already_delivered_date_skips_without_collecting(tmp_path, fakes, monkey
     # --date alone still skips; --force bypasses
     code, _ = run(tmp_path, dry_run=False, date="2026-10-06")
     assert code == 0 and "already delivered" in capsys.readouterr().out
-    monkeypatch.undo()
+    # restore the fakes (not monkeypatch.undo(), which would also drop the
+    # network fakes and hit the real APIs)
+    monkeypatch.setattr(main, "collect_rates", fake_rates)
+    monkeypatch.setattr(main.rss, "fetch_feed", fake_feed)
     code, path = run(tmp_path, dry_run=False, force=True)
     assert code == 0 and path.exists()
 

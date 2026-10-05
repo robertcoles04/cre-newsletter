@@ -8,6 +8,7 @@ import argparse
 import re
 import sys
 import tempfile
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -58,6 +59,11 @@ def fallback_markdown(factsheet: dict) -> str:
                   f"- **{term['term']}:** {term.get('definition_hint', '')}"]
     lines += ["", FOOTER, ""]
     return "\n".join(lines)
+
+
+# Alpha Vantage free tier: space calls out so the ETF call isn't rate limited.
+sleep = time.sleep
+AV_SPACING_SECONDS = 13
 
 
 def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
@@ -111,6 +117,7 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
             save_quotes(conn, quotes)
             if failed:
                 problems.append(f"reits: failed {', '.join(failed)}")
+            sleep(AV_SPACING_SECONDS)
             vnq_yield = reits.fetch_etf_yield(etf, av_key, client)
         except Exception as exc:
             problems.append(f"reits: {_err(exc)}")

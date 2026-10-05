@@ -79,3 +79,34 @@ def test_etf_yield_limit_returns_none(client):
 def test_etf_yield_missing_field_returns_none(client):
     respx.get(URL).mock(return_value=httpx.Response(200, json={"net_assets": "1"}))
     assert reits.fetch_etf_yield("VNQ", "k", client) is None
+
+
+@respx.mock
+def test_failed_ticker_retried_after_60s_and_recovers(client):
+    ok = httpx.Response(200, json=_load("av_quote.json"))
+    limit = httpx.Response(200, json=_load("av_limit.json"))
+    respx.get(URL).mock(side_effect=[ok, limit, ok])
+    sleeps = []
+    quotes, failed = reits.fetch_quotes(["VNQ", "EQR"], "k", client, sleep=sleeps.append)
+    assert failed == []
+    assert len(quotes) == 2
+    assert 60 in sleeps
+
+
+@respx.mock
+def test_ticker_failing_twice_stays_failed(client):
+    ok = httpx.Response(200, json=_load("av_quote.json"))
+    limit = httpx.Response(200, json=_load("av_limit.json"))
+    respx.get(URL).mock(side_effect=[ok, limit, limit])
+    quotes, failed = reits.fetch_quotes(["VNQ", "EQR"], "k", client, sleep=lambda s: None)
+    assert failed == ["EQR"]
+    assert len(quotes) == 1
+
+
+@respx.mock
+def test_retries_capped_at_three_tickers(client):
+    limit = httpx.Response(200, json=_load("av_limit.json"))
+    route = respx.get(URL).mock(return_value=limit)
+    quotes, failed = reits.fetch_quotes(list("ABCDE"), "k", client, sleep=lambda s: None)
+    assert failed == list("ABCDE")
+    assert route.call_count == 5 + 3

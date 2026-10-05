@@ -10,6 +10,9 @@ from src.models import ReitQuote
 API_URL = "https://www.alphavantage.co/query"
 # Free tier allows 5 calls/minute, so space calls out by 13 seconds.
 CALL_SPACING_SECONDS = 13
+# A burst failure is a per-minute limit: wait a full minute, then retry once.
+RETRY_WAIT_SECONDS = 60
+MAX_RETRIES = 3
 
 
 def _is_limit_or_error(data: dict) -> bool:
@@ -42,6 +45,7 @@ def fetch_quotes(
     """Fetch a quote per ticker. Returns (quotes, failed tickers).
 
     A rate-limit response or empty quote is a failure, never a $0 price.
+    Failed tickers are retried once after 60s (capped at 3 tickers).
     """
     quotes: list[ReitQuote] = []
     failed: list[str] = []
@@ -52,7 +56,17 @@ def fetch_quotes(
             quotes.append(_fetch_one(ticker, api_key, client))
         except Exception:
             failed.append(ticker)
-    return quotes, failed
+
+    # Retry (at most MAX_RETRIES tickers) once after the per-minute window resets.
+    recovered: set[str] = set()
+    for ticker in failed[:MAX_RETRIES]:
+        sleep(RETRY_WAIT_SECONDS)
+        try:
+            quotes.append(_fetch_one(ticker, api_key, client))
+            recovered.add(ticker)
+        except Exception:
+            pass
+    return quotes, [t for t in failed if t not in recovered]
 
 
 def fetch_etf_yield(etf: str, api_key: str, client: httpx.Client) -> float | None:
