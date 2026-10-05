@@ -111,3 +111,17 @@ def test_html_written_next_to_md(conn, tmp_path):
     deliver(conn, D, "# Hi", [], None, tmp_path, "weekday", None, gh=FakeGh(),
             dry_run=True, html="<p>hi</p>")
     assert (tmp_path / "issues" / f"{D.isoformat()}.html").read_text(encoding="utf-8") == "<p>hi</p>"
+
+
+def test_factsheet_json_written(conn, tmp_path):
+    fs = {"date": D.isoformat(), "day_type": "weekday", "values": {"DGS10": "4.12%"},
+          "term": {"term": "Cap rate"}, "stories": ["x"]}
+    deliver(conn, D, "# Hi", [], None, tmp_path, "weekday", "Cap rate",
+            gh=lambda a: "", dry_run=True, factsheet=fs)
+    data = json.loads((tmp_path / "issues" / f"{D.isoformat()}.json").read_text(encoding="utf-8"))
+    assert data == {"date": D.isoformat(), "day_type": "weekday", "values": {"DGS10": "4.12%"}}
+
+
+def test_no_factsheet_no_json(conn, tmp_path):
+    _go(conn, tmp_path, lambda a: "", dry_run=True)
+    assert not (tmp_path / "issues" / f"{D.isoformat()}.json").exists()

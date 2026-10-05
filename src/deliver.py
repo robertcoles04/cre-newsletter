@@ -37,7 +37,8 @@ def _create_issue(gh, run_date: str, body_file: Path) -> int:
 
 def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | None,
             repo_root: Path, day_type: str, term: str | None,
-            gh=run_gh, dry_run: bool = False, html: str | None = None) -> Path:
+            gh=run_gh, dry_run: bool = False, html: str | None = None,
+            factsheet: dict | None = None) -> Path:
     key = run_date.isoformat()
     repo_root = Path(repo_root)
     issues_dir = repo_root / "issues"
@@ -48,6 +49,12 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
     path.write_text(text, encoding="utf-8")
     if html is not None:
         (issues_dir / f"{key}.html").write_text(html, encoding="utf-8")
+
+    if factsheet is not None:
+        data = {"date": factsheet["date"], "day_type": factsheet["day_type"],
+                "values": factsheet["values"]}
+        (issues_dir / f"{key}.json").write_text(
+            json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
     if chart is not None:
         img_dir = issues_dir / "img"

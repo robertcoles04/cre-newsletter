@@ -263,7 +263,8 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
             try:
                 path = deliver_mod.deliver(
                     conn, run_date, md, problems, chart, repo_root, day_type(run_date),
-                    term, gh=gh, dry_run=args.dry_run, html=html)
+                    term, gh=gh, dry_run=args.dry_run, html=html,
+                    factsheet=factsheet)
             except Exception as exc:
                 print(f"delivery failed: {_err(exc)}", file=sys.stderr)
                 return 1
