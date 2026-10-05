@@ -135,11 +135,12 @@ def test_missing_placeholder_weekday_only():
     assert "missing_placeholder" not in kinds(check_issue(md, sheet(day="sunday"), BANNED))
 
 
-def test_em_dash_overuse():
-    ok = issue("## Top Stories\n\nOne — two — three.")
-    bad = issue("## Top Stories\n\nOne — two — three — four.")
+def test_any_em_or_en_dash_is_flagged():
+    ok = issue("## Top Stories\n\nOne, two, three. A well-known deal.")
+    for dash in ("—", "–"):
+        bad = issue(f"## Top Stories\n\nOne {dash} two.")
+        assert "em_dash" in kinds(check_issue(bad, sheet(), BANNED))
     assert "em_dash" not in kinds(check_issue(ok, sheet(), BANNED))
-    assert "em_dash" in kinds(check_issue(bad, sheet(), BANNED))
 
 
 def test_exclaim_ignores_images_and_urls():
@@ -166,17 +167,17 @@ def test_long_sentence_skips_headings():
 
 def test_budget_over_130_percent():
     words = lambda n: " ".join(["w."] * n)  # noqa: E731
-    ok = issue(f"## Quick Hits\n\n{words(130)}")
-    bad = issue(f"## Quick Hits\n\n{words(131)}")
+    ok = issue(f"## Debt Markets\n\n{words(260)}")  # budget 200 x 1.3
+    bad = issue(f"## Debt Markets\n\n{words(261)}")
     assert "budget" not in kinds(check_issue(ok, sheet(), BANNED))
     assert "budget" in kinds(check_issue(bad, sheet(), BANNED))
 
 
 def test_budget_counts_link_text_and_placeholders_as_words():
-    # 65 links with 2-word text = 130 words (at the limit); one placeholder tips it over.
-    links = " ".join(["[two words](https://example.com/a)."] * 65)
-    at_limit = issue(f"## Quick Hits\n\n{links}")
-    over = issue(f"## Quick Hits\n\n{links} {{{{VNQ}}}}")
+    # 130 links with 2-word text = 260 words (at the limit); one placeholder tips it over.
+    links = " ".join(["[two words](https://example.com/a)."] * 130)
+    at_limit = issue(f"## Debt Markets\n\n{links}")
+    over = issue(f"## Debt Markets\n\n{links} {{{{VNQ}}}}")
     assert "budget" not in kinds(check_issue(at_limit, sheet(), BANNED))
     assert "budget" in kinds(check_issue(over, sheet(), BANNED))
 
@@ -251,7 +252,8 @@ def test_edit_passes_draft_and_hides_numbers():
 
 KNOWN = {"DATE", "DGS10", "DGS10_CHG", "DGS5", "DGS5_CHG", "SOFR", "SOFR_CHG", "DFF",
          "DFF_CHG", "RATES_ASOF", "FED_MEETING", "FED_TOP", "VNQ", "VNQ_CHG", "REIT_UP",
-         "REIT_DOWN", "VNQ_YIELD", "SPREAD_10Y"} | {
+         "REIT_DOWN", "VNQ_YIELD", "SPREAD_10Y", "WEEK_AHEAD", "REIT_UP_NAME", "REIT_DOWN_NAME",
+         "MOVER_UP_NOTE", "MOVER_DOWN_NOTE"} | {
     f"REITW_{s}_{i}" for s in ("BEST", "WORST") for i in (1, 2, 3)}
 
 

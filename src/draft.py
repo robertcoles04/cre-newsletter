@@ -49,6 +49,23 @@ Rules:
 - Write no other numeric rates, percentages, prices, odds or bps. Deal figures (a sale
   price, a loan size) may appear only exactly as written in a story's title or summary.
 - Link each story to its source as [source](url), using the story's `source` and `url`.
+- Never use em dashes or en dashes; use commas, periods, colons or parentheses instead.
+- Quick Hits: each bullet is the one-line news item with its [source](url) link, then one or
+  two short sentences in very plain English, as if explaining to a 12-year-old: what
+  happened and why it matters for real estate. No numbers in those explanation sentences,
+  no jargon without a quick definition.
+- AI in Real Estate: pick a story about an AI tool or use case (underwriting, lease
+  abstraction, valuation, property management, leasing chatbots, proptech launches,
+  brokerages adopting AI) before data center or power-grid news, and say in plain English
+  what the tool does and who uses it.
+- REIT movers (The Numbers): for each mover in `mover_news`, if it has a story write ONE
+  plain-English sentence on the likely reason, citing it as [source](url), no numbers; if
+  it is null use its note placeholder ({{{{MOVER_UP_NOTE}}}} / {{{{MOVER_DOWN_NOTE}}}}) and
+  do not guess a reason.
+- Market Watch: under each "### " region subhead, retell that region's story from
+  `markets` in 2 or 3 sentences in our own words with its [source](url) link, then one
+  plain-English sentence on why it matters (same style as Quick Hits). Delete the subhead
+  of a region that is null, and the whole section if all are null.
 - Respect the word budgets:
 {_budget_lines()}
 - Keep the `## ` headings exactly as in the template. Follow each `<!-- ... -->` comment,
@@ -88,7 +105,12 @@ Rubric:
   bp/bps/basis points, $ amounts, bare decimals (like 4.62) and odds (like 81 to 19).
 - Term of the Day may use a made-up round-number example, but never a market rate.
 - If a claim seems doubtful but may be right, keep it and put [CHECK] right after it.
-- Keep sentences under 30 words, no exclamation points, at most two em dashes.
+- Keep sentences under 30 words, no exclamation points.
+- Never use em dashes or en dashes; use commas, periods, colons or parentheses instead.
+- Quick Hits: keep each bullet as the news line with its link plus one or two very plain
+  sentences (as if to a 12-year-old) on what happened and why it matters for real estate.
+  No numbers in those explanation sentences; define any jargon.
+- AI in Real Estate: keep the focus on what the AI tool does and who uses it.
 - Remove these phrases if present:
 {banned}
 - Keep the `## ` headings and keep this footer as the last line: {FOOTER}

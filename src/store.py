@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS items (
     published_at TEXT, summary TEXT, priority INTEGER,
     cluster_id INTEGER, also_covered TEXT DEFAULT '[]',
     section TEXT, asset_class TEXT, market TEXT, importance INTEGER,
-    used_in_issue TEXT
+    used_in_issue TEXT, region TEXT
 );
 CREATE TABLE IF NOT EXISTS deals (
     id INTEGER PRIMARY KEY,
@@ -47,6 +47,10 @@ def connect(path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(items)")}
+    if "region" not in cols:  # DBs created before Market Watch
+        conn.execute("ALTER TABLE items ADD COLUMN region TEXT")
+        conn.commit()
     return conn
 
 
@@ -87,14 +91,18 @@ def save_items(conn: sqlite3.Connection, items: list[Item]) -> int:
     for item in items:
         canon = canonical_url(item.url)
         if conn.execute("SELECT 1 FROM items WHERE canonical_url = ?", (canon,)).fetchone():
+            if item.region:  # same link found again by a regional query: keep the tag
+                conn.execute("UPDATE items SET region = ? WHERE canonical_url = ?"
+                             " AND (region IS NULL OR region = '')", (item.region, canon))
             continue
         pub = _utc(item.published_at)
         match = _find_match(conn, item, pub)
         if match is None:
             cur = conn.execute(
                 "INSERT INTO items (source, url, canonical_url, title, published_at,"
-                " summary, priority, also_covered) VALUES (?,?,?,?,?,?,?, '[]')",
-                (item.source, item.url, canon, item.title, _iso(pub), item.summary, item.priority),
+                " summary, priority, also_covered, region) VALUES (?,?,?,?,?,?,?, '[]', ?)",
+                (item.source, item.url, canon, item.title, _iso(pub), item.summary, item.priority,
+                 item.region or None),
             )
             conn.execute("UPDATE items SET cluster_id = id WHERE id = ?", (cur.lastrowid,))
             new_clusters += 1

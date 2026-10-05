@@ -14,6 +14,7 @@ feeds:
   - name: Trepp
     url: https://www.trepp.com/trepptalk/rss.xml
     priority: 85
+    collect_days: 45  # keep the monthly "CMBS Delinquency Rate ..." report (src/trepp.py)
   - name: PR Newswire Real Estate
     url: https://www.prnewswire.com/rss/real-estate-latest-news/real-estate-latest-news-list.rss
     priority: 40
@@ -44,14 +45,41 @@ google_news:
     query: commercial real estate refinance loan
     priority: 30
   - name: AI in real estate
-    query: "\"real estate\" (AI OR \"artificial intelligence\" OR proptech)"
+    query: "(\"real estate\" OR CRE OR leasing OR brokerage) (\"AI tool\" OR \"AI platform\" OR \"AI-powered\" OR proptech OR \"artificial intelligence\" OR AI)"
     priority: 30
+  # Market Watch (weekday section): one story per region, picked in src/markets.py.
+  - name: Sun Belt CRE
+    query: "\"commercial real estate\" (Dallas OR Houston OR Austin OR Miami OR Tampa OR Orlando OR Atlanta OR Phoenix OR Nashville OR Charlotte OR Raleigh)"
+    region: sun_belt
+    priority: 35
+  - name: West Coast CRE
+    query: "\"commercial real estate\" (\"Los Angeles\" OR \"San Francisco\" OR \"Bay Area\" OR \"San Diego\" OR Seattle OR Portland)"
+    region: west_coast
+    priority: 35
+  - name: The Real Deal LA
+    query: "site:therealdeal.com/la"
+    region: west_coast
+    priority: 60
+  - name: The Real Deal SF
+    query: "site:therealdeal.com/san-francisco"
+    region: west_coast
+    priority: 60
+  - name: International CRE
+    query: "\"commercial real estate\" (London OR Europe OR Asia OR Tokyo OR Dubai OR Canada OR Toronto OR Singapore OR Sydney)"
+    region: international
+    priority: 35
 
 fred_series:
   - DGS10
   - DGS5
   - SOFR
   - DFF
+  - DGS2
+  - T10Y2Y
+  - BAMLH0A0HYM2      # ICE BofA US high-yield option-adjusted spread
+  - MORTGAGE30US      # Freddie Mac 30-year mortgage rate (weekly)
+  - CREACBW027SBOG   # Bank CRE loans, all commercial banks (weekly, $ billions)
+  - DRCRELEXFACBS     # Bank CRE delinquency rate (quarterly)
 
 reit_etf: VNQ
 
@@ -67,6 +95,21 @@ reit_tickers:
   - ADC
   - NNN
   - STAG
+
+# Plain-English names for the Market Summary's biggest gain/drop REIT rows.
+# type = the row's hint; group = used in "it may have moved with other {group} REITs".
+reit_info:
+  O: {name: Realty Income, type: "Owns net-lease retail like drugstores and dollar stores", group: net-lease retail}
+  PLD: {name: Prologis, type: "Owns warehouses and distribution centers", group: warehouse}
+  EQIX: {name: Equinix, type: "Owns data centers", group: data center}
+  DLR: {name: Digital Realty, type: "Owns data centers", group: data center}
+  VICI: {name: VICI Properties, type: "Owns casinos and resorts", group: casino}
+  AVB: {name: AvalonBay, type: "Owns apartments", group: apartment}
+  UDR: {name: UDR, type: "Owns apartments", group: apartment}
+  MAA: {name: Mid-America Apartment, type: "Owns Sun Belt apartments", group: apartment}
+  ADC: {name: Agree Realty, type: "Owns net-lease retail like grocery and auto parts stores", group: net-lease retail}
+  NNN: {name: NNN REIT, type: "Owns single-tenant retail like convenience stores", group: net-lease retail}
+  STAG: {name: STAG Industrial, type: "Owns warehouses and factories", group: warehouse}
 
 lookback_hours:
   default: 30

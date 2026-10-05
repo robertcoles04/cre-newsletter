@@ -18,7 +18,10 @@ Each story below is one JSON object per line with id, source, title, summary.
 
 For every story return an object with:
 - "id": the story id, unchanged
-- "section": one of debt, top, ai, deal, other
+- "section": one of debt, top, ai, deal, other ("ai" = AI tools and use cases in real
+  estate: underwriting, lease abstraction, valuation, property management, leasing
+  chatbots, proptech launches, brokerages adopting AI; data center or power-grid stories
+  may be "ai" too, but they are not the focus)
 - "asset_class": one of multifamily, industrial, office, retail, hospitality, alternatives, mixed, none
 - "market": the metro area the story is about (e.g. "Dallas"), or "national"
 - "importance": an integer from 1 (trivial) to 10 (must-read)

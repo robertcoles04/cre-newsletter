@@ -6,7 +6,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
 
 ## Palette (role: value)
 - Ground (page behind the sheet): `#EEF0F2`
-- Sheet: `#FFFFFF`, max-width 680px, centered, soft offset shadow
+- Sheet: `#FFFFFF`, max-width 760px (text keeps a 70ch measure), centered, soft offset shadow
 - Navy (cover band, headings, links): `#0E2A47`
 - Navy tint (cover date line, never gray): `#B9C8DA`
 - Navy wash (Term panel background): `#F2F5F9`; selection: `#CCD8E6`
@@ -24,17 +24,25 @@ Sample (illustrative data): `samples/preview-sample.html`.
 
 ## Components
 - **Cover band:** full-width navy, "CRE Blurb" in serif, white. Date line
-  ("Monday, October 5, 2026 • Weekday Edition") in navy tint. A 3px gold rule
-  element closes it.
+  ("Monday, October 5, 2026 • Daily Edition"; Saturday and Sunday say "Weekend
+  Edition") in navy tint. A 3px gold rule element closes it.
 - **Market Summary:** OM "Investment Summary" table built by code from
-  `factsheet["values"]`, never model text. Groups Rates / Federal Reserve / REITs;
-  rows are label | value + change with hairline dividers. Rows whose key is missing
-  are skipped. Caption: "Rates as of {RATES_ASOF} close. Sources: ...". Replaces the
+  `factsheet["values"]`, never model text. Groups Rates / Federal Reserve / REITs /
+  Credit (Rates now include the 2Y, the 10Y-2Y curve and the 30-year mortgage; Credit
+  holds the high-yield spread, bank CRE loans and delinquency, and Trepp's CMBS
+  delinquency). Weekly/quarterly rows carry their as-of in the label, e.g.
+  "30-Year Mortgage (Oct 1)". Rows are label | value + change with hairline dividers.
+  Rows whose key is missing are skipped; a row with only a change (CMBS delinquency
+  when Trepp states no rate) shows just the change. Caption: "Rates as of
+  {RATES_ASOF} close." only (no sources line). Replaces the
   Markdown `## The Numbers`; only its prose ("What it means") is kept under it,
   then the chart `<img>` with a caption.
 - **Change marks:** authored inline SVG triangle + signed text + color. Color is
   never the only signal.
-- **n/a:** faded em dash with `title="Data unavailable today"`.
+- **n/a:** the muted text "n/a" (ghost color) with `title="Data unavailable today"`.
+- **No dashes:** no em or en dashes anywhere on the site. Code text uses commas or
+  hyphens; model prose is told not to use them and `no_dashes()` replaces any that
+  slip through at render time ("a — b" becomes "a, b").
 - **Section heading (h2):** serif, navy, more space above than below, 1px gold rule.
 - **Story link:** navy, 1px underline, 3px underline-offset. Links are the only
   colored text besides the change marks.

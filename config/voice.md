@@ -11,7 +11,8 @@ students and early-career people who want to understand the market, not be sold 
   floating-rate loans are priced off)".
 - No hype words. No predictions stated as fact. Say "could", "may" or "the bet is" when
   you mean it, and say who is making the bet.
-- No exclamation points. At most two em dashes in the whole issue; use a period instead.
+- No exclamation points. Never use em dashes or en dashes; use commas, periods, colons or
+  parentheses instead.
 - No throat-clearing intros, no sign-offs, no "in conclusion", no rhetorical questions.
 - No "not just X, but Y" constructions.
 

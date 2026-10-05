@@ -302,10 +302,10 @@ def test_fallback_and_stub_write_html(tmp_path, fakes, monkeypatch):
 def test_fallback_uses_friendly_labels():
     fs = {"day_type": "weekday", "values": {
         "DGS10": "4.2%", "DGS10_CHG": "+1 bps", "SOFR": "3.9%", "SOFR_CHG": "unch",
-        "FED_TOP": "No change 80%", "REITW_BEST_1": "O +2.0%"}}
+        "FED_TOP": "No change 80%", "FED_HOLD": "80.0%", "REITW_BEST_1": "O +2.0%"}}
     md = main.fallback_markdown(fs)
     assert "**10-Year Treasury:** {{DGS10}} ({{DGS10_CHG}})" in md
-    assert "**SOFR:**" in md and "**Market odds:** {{FED_TOP}}" in md
+    assert "**SOFR:**" in md and "**Odds of a hold:** {{FED_HOLD}}" in md
     assert "DGS10:**" not in md and "REITW" not in md
     sunday = main.fallback_markdown({**fs, "day_type": "sunday"})
     assert "{{REITW_BEST_1}}" in sunday

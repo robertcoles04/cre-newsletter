@@ -16,31 +16,69 @@ from src.checks import FOOTER
 NA = "n/a"
 
 # (label, value key, change key or None). Groups are rendered in this order.
+# A label may name an as-of value in braces, e.g. "30-Year Mortgage ({MORTGAGE30US_ASOF})";
+# summary_label() fills it, or drops the " (...)" when that value is missing or n/a.
+# A row shows when its value key or its change key is present (CMBS delinquency may
+# have only a change).
 SUMMARY_GROUPS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
     ("Rates", [
         ("10-Year Treasury", "DGS10", "DGS10_CHG"),
         ("5-Year Treasury", "DGS5", "DGS5_CHG"),
+        ("2-Year Treasury", "DGS2", "DGS2_CHG"),
+        ("10Y-2Y curve", "T10Y2Y", "T10Y2Y_CHG"),
         ("SOFR", "SOFR", "SOFR_CHG"),
         ("Fed Funds", "DFF", "DFF_CHG"),
+        ("30-Year Mortgage ({MORTGAGE30US_ASOF})", "MORTGAGE30US", "MORTGAGE30US_CHG"),
     ]),
     ("Federal Reserve", [
-        ("Next FOMC", "FED_MEETING", None),
-        ("Market odds", "FED_TOP", None),
+        ("FOMC: next Fed meeting", "FED_MEETING", None),
+        ("Odds of a cut", "FED_CUT", None),
+        ("Odds of a hold", "FED_HOLD", None),
+        ("Odds of a hike", "FED_HIKE", None),
     ]),
     ("REITs", [
-        ("VNQ REIT ETF", "VNQ", "VNQ_CHG"),
-        ("Top REIT", "REIT_UP", None),
-        ("Bottom REIT", "REIT_DOWN", None),
-        ("VNQ yield", "VNQ_YIELD", None),
-        ("Spread to 10Y", "SPREAD_10Y", None),
+        ("Real estate stocks (VNQ)", "VNQ", "VNQ_CHG"),
+        ("Biggest gain today", "REIT_UP", None),
+        ("Biggest drop today", "REIT_DOWN", None),
+        ("REIT dividend yield", "VNQ_YIELD", None),
+        ("REIT yield vs. 10-Year Treasury", "SPREAD_10Y", None),
+    ]),
+    ("Credit", [
+        ("High-yield spread", "HY_OAS", "HY_OAS_CHG"),
+        ("Bank CRE loans ({BANK_CRE_LOANS_ASOF})", "BANK_CRE_LOANS", "BANK_CRE_LOANS_CHG"),
+        ("Bank CRE delinquency ({BANK_CRE_DQ_ASOF})", "BANK_CRE_DQ", "BANK_CRE_DQ_CHG"),
+        ("CMBS delinquency ({CMBS_DQ_MONTH})", "CMBS_DQ", "CMBS_DQ_CHG"),
     ]),
 ]
 SUMMARY_ROWS = [row for _, rows in SUMMARY_GROUPS for row in rows]
+# Short muted line under a row label, keyed by the row's value key, so every row explains
+# itself. "{KEY}" pulls a value (the best/worst REIT's property type); no hint if missing.
+HINTS = {
+    "DGS10": "Benchmark for long-term property loans",
+    "DGS5": "Benchmark for many 5-year commercial mortgages",
+    "DGS2": "Tracks where the Fed is expected to set rates",
+    "T10Y2Y": "Negative = short-term rates above long-term, often a slowdown signal",
+    "SOFR": "Base rate for floating-rate property loans",
+    "DFF": "The Fed's overnight rate; moves all other rates",
+    "MORTGAGE30US": "Average US home loan rate (Freddie Mac)",
+    "FED_MEETING": "When the Fed next decides on rates",
+    "FED_CUT": "Polymarket traders' odds for that meeting",
+    "VNQ": "A fund holding about 150 REITs",
+    "REIT_UP": "{REIT_UP_TYPE}",
+    "REIT_DOWN": "{REIT_DOWN_TYPE}",
+    "VNQ_YIELD": "Yearly income per $100 invested in VNQ",
+    "SPREAD_10Y": "Negative means safe Treasuries pay more than REIT dividends",
+    "HY_OAS": "Extra interest risky companies pay over Treasuries; higher = lenders more nervous",
+    "BANK_CRE_LOANS": "Total commercial property loans banks hold",
+    "BANK_CRE_DQ": "Share of banks' commercial property loans that are behind on payments",
+    "CMBS_DQ": "Share of commercial property loans in bonds that are behind on payments",
+}
+HINT_VALUE = re.compile(r"^\{(\w+)\}$")
+LABEL_ASOF = re.compile(r"\s*\(\{(\w+)\}\)")
 TICKER_MOVE = {"REIT_UP", "REIT_DOWN"}  # values like "NNN +1.9%": ticker, then a move
 
-EDITIONS = {"weekday": "Weekday Edition", "friday": "Friday Edition",
-            "saturday": "Saturday Edition", "sunday": "Sunday Edition"}
-SOURCES = "Sources: FRED, U.S. Treasury, Polymarket, Alpha Vantage."
+EDITIONS = {"weekday": "Daily Edition", "friday": "Daily Edition",
+            "saturday": "Weekend Edition", "sunday": "Weekend Edition"}
 
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 CHART_IMG = re.compile(r"^[ \t]*!\[Chart of the Day\]\([^)\n]*\)[ \t]*$", re.M)
@@ -51,10 +89,47 @@ UP_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden
           'focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>')
 DOWN_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" '
             'focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>')
-GHOST = '<span class="na" title="Data unavailable today" aria-label="Data unavailable today">&mdash;</span>'
+GHOST = '<span class="na" title="Data unavailable today" aria-label="Data unavailable today">n/a</span>'
 
 FONTS = ("https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400"
          "&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap")
+
+
+def summary_label(label: str, values: dict) -> str:
+    """Fill "({KEY})" in a row label from values; drop it when KEY is missing or n/a."""
+    def sub(m: re.Match) -> str:
+        v = values.get(m.group(1))
+        return f" ({v})" if not _is_na(v) else ""
+    return LABEL_ASOF.sub(sub, label)
+
+
+def hint_for(key: str, values: dict) -> str:
+    hint = HINTS.get(key, "")
+    m = HINT_VALUE.match(hint)
+    if m:
+        v = values.get(m.group(1))
+        return "" if _is_na(v) else v
+    return hint
+
+
+def has_row(key: str, chg_key: str | None, values: dict) -> bool:
+    return key in values or (chg_key is not None and chg_key in values)
+
+
+DASHES = "[\\u2014\\u2013]"  # em dash, en dash (escaped so the source has neither)
+DASH_DIGITS = re.compile(r"(?<=\d)[ \t]*" + DASHES + r"[ \t]*(?=\d)")
+DASH_AFTER_PUNCT = re.compile(r"(?<=[,;:.!?])[ 	]*" + DASHES + r"+[ 	]*")
+DASH_BETWEEN = re.compile(r"(?<=\S)[ \t]*" + DASHES + r"+[ \t]*(?=\S)")
+DASH_EDGE = re.compile(r"[ \t]*" + DASHES + r"+[ \t]*")
+
+
+def no_dashes(text: str) -> str:
+    """Owner style: no em/en dashes on the site. "a [em dash] b" and "a[em dash]b" become "a, b";
+    a range like "2020[en dash]2021" becomes "2020-2021"; hyphens are kept."""
+    text = DASH_DIGITS.sub("-", text)
+    text = DASH_AFTER_PUNCT.sub(" ", text)
+    text = DASH_BETWEEN.sub(", ", text)
+    return DASH_EDGE.sub(" ", text)
 
 
 def _slot(s: str) -> str:
@@ -87,31 +162,39 @@ def _change(chg: str | None) -> str:
 
 
 def _row(label: str, key: str, chg_key: str | None, values: dict) -> str:
-    raw = values[key]
+    label = summary_label(label, values)
+    raw = values.get(key, NA)
     val, chg = raw, values.get(chg_key) if chg_key else None
     if key in TICKER_MOVE and not _is_na(raw):
         m = MOVE.match(raw.strip())
         if m:
             val, chg = m.group(1), m.group(2)
-    if _is_na(val):
+        name = values.get(f"{key}_NAME")  # "NNN REIT (NNN)" instead of the bare ticker
+        if not _is_na(name):
+            val = name
+    if _is_na(val) and not _is_na(chg):  # change only (e.g. CMBS delinquency)
+        cell = _change(chg)
+    elif _is_na(val):
         cell = GHOST
     else:
         cell = f'<span class="val">{_value(val)}</span>{_change(chg)}'
-    return f'<div class="row"><dt>{_esc(label)}</dt><dd>{cell}</dd></div>'
+    hint = hint_for(key, values)
+    hint_html = f'<span class="hint">{_esc(hint)}</span>' if hint else ""
+    return f'<div class="row"><dt>{_esc(label)}{hint_html}</dt><dd>{cell}</dd></div>'
 
 
 def market_summary(values: dict, chart_rel: str | None, prose_html: str) -> str:
     groups = []
     for title, rows in SUMMARY_GROUPS:
-        cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if k in values]
+        cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if has_row(k, ck, values)]
         if cells:
             groups.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
                           f'<dl>{"".join(cells)}</dl></div>')
     asof = values.get("RATES_ASOF")
-    when = f"Rates as of {_esc(asof)} close. " if not _is_na(asof) else ""
     parts = ['<section class="summary" aria-labelledby="summary-h">',
-             '<h2 id="summary-h">Market Summary</h2>', *groups,
-             f'<p class="caption">{when}{SOURCES}</p>']
+             '<h2 id="summary-h">Market Summary</h2>', *groups]
+    if not _is_na(asof):
+        parts.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
     if prose_html:
         parts.append(f'<div class="takeaway">{prose_html}</div>')
     if chart_rel:
@@ -183,6 +266,7 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     md = CHART_IMG.sub("", md)
     md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
     md = md.replace("{{", "").replace("}}", "")
+    md = no_dashes(md)
 
     values = (factsheet or {}).get("values") or {}
     if run_date is None and factsheet and factsheet.get("date"):
@@ -236,7 +320,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
   font-size: 17px; line-height: 1.6; padding: 32px 16px 48px; }
 ::selection { background: var(--navy-select); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
-.sheet { max-width: 680px; margin: 0 auto; background: var(--sheet);
+.sheet { max-width: 760px; margin: 0 auto; background: var(--sheet);
   box-shadow: 0 1px 2px rgba(14, 42, 71, .06), 0 8px 24px rgba(14, 42, 71, .07); }
 .cover { background: var(--navy); color: #FFFFFF; padding: 44px 40px 28px; }
 .cover-rule { height: 3px; background: var(--gold); }
@@ -271,6 +355,8 @@ strong { font-weight: 700; }
   align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
 .row:first-child { border-top: 1px solid var(--hairline); }
 dt { color: var(--ink); }
+.hint { display: block; color: var(--muted); font-size: 14px; line-height: 1.35;
+  margin-top: 2px; }
 dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap; }
 .val { font-weight: 600; }

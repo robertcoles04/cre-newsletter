@@ -13,6 +13,7 @@ class Item:
     published_at: datetime
     summary: str = ""
     priority: int = 50
+    region: str = ""  # Market Watch tag from the query that found it (sun_belt...)
 
 
 @dataclass

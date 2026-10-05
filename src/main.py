@@ -14,15 +14,16 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src import classify, deliver as deliver_mod, draft, llm
+from src import classify, deliver as deliver_mod, draft, llm, trepp
 from src.chart import rate_chart
 from src.checks import FOOTER, check_issue, load_banned
-from src.collect import google_news, polymarket, reits, rss
+from src.collect import calendar, google_news, polymarket, reits, rss
 from src.config import ET, env, http_client, load_sources
 from src.factsheet import build_factsheet, day_type
 from src.fill import fill
+from src.markets import HEADINGS, REGIONS
 from src.rates import collect_rates
-from src.render_html import SUMMARY_ROWS, render_issue_html
+from src.render_html import SUMMARY_ROWS, has_row, render_issue_html, summary_label
 from src.store import connect, get_rates, save_items, save_quotes
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -45,6 +46,16 @@ def _story_lines(stories: list[dict]) -> list[str]:
             if str(s.get("url", "")).lower().startswith(("http://", "https://"))]
 
 
+def _market_lines(markets: dict) -> list[str]:
+    out = []
+    for region in REGIONS:
+        story = markets.get(region)
+        body = _story_lines([story]) if story else []
+        if body:
+            out += ["", f"### {HEADINGS[region]}", ""] + body
+    return ["", "## Market Watch"] + out if out else []
+
+
 def fallback_markdown(factsheet: dict) -> str:
     """Fact-sheet-only issue used when Claude is unavailable.
 
@@ -55,9 +66,21 @@ def fallback_markdown(factsheet: dict) -> str:
     if "RATES_ASOF" in values:
         lines += ["*Rates as of {{RATES_ASOF}} close.*", ""]
     for label, key, chg in SUMMARY_ROWS:
-        if key in values:
-            tail = f" ({{{{{chg}}}}})" if chg and chg in values else ""
-            lines.append(f"- **{label}:** {{{{{key}}}}}{tail}")
+        if not has_row(key, chg, values):
+            continue
+        label = summary_label(label, values)
+        if key not in values:  # change only (CMBS delinquency without a stated rate)
+            lines.append(f"- **{label}:** {{{{{chg}}}}}")
+            continue
+        tail = f" ({{{{{chg}}}}})" if chg and chg in values else ""
+        lines.append(f"- **{label}:** {{{{{key}}}}}{tail}")
+    for side in ("up", "down"):
+        if side not in (factsheet.get("mover_news") or {}):
+            continue
+        story = factsheet["mover_news"][side]
+        why = (_story_lines([story])[0][2:] if story and _story_lines([story])
+               else f"{{{{MOVER_{side.upper()}_NOTE}}}}")
+        lines += ["", f"**Why {{{{REIT_{side.upper()}_NAME}}}} moved:** {why}"]
     if factsheet.get("day_type") == "sunday":
         for side, word in (("BEST", "Best"), ("WORST", "Worst")):
             keys = sorted(k for k in values if k.startswith(f"REITW_{side}_"))
@@ -70,6 +93,10 @@ def fallback_markdown(factsheet: dict) -> str:
         stories = factsheet.get(key) or []
         if stories:
             lines += ["", f"## {heading}", ""] + _story_lines(stories)
+        if key == "top":  # Market Watch sits after Top Stories
+            lines += _market_lines(factsheet.get("markets") or {})
+    if factsheet.get("day_type") == "sunday" and "WEEK_AHEAD" in values:
+        lines += ["", "## Week Ahead", "", "{{WEEK_AHEAD}}"]
     term = factsheet.get("term") or {}
     if term.get("term"):
         lines += ["", "## Term of the Day", "",
@@ -84,21 +111,41 @@ AV_SPACING_SECONDS = 13
 
 
 def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
-    """Run every collector. Returns (fed odds, reit quotes, vnq yield)."""
-    since = (datetime(run_date.year, run_date.month, run_date.day, 5, tzinfo=ET)
-             - timedelta(hours=COLLECT_HOURS))
+    """Run every collector. Returns (fed odds, reit quotes, vnq yield, extras), where
+    extras holds "cmbs" (Trepp values or None) and "week_events" (Sunday only)."""
+    anchor = datetime(run_date.year, run_date.month, run_date.day, 5, tzinfo=ET)
+    since = anchor - timedelta(hours=COLLECT_HOURS)
+    extras: dict = {"cmbs": None, "week_events": None}
 
     for f in sources.get("feeds", []):
+        # A feed may keep older items (Trepp: its monthly CMBS report); the fact sheet
+        # still applies the day's lookback to stories.
+        f_since = anchor - timedelta(days=f["collect_days"]) if f.get("collect_days") else since
         try:
-            save_items(conn, rss.fetch_feed(f["name"], f["url"], f["priority"], since, client))
+            save_items(conn, rss.fetch_feed(f["name"], f["url"], f["priority"], f_since, client))
         except Exception as exc:
             problems.append(f"feed/{f['name']}: {_err(exc)}")
 
+    try:
+        extras["cmbs"] = trepp.cmbs_values(conn, run_date)
+        if extras["cmbs"] is None:
+            problems.append("trepp: no CMBS delinquency headline in the last 45 days")
+    except Exception as exc:
+        problems.append(f"trepp: {_err(exc)}")
+
+    if day_type(run_date) == "sunday":
+        try:
+            extras["week_events"] = calendar.fetch_week(client, run_date)
+        except Exception as exc:
+            problems.append(f"calendar: {_err(exc)}")
+
     for g in sources.get("google_news", []):
         try:
-            save_items(conn, google_news.fetch(
-                g["name"], g["query"], g["priority"], since, client,
-                when=g.get("when", "2d")))
+            items = google_news.fetch(g["name"], g["query"], g["priority"], since, client,
+                                      when=g.get("when", "2d"))
+            for it in items:
+                it.region = g.get("region", "")
+            save_items(conn, items)
         except Exception as exc:
             problems.append(f"news/{g['name']}: {_err(exc)}")
 
@@ -138,7 +185,7 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
             vnq_yield = reits.fetch_etf_yield(etf, av_key, client)
         except Exception as exc:
             problems.append(f"reits: {_err(exc)}")
-    return odds, quotes, vnq_yield
+    return odds, quotes, vnq_yield, extras
 
 
 def _make_chart(conn, run_date: date, tmp: Path, problems: list[str]) -> Path | None:
@@ -196,10 +243,13 @@ def _stub_markdown(problems: list[str]) -> str:
     return "\n".join(lines + ["", FOOTER, ""])
 
 
-def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude):
+def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extras=None):
     """Returns (markdown, factsheet or None)."""
+    extras = extras or {}
     try:
-        factsheet = build_factsheet(conn, run_date, odds, quotes, problems, vnq_yield)
+        factsheet = build_factsheet(conn, run_date, odds, quotes, problems, vnq_yield,
+                                    cmbs=extras.get("cmbs"),
+                                    week_events=extras.get("week_events"))
     except Exception as exc:
         problems.append(f"factsheet: {_err(exc)}")
         return _stub_markdown(problems), None
@@ -246,14 +296,15 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
                 print(f"already delivered {run_date.isoformat()}; skipping")
                 return 0
         sources = load_sources()
-        odds, quotes, vnq_yield = _collect(conn, sources, run_date, client, problems)
+        odds, quotes, vnq_yield, extras = _collect(conn, sources, run_date, client, problems)
 
         try:
             classify.classify(conn, run=claude)
         except Exception as exc:
             problems.append(f"classify: {_err(exc)}")
 
-        md, factsheet = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude)
+        md, factsheet = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude,
+                                    extras)
         md, snippet = _scrub(md)
         if snippet:
             problems.append(f"fill: stray braces {snippet}")

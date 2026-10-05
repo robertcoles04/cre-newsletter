@@ -6,10 +6,19 @@ The original idea is in [`BRIEF.md`](BRIEF.md); the design is in `docs/superpowe
 
 ## What the pipeline does
 1. GitHub Actions runs it every morning (about 5-6 AM ET).
-2. It pulls news feeds, Treasury/SOFR rates (FRED), Fed odds (Polymarket) and REIT prices (Alpha Vantage).
+2. It pulls news feeds, rates and credit data (FRED, Trepp), Fed odds (Polymarket), REIT prices (Alpha Vantage) and, on Sundays, the Fed calendar.
 3. Everything is saved to a small SQLite database and duplicate stories are merged.
 4. Claude drafts the issue. The model never types a number: code fills in every rate and price, and a missing value shows as `n/a`.
 5. The draft is saved to `issues/YYYY-MM-DD.md` and opened as a GitHub Issue labeled `draft`, which GitHub emails to me.
+
+## What the Market Summary shows
+The table at the top of each issue is built by code, never by Claude. Each row has a short gray line explaining it.
+- **Rates:** 10-, 5- and 2-Year Treasuries, the 10Y-2Y curve, SOFR, Fed funds, and the 30-year mortgage rate (weekly, with its as-of date in the label).
+- **Federal Reserve:** the next FOMC meeting, plus Polymarket odds of a cut, a hold and a hike.
+- **REITs:** VNQ (the real estate stock fund), the day's biggest gain and drop by company name, VNQ's dividend yield and its spread to the 10-Year. Under the table, a "Why it moved" line cites a news story about the company, or says there was no company-specific news.
+- **Credit:** the high-yield bond spread, total bank CRE loans (weekly), the bank CRE delinquency rate (quarterly, labeled e.g. "Q2 2026") and Trepp's monthly CMBS delinquency rate, read from Trepp's headline.
+
+Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Alpha Vantage, Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
 
 ## Local setup
 ```bash

@@ -8,10 +8,12 @@
 
 ## Week Ahead
 
-<!-- From the fact sheet's `week_ahead` only. If `fomc_dates` has dates, say the Fed meets on those dates and that Polymarket's top outcome is {{FED_TOP}}. If it is empty, say there is no Fed meeting this week; the next one is {{FED_MEETING}}. Do not add data releases or earnings that are not in the fact sheet. No numbers of your own. About 120 words max. -->
+<!-- From the fact sheet's `week_ahead` only. Write one or two sentences of context with no numbers, dates or times in them: if `fomc_dates` has dates, say the Fed meets this week and that Polymarket's top outcome is {{FED_TOP}}; if it is empty, say there is no Fed meeting this week and the next one is {{FED_MEETING}}. Then keep the {{WEEK_AHEAD}} line below exactly as written: code fills it with the dated list of events. Do not retype the events, and do not add data releases or earnings that are not in the fact sheet. About 120 words max. -->
+
+{{WEEK_AHEAD}}
 
 ## Term of the Day
 
-<!-- About 50 words on the fact sheet's `term`, using its definition_hint. Format: **Term:** plain definition, then tie the term to a story in this issue; no market rates — use a made-up round-number example if needed. -->
+<!-- About 50 words on the fact sheet's `term`, using its definition_hint. Format: **Term:** plain definition, then tie the term to a story in this issue; no market rates; use a made-up round-number example if needed. -->
 
 For informational purposes only. Not investment advice.

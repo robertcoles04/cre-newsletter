@@ -10,6 +10,7 @@ VALUES = {
     "SOFR": "3.87%", "SOFR_CHG": "unch",
     "DFF": "n/a", "DFF_CHG": "n/a",
     "FED_MEETING": "Oct 28", "FED_TOP": "No change 82.5%",
+    "FED_CUT": "15.0%", "FED_HOLD": "82.5%", "FED_HIKE": "2.5%",
     "VNQ": "$89.50", "VNQ_CHG": "+0.4%",
     "REIT_UP": "NNN +1.9%", "REIT_DOWN": "MAA -1.0%",
     "VNQ_YIELD": "3.95%", "SPREAD_10Y": "-33 bps",
@@ -50,21 +51,34 @@ def render(md=MD, factsheet=FACTSHEET, problems=(), chart="img/2026-10-06-chart.
 def test_summary_rows_render_from_values():
     html = render()
     assert "Market Summary" in html
-    for label in ("10-Year Treasury", "5-Year Treasury", "SOFR", "Fed Funds", "Next FOMC",
-                  "Market odds", "VNQ REIT ETF", "Top REIT", "Bottom REIT", "VNQ yield",
-                  "Spread to 10Y"):
+    for label in ("10-Year Treasury", "5-Year Treasury", "SOFR", "Fed Funds",
+                  "FOMC: next Fed meeting", "Odds of a cut", "Odds of a hold",
+                  "Odds of a hike",
+                  "Real estate stocks (VNQ)", "Biggest gain today", "Biggest drop today",
+                  "REIT dividend yield", "REIT yield vs. 10-Year Treasury"):
         assert label in html
-    assert "4.28%" in html and "No change 82.5%" in html and "Oct 28" in html
+    assert '<span class="hint">Benchmark for long-term property loans</span>' in html
+    assert "Sources" not in html
+    assert "4.28%" in html and "82.5%" in html and "Oct 28" in html
+    assert html.count("Polymarket traders") == 1  # hint on the first odds row only
     assert 'class="chg up"' in html and 'class="chg down"' in html
     assert 'class="chg unch"' in html
     assert "<svg" in html
     assert "Rates as of Oct 2 close" in html
 
 
-def test_na_becomes_ghost_dash():
+def test_na_renders_muted_na_text():
     html = render()
     assert 'title="Data unavailable today"' in html
-    assert ">n/a<" not in html
+    assert "&mdash;" not in html and 'class="na"' in html and ">n/a<" in html
+
+
+def test_reit_rows_show_name_and_property_type():
+    vals = {**VALUES, "REIT_UP_NAME": "NNN REIT (NNN)", "REIT_UP_TYPE": "Owns single-tenant retail",
+            "REIT_DOWN_NAME": "n/a", "REIT_DOWN_TYPE": "n/a"}
+    html = render(factsheet={**FACTSHEET, "values": vals})
+    assert ">NNN REIT (NNN)</span>" in html and "Owns single-tenant retail" in html
+    assert ">MAA</span>" in html  # no name: falls back to the ticker, no hint
 
 
 def test_missing_values_are_skipped():
@@ -103,7 +117,7 @@ def test_problems_box_only_when_problems():
 def test_cover_and_edition():
     html = render()
     assert "CRE Blurb" in html and "Tuesday, October 6, 2026" in html
-    assert "Weekday Edition" in html
+    assert "Daily Edition" in html
 
 
 def test_stub_without_factsheet_skips_summary():

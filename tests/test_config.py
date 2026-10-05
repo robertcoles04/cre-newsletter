@@ -14,7 +14,9 @@ def test_sources_has_feeds_and_series():
     assert len(feeds) == 6, f"Expected 6 feeds, got {len(feeds)}"
 
     # Check FRED series
-    expected_fred_series = ["DGS10", "DGS5", "SOFR", "DFF"]
+    expected_fred_series = ["DGS10", "DGS5", "SOFR", "DFF", "DGS2", "T10Y2Y",
+                            "BAMLH0A0HYM2", "MORTGAGE30US", "CREACBW027SBOG",
+                            "DRCRELEXFACBS"]
     actual_fred_series = sources.get("fred_series", [])
     assert actual_fred_series == expected_fred_series, (
         f"FRED series mismatch. Expected {expected_fred_series}, got {actual_fred_series}"

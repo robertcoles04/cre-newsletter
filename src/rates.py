@@ -10,6 +10,16 @@ from src.models import RatePoint, SourceResult
 from src.store import save_rates
 
 LOOKBACK_DAYS = 45
+# Weekly/quarterly series need a longer window so there are always 2 observations.
+SERIES_LOOKBACK_DAYS = {
+    "MORTGAGE30US": 60,      # weekly (Thursday)
+    "CREACBW027SBOG": 60,   # weekly, H.8 bank CRE loans
+    "DRCRELEXFACBS": 400,    # quarterly, bank CRE delinquency rate
+}
+
+
+def lookback_days(series: str) -> int:
+    return SERIES_LOOKBACK_DAYS.get(series, LOOKBACK_DAYS)
 
 
 def latest_with_change(points: list[RatePoint]) -> tuple[RatePoint, int | None]:
@@ -47,13 +57,13 @@ def _treasury_points(today: date, start: date, client: httpx.Client) -> list[Rat
 
 def collect_rates(conn: sqlite3.Connection, series: list[str], api_key: str | None,
                   client: httpx.Client, today: date) -> list[SourceResult]:
-    """Fetch 45 days per series from FRED.
+    """Fetch each series from FRED (45 days, longer for weekly/quarterly series).
 
     DGS10/DGS5 also consult Treasury.gov (once per run): FRED posts a business day
     late, so any Treasury point newer than FRED's latest is saved too. If FRED fails,
     Treasury is the fallback. Returns one SourceResult per series (name = series id).
     """
-    start = today - timedelta(days=LOOKBACK_DAYS)
+    start = today - timedelta(days=LOOKBACK_DAYS)  # Treasury fallback window
     results = []
     treasury_cache: list[RatePoint] = []
     treasury_error = ""
@@ -74,7 +84,8 @@ def collect_rates(conn: sqlite3.Connection, series: list[str], api_key: str | No
         try:
             if not api_key:
                 raise RuntimeError("no FRED api key")
-            points = fred.fetch_series(sid, api_key, start, client)
+            points = fred.fetch_series(
+                sid, api_key, today - timedelta(days=lookback_days(sid)), client)
             if not points:
                 raise RuntimeError("no observations")
             save_rates(conn, points)

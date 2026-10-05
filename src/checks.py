@@ -10,13 +10,14 @@ ROOT = Path(__file__).resolve().parent.parent
 FOOTER = "For informational purposes only. Not investment advice."
 REQUIRED_PLACEHOLDERS = ("DGS10", "DGS10_CHG", "SOFR", "FED_TOP", "VNQ")
 REQUIRED_DAYS = ("weekday", "friday")
-MAX_EM_DASHES = 2
+MAX_EM_DASHES = 0  # owner style: none (render_html.no_dashes also strips them from the site)
 MAX_SENTENCE_WORDS = 30
 BUDGET_SLACK = 1.3
 BUDGETS = {
-    "The Numbers": 100, "Debt Markets": 200, "Top Stories": 500, "Quick Hits": 100,
+    "The Numbers": 100, "Debt Markets": 200, "Top Stories": 500, "Quick Hits": 300,
     "AI in Real Estate": 80, "Term of the Day": 50, "Week in Review": 200,
     "AI in Real Estate Weekly": 150, "REIT Weekly": 200, "Week Ahead": 120,
+    "Market Watch": 200,
 }
 # Market-data sections: every number there must come from a placeholder.
 MARKET_SECTIONS = {"The Numbers", "REIT Weekly", "Week Ahead"}
@@ -25,6 +26,14 @@ MARKET_SECTIONS = {"The Numbers", "REIT Weekly", "Week Ahead"}
 TERM_SECTION = "Term of the Day"
 TERM_RATE_WORDS = re.compile(r"\b(?:10Y|5Y|SOFR|Treasury|Treasuries|Fed|fed funds)\b", re.I)
 STORY_KEYS = ("top", "quick_hits", "debt", "ai", "week_top", "ai_week")
+
+
+def all_stories(factsheet: dict) -> list[dict]:
+    """Every story the issue may cite: the STORY_KEYS lists plus Market Watch picks."""
+    stories = [s for key in STORY_KEYS for s in factsheet.get(key) or []]
+    extra = list((factsheet.get("markets") or {}).values())
+    extra += list((factsheet.get("mover_news") or {}).values())
+    return stories + [s for s in extra if s]
 
 PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 COMMENT = re.compile(r"<!--.*?-->", re.S)
@@ -94,7 +103,7 @@ def _sections(md: str) -> list[tuple[str, str]]:
 
 def _story_corpus(factsheet: dict) -> str:
     parts = [f"{s.get('title', '')} {s.get('summary', '')}"
-             for key in STORY_KEYS for s in factsheet.get(key) or []]
+             for s in all_stories(factsheet)]
     return _norm(" ".join(parts))
 
 
@@ -190,9 +199,10 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     for m in SLOP_PATTERN.finditer(_plain(md)):
         problems.append({"kind": "slop_pattern", "detail": m.group(0)})
 
-    dashes = md.count("—")
+    dashes = md.count("\u2014") + md.count("\u2013")  # em dash + en dash
     if dashes > MAX_EM_DASHES:
-        problems.append({"kind": "em_dash", "detail": f"{dashes} em dashes (max {MAX_EM_DASHES})"})
+        problems.append({"kind": "em_dash",
+                         "detail": f"{dashes} em/en dashes (use commas or periods instead)"})
 
     # Comments (even unclosed ones) are reported as leftover_comment, not exclaim.
     for line in COMMENT.sub(" ", md).replace("<!--", " ").splitlines():
@@ -209,10 +219,9 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
         if n > budget * BUDGET_SLACK:
             problems.append({"kind": "budget", "detail": f"{name}: {n} words (budget {budget})"})
 
-    for key in ("top", "quick_hits", "debt", "ai", "week_top", "ai_week"):
-        for s in factsheet.get(key) or []:
-            if s["url"] not in md:
-                problems.append({"kind": "missing_link", "detail": s["url"]})
+    for s in all_stories(factsheet):
+        if s["url"] not in md:
+            problems.append({"kind": "missing_link", "detail": s["url"]})
 
     problems += _check_numbers(sections, factsheet)
 
