@@ -37,7 +37,7 @@ def test_change_vs_prior_observation_not_calendar_day():
 def test_fmt_bps():
     assert rates.fmt_bps(3) == "+3 bps"
     assert rates.fmt_bps(-12) == "-12 bps"
-    assert rates.fmt_bps(0) == "unch"
+    assert rates.fmt_bps(0) == "0 bps"
     assert rates.fmt_bps(None) == "n/a"
 
 

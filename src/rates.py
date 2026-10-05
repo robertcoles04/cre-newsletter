@@ -31,7 +31,7 @@ def fmt_bps(n: int | None) -> str:
     if n is None:
         return "n/a"
     if n == 0:
-        return "unch"
+        return "0 bps"
     return f"{n:+d} bps"
 
 
