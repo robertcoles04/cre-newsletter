@@ -105,3 +105,9 @@ def test_run_gh_wraps_subprocess(monkeypatch):
     assert run_gh(["issue", "list"]) == "out"
     assert seen["cmd"] == ["C:/gh.exe", "issue", "list"]
     assert seen["kw"] == dict(capture_output=True, text=True, encoding="utf-8", check=True)
+
+
+def test_html_written_next_to_md(conn, tmp_path):
+    deliver(conn, D, "# Hi", [], None, tmp_path, "weekday", None, gh=FakeGh(),
+            dry_run=True, html="<p>hi</p>")
+    assert (tmp_path / "issues" / f"{D.isoformat()}.html").read_text(encoding="utf-8") == "<p>hi</p>"

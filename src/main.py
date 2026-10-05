@@ -20,6 +20,7 @@ from src.config import ET, env, http_client, load_sources
 from src.factsheet import build_factsheet, day_type
 from src.fill import fill
 from src.rates import collect_rates
+from src.render_html import SUMMARY_ROWS, render_issue_html
 from src.store import connect, get_rates, save_items, save_quotes
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -45,7 +46,17 @@ def fallback_markdown(factsheet: dict) -> str:
     """
     lines = ["# Claude unavailable: fact sheet only", "", "## The Numbers", ""]
     values = factsheet.get("values", {})
-    lines += [f"- **{name}:** {{{{{name}}}}}" for name in values]
+    if "RATES_ASOF" in values:
+        lines += ["*Rates as of {{RATES_ASOF}} close.*", ""]
+    for label, key, chg in SUMMARY_ROWS:
+        if key in values:
+            tail = f" ({{{{{chg}}}}})" if chg and chg in values else ""
+            lines.append(f"- **{label}:** {{{{{key}}}}}{tail}")
+    if factsheet.get("day_type") == "sunday":
+        for side, word in (("BEST", "Best"), ("WORST", "Worst")):
+            keys = sorted(k for k in values if k.startswith(f"REITW_{side}_"))
+            lines += [f"- **{word} REIT this week ({k.rsplit('_', 1)[1]}):** {{{{{k}}}}}"
+                      for k in keys]
     sections = [("Top Stories", "top"), ("Quick Hits", "quick_hits"),
                 ("Debt Markets", "debt"), ("AI in Real Estate", "ai"),
                 ("Week in Review", "week_top"), ("AI in Real Estate Weekly", "ai_week")]
@@ -180,7 +191,7 @@ def _stub_markdown(problems: list[str]) -> str:
 
 
 def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude):
-    """Returns (markdown, term or None)."""
+    """Returns (markdown, factsheet or None)."""
     try:
         factsheet = build_factsheet(conn, run_date, odds, quotes, problems, vnq_yield)
     except Exception as exc:
@@ -193,7 +204,17 @@ def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude):
         problems += [f"fill: missing {name}" for name in missing]
     except Exception as exc:
         problems.append(f"fill: {_err(exc)}")
-    return md, factsheet["term"]["term"]
+    return md, factsheet
+
+
+def _preview(md, factsheet, problems, chart, run_date) -> str | None:
+    """HTML preview; a render failure is a problem line, never a failed delivery."""
+    chart_rel = f"img/{run_date.isoformat()}-chart.png" if chart is not None else None
+    try:
+        return render_issue_html(md, factsheet, problems, chart_rel, run_date=run_date)
+    except Exception as exc:
+        problems.append(f"html: {_err(exc)}")
+        return None
 
 
 def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=None,
@@ -224,7 +245,7 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
         except Exception as exc:
             problems.append(f"classify: {_err(exc)}")
 
-        md, term = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude)
+        md, factsheet = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude)
         md, snippet = _scrub(md)
         if snippet:
             problems.append(f"fill: stray braces {snippet}")
@@ -234,10 +255,12 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
             if chart is None:
                 md = CHART_LINE.sub("", md)
             problems[:] = [_scrub(p)[0] for p in problems]
+            html = _preview(md, factsheet, problems, chart, run_date)
+            term = factsheet["term"]["term"] if factsheet else None
             try:
                 path = deliver_mod.deliver(
                     conn, run_date, md, problems, chart, repo_root, day_type(run_date),
-                    term, gh=gh, dry_run=args.dry_run)
+                    term, gh=gh, dry_run=args.dry_run, html=html)
             except Exception as exc:
                 print(f"delivery failed: {_err(exc)}", file=sys.stderr)
                 return 1

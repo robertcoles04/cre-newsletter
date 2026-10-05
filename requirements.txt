@@ -1,6 +1,7 @@
 httpx
 feedparser
 PyYAML
+markdown
 rapidfuzz
 matplotlib
 python-dotenv

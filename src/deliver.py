@@ -1,4 +1,4 @@
-"""Delivery: write the draft to issues/<date>.md, record it, open one GitHub Issue.
+"""Delivery: write the draft to issues/<date>.md (+ .html preview), record it, open one GitHub Issue.
 
 Never publishes anywhere else (no Substack, no email).
 """
@@ -37,7 +37,7 @@ def _create_issue(gh, run_date: str, body_file: Path) -> int:
 
 def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | None,
             repo_root: Path, day_type: str, term: str | None,
-            gh=run_gh, dry_run: bool = False) -> Path:
+            gh=run_gh, dry_run: bool = False, html: str | None = None) -> Path:
     key = run_date.isoformat()
     repo_root = Path(repo_root)
     issues_dir = repo_root / "issues"
@@ -46,6 +46,8 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
     text = (_banner(problems) + md) if problems else md
     path = issues_dir / f"{key}.md"
     path.write_text(text, encoding="utf-8")
+    if html is not None:
+        (issues_dir / f"{key}.html").write_text(html, encoding="utf-8")
 
     if chart is not None:
         img_dir = issues_dir / "img"

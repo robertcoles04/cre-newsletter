@@ -271,3 +271,33 @@ def test_connect_failure_returns_1(tmp_path, fakes, monkeypatch, capsys):
     monkeypatch.setattr(main, "connect", boom)
     assert run(tmp_path)[0] == 1
     assert "pipeline error before delivery" in capsys.readouterr().err
+
+
+def test_dry_run_writes_html_preview(tmp_path, fakes):
+    code, path = run(tmp_path)
+    html_path = path.with_suffix(".html")
+    assert code == 0 and html_path.exists()
+    html = html_path.read_text(encoding="utf-8")
+    assert "Market Summary" in html and "4.20%" in html
+    assert "img/2026-10-06-chart.png" in html and FOOTER in html
+
+
+def test_fallback_and_stub_write_html(tmp_path, fakes, monkeypatch):
+    code, path = run(tmp_path, claude=dead_claude)
+    assert path.with_suffix(".html").exists()
+    monkeypatch.setattr(main, "build_factsheet", lambda *a, **k: (_ for _ in ()).throw(KeyError("x")))
+    code, path = run(tmp_path, force=True)
+    html = path.with_suffix(".html").read_text(encoding="utf-8")
+    assert "Pipeline error" in html and "Market Summary" not in html
+
+
+def test_fallback_uses_friendly_labels():
+    fs = {"day_type": "weekday", "values": {
+        "DGS10": "4.2%", "DGS10_CHG": "+1 bps", "SOFR": "3.9%", "SOFR_CHG": "unch",
+        "FED_TOP": "No change 80%", "REITW_BEST_1": "O +2.0%"}}
+    md = main.fallback_markdown(fs)
+    assert "**10-Year Treasury:** {{DGS10}} ({{DGS10_CHG}})" in md
+    assert "**SOFR:**" in md and "**Market odds:** {{FED_TOP}}" in md
+    assert "DGS10:**" not in md and "REITW" not in md
+    sunday = main.fallback_markdown({**fs, "day_type": "sunday"})
+    assert "{{REITW_BEST_1}}" in sunday
