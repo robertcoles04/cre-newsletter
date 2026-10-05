@@ -1,6 +1,6 @@
 # cre-newsletter
 
-CRE Blurb: daily commercial real estate (CRE) newsletter for Substack. A scheduled Python pipeline collects news + data, Claude drafts the issue, Robert (the owner, the user) reviews and publishes. Full original spec: `BRIEF.md`. Design spec: `docs/superpowers/specs/2026-10-04-cre-newsletter-design.md`.
+CRE Blurb: daily commercial real estate (CRE) newsletter published as a GitHub Pages website (approved via an `approved` label on the draft Issue). A scheduled Python pipeline collects news + data, Claude drafts the issue, Robert (the owner, the user) reviews and publishes. Full original spec: `BRIEF.md`. Design spec: `docs/superpowers/specs/2026-10-04-cre-newsletter-design.md`.
 
 ## Status
 Phase 1 is merged (pending secrets + first scheduled run). Website publishing is built (GitHub Pages; approve a draft Issue by adding the `approved` label, workflow `.github/workflows/publish.yml`), pending going public + enabling Pages. Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery). Workflow: `.github/workflows/daily.yml` (cron 09:00 + 10:00 UTC, DB kept on the `data` branch).

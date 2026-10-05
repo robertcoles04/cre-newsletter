@@ -92,6 +92,13 @@ jobs:
               exit 0
             fi
             echo "push attempt $attempt failed; retrying"
+            # Another approval may have edited published.json at the same spot:
+            # start again from the latest main and re-record this date.
+            git rebase --abort 2>/dev/null || true
+            git fetch origin main && git reset --hard origin/main
+            python -m src.publish "$DAY" > /dev/null
+            git add issues/published.json
+            git diff --cached --quiet || git commit -m "publish: $DAY"
             sleep 5
           done
           exit 1
