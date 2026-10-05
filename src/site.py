@@ -29,9 +29,9 @@ SITE_CSS = """<style>
 
 ABOUT = (
     "<h1>About CRE Blurb</h1>"
-    "<p>CRE Blurb is a free daily commercial real estate briefing. Each morning a "
-    "pipeline gathers the news and market data and drafts the issue. Robert reviews "
-    "every issue before it is published.</p>"
+    "<p>CRE Blurb is a free daily commercial real estate briefing tailored towards "
+    "students and young professionals in the industry, providing fresh market data "
+    "and news about the daily moves in commercial real estate.</p>"
     "<h2>Data sources</h2><ul>"
     '<li><a href="https://fred.stlouisfed.org/">FRED</a> (Federal Reserve Bank of St. Louis)</li>'
     '<li><a href="https://home.treasury.gov/">U.S. Treasury</a></li>'
