@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-05",
+  "day_type": "weekday",
+  "values": {
+    "DFF": "3.88%",
+    "DFF_CHG": "unch",
+    "DGS10": "5.31%",
+    "DGS10_CHG": "+3 bps",
+    "DGS5": "5.06%",
+    "DGS5_CHG": "unch",
+    "FED_MEETING": "Oct 28",
+    "FED_TOP": "No change 78.5%",
+    "RATES_ASOF": "Oct 5",
+    "REIT_DOWN": "UDR -1.2%",
+    "REIT_UP": "NNN +1.9%",
+    "SOFR": "3.88%",
+    "SOFR_CHG": "+1 bps",
+    "SPREAD_10Y": "-171 bps",
+    "VNQ": "$89.50",
+    "VNQ_CHG": "+0.4%",
+    "VNQ_YIELD": "3.60%"
+  }
+}
