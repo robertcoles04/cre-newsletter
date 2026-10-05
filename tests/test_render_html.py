@@ -121,9 +121,7 @@ GOLDEN_PATH = Path(__file__).parent / "fixtures" / "preview_golden.html"
 
 
 def test_defaults_match_golden():
-    golden = GOLDEN_PATH.read_bytes().decode("utf-8").replace("
-", "
-")
+    golden = GOLDEN_PATH.read_bytes().decode("utf-8").replace("\r\n", "\n")
     assert render_issue_html(MD, FACTSHEET, ["p1"], "chart.png") == golden
 
 
