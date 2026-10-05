@@ -1,7 +1,8 @@
+from pathlib import Path
 from datetime import date
 
 from src.checks import FOOTER
-from src.render_html import render_issue_html
+from src.render_html import render_issue_html, render_page
 
 VALUES = {
     "DGS10": "4.28%", "DGS10_CHG": "+4 bps", "RATES_ASOF": "Oct 2",
@@ -114,3 +115,26 @@ def test_stub_without_factsheet_skips_summary():
 
 def test_no_chart_no_img():
     assert "<img" not in render(chart=None)
+
+
+GOLDEN_PATH = Path(__file__).parent / "fixtures" / "preview_golden.html"
+
+
+def test_defaults_match_golden():
+    golden = GOLDEN_PATH.read_bytes().decode("utf-8")
+    assert render_issue_html(MD, FACTSHEET, ["p1"], "chart.png") == golden
+
+
+def test_site_hooks_placed():
+    out = render_issue_html(MD, FACTSHEET, [], None, head_extra='<meta name="x">',
+                            nav='<nav class="site-nav">N</nav>', extra_body="<section>R</section>",
+                            title="T")
+    assert '<title>T</title>\n<meta name="x">' in out
+    assert out.index('class="cover-rule"') < out.index('class="site-nav"') < out.index("<main>")
+    assert out.index("<section>R</section>") < out.index("</main>")
+
+
+def test_render_page_has_shell_no_notes():
+    out = render_page("About | CRE Blurb", "<p>Hi</p>", nav="<nav>N</nav>")
+    assert "<title>About | CRE Blurb</title>" in out and "<p>Hi</p>" in out
+    assert "Editor notes" not in out and "<h1>CRE Blurb</h1>" in out

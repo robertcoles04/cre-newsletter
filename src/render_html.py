@@ -57,6 +57,11 @@ FONTS = ("https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0
          "&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap")
 
 
+def _slot(s: str) -> str:
+    """Optional insertion on its own line; adds nothing when empty."""
+    return f"\n{s}" if s else ""
+
+
 def _esc(s: str) -> str:
     return html.escape(s, quote=True)
 
@@ -171,7 +176,9 @@ def _notes(problems: list[str]) -> str:
 
 
 def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
-                      chart_rel: str | None, run_date: date | None = None) -> str:
+                      chart_rel: str | None, run_date: date | None = None, *,
+                      head_extra: str = "", nav: str = "", extra_body: str = "",
+                      title: str | None = None) -> str:
     md = COMMENT.sub("", md)
     md = CHART_IMG.sub("", md)
     md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
@@ -198,10 +205,20 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     if not summary_done:  # weekend issues have no Numbers section: lead with the summary
         body.insert(1 if pre.strip() else 0, market_summary(values, chart_rel, ""))
 
-    title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
+    if title is None:
+        title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
     return PAGE.format(
-        title=_esc(title), fonts=FONTS, css=CSS, cover=_cover(run_date, day_type),
-        notes=_notes(problems), body="\n".join(body), footer=_esc(FOOTER))
+        title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
+        cover=_cover(run_date, day_type), nav=_slot(nav), notes=_notes(problems),
+        body="\n".join(body), extra_body=_slot(extra_body), footer=_esc(FOOTER))
+
+
+def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = "") -> str:
+    """A non-issue page (About, Archive...) in the same shell: no dateline, no notes."""
+    return PAGE.format(
+        title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
+        cover=_cover(None, None), nav=_slot(nav), notes="", body=body_html,
+        extra_body="", footer=_esc(FOOTER))
 
 
 CSS = """
@@ -304,7 +321,7 @@ PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title}</title>
+<title>{title}</title>{head_extra}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{fonts}">
@@ -312,10 +329,10 @@ PAGE = """<!doctype html>
 </head>
 <body>
 <div class="sheet">
-{cover}
+{cover}{nav}
 {notes}
 <main>
-{body}
+{body}{extra_body}
 </main>
 <footer>
 <p>{footer}</p>

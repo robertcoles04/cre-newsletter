@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRE Blurb | October 6, 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<style>
+:root {
+  --ground: #EEF0F2; --sheet: #FFFFFF; --navy: #0E2A47; --navy-tint: #B9C8DA;
+  --navy-wash: #F2F5F9; --navy-select: #CCD8E6; --gold: #B08D3C; --ink: #1B2430;
+  --muted: #56616F; --hairline: #D9DDE3; --up: #1F7A4D; --down: #B23A3A; --ghost: #A3ABB5;
+  --amber-bg: #FBF4E4; --amber-line: #E3C88A; --amber-ink: #6E4A0B;
+  --serif: "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --sans: "Public Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans);
+  font-size: 17px; line-height: 1.6; padding: 32px 16px 48px; }
+::selection { background: var(--navy-select); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
+.sheet { max-width: 680px; margin: 0 auto; background: var(--sheet);
+  box-shadow: 0 1px 2px rgba(14, 42, 71, .06), 0 8px 24px rgba(14, 42, 71, .07); }
+.cover { background: var(--navy); color: #FFFFFF; padding: 44px 40px 28px; }
+.cover-rule { height: 3px; background: var(--gold); }
+.cover h1 { font-family: var(--serif); font-weight: 400; font-size: 3rem; line-height: 1.05;
+  letter-spacing: -0.01em; margin: 0; }
+.dateline { margin: 14px 0 0; color: var(--navy-tint); font-size: 15px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.dateline .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--navy-tint); }
+main { padding: 8px 40px 8px; }
+main > *:first-child { margin-top: 32px; }
+p, li { max-width: 70ch; }
+p { margin: 0 0 1em; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; line-height: 1.2;
+  color: var(--navy); margin: 2.4rem 0 1rem; padding-bottom: .45rem;
+  border-bottom: 1px solid var(--gold); text-wrap: balance; }
+main h1 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; color: var(--navy);
+  margin: 2rem 0 1rem; }
+h3 { font-family: var(--sans); font-weight: 700; font-size: 1.06rem; line-height: 1.35;
+  margin: 1.8rem 0 .4rem; text-wrap: balance; }
+h2 + h3 { margin-top: 1.2rem; }
+a { color: var(--navy); text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 3px; text-decoration-color: rgba(14, 42, 71, .45); }
+a:hover { text-decoration-color: var(--navy); text-decoration-thickness: 2px; }
+ul, ol { padding-left: 1.2em; margin: 0 0 1em; }
+li { margin: 0 0 .45em; }
+li::marker { color: var(--gold); }
+strong { font-weight: 700; }
+.summary dl { margin: 0; }
+.group + .group { margin-top: 18px; }
+.group-name { font-weight: 600; font-size: 14px; color: var(--navy); margin: 0 0 2px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px;
+  align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+.row:first-child { border-top: 1px solid var(--hairline); }
+dt { color: var(--ink); }
+dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap; }
+.val { font-weight: 600; }
+.chg { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;
+  font-size: 15px; min-width: 5.6em; justify-content: flex-end; }
+.chg.up { color: var(--up); }
+.chg.down { color: var(--down); }
+.chg.unch { color: var(--muted); }
+.tri { flex: none; }
+.na { color: var(--ghost); cursor: help; }
+.caption { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+.takeaway { margin-top: 18px; }
+.chart { margin: 24px 0 0; }
+.chart img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline); }
+.chart figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+.term { background: var(--navy-wash); padding: 4px 24px 8px; margin: 2.4rem 0 0; }
+.term h2 { margin-top: 1.2rem; }
+.term p:first-of-type strong { font-family: var(--serif); font-weight: 700; color: var(--navy);
+  font-size: 1.12rem; }
+.notes { background: var(--amber-bg); border: 1px solid var(--amber-line); color: var(--amber-ink);
+  margin: 24px 40px 0; padding: 14px 20px; font-size: 15px; }
+.notes h2 { font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--amber-ink);
+  border: 0; margin: 0 0 6px; padding: 0; }
+.notes ul { margin: 0; }
+.notes li { margin: 0 0 2px; overflow-wrap: anywhere; }
+.notes li::marker { color: var(--amber-ink); }
+footer { margin: 40px 40px 0; padding: 18px 0 32px; border-top: 1px solid var(--hairline);
+  color: var(--muted); font-size: 13px; line-height: 1.5; }
+footer p { margin: 0 0 4px; }
+@media (max-width: 600px) {
+  body { padding: 0; font-size: 16px; }
+  .sheet { box-shadow: none; }
+  .cover { padding: 32px 16px 22px; }
+  .cover h1 { font-size: 2.4rem; }
+  main { padding: 0 16px; }
+  .notes { margin: 16px 16px 0; padding: 12px 14px; }
+  footer { margin: 32px 16px 0; }
+  .term { padding: 2px 16px 6px; }
+  h2 { font-size: 1.4rem; }
+  .row { gap: 10px; }
+  dd { white-space: normal; }
+  .chg { margin-left: 6px; min-width: 4.8em; }
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+<header class="cover"><h1>CRE Blurb</h1><p class=dateline><time datetime="2026-10-06">Tuesday, October 6, 2026</time><span class="sep" aria-hidden="true"></span><span>Weekday Edition</span></p></header><div class="cover-rule" role="presentation"></div>
+<aside class="notes" aria-labelledby="notes-h"><h2 id="notes-h">Editor notes, not for publishing</h2><ul><li>p1</li></ul></aside>
+<main>
+<section class="summary" aria-labelledby="summary-h">
+<h2 id="summary-h">Market Summary</h2>
+<div class="group"><p class="group-name">Rates</p><dl><div class="row"><dt>10-Year Treasury</dt><dd><span class="val">4.28%</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+4 bps</span></dd></div><div class="row"><dt>5-Year Treasury</dt><dd><span class="val">3.91%</span><span class="chg down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>-2 bps</span></dd></div><div class="row"><dt>SOFR</dt><dd><span class="val">3.87%</span><span class="chg unch">unch</span></dd></div><div class="row"><dt>Fed Funds</dt><dd><span class="na" title="Data unavailable today" aria-label="Data unavailable today">&mdash;</span></dd></div></dl></div>
+<div class="group"><p class="group-name">Federal Reserve</p><dl><div class="row"><dt>Next FOMC</dt><dd><span class="val">Oct 28</span></dd></div><div class="row"><dt>Market odds</dt><dd><span class="val">No change 82.5%</span></dd></div></dl></div>
+<div class="group"><p class="group-name">REITs</p><dl><div class="row"><dt>VNQ REIT ETF</dt><dd><span class="val">$89.50</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+0.4%</span></dd></div><div class="row"><dt>Top REIT</dt><dd><span class="val">NNN</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+1.9%</span></dd></div><div class="row"><dt>Bottom REIT</dt><dd><span class="val">MAA</span><span class="chg down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>-1.0%</span></dd></div><div class="row"><dt>VNQ yield</dt><dd><span class="val">3.95%</span></dd></div><div class="row"><dt>Spread to 10Y</dt><dd><span class="val">-33 bps</span></dd></div></dl></div>
+<p class="caption">Rates as of Oct 2 close. Sources: FRED, U.S. Treasury, Polymarket, Alpha Vantage.</p>
+<div class="takeaway"><p><strong>What it means:</strong> Floating-rate borrowers keep paying up for longer.</p></div>
+<figure class="chart"><img src="chart.png" alt="Line chart of the 10-Year Treasury yield over the last 45 days" width="800" height="400" loading="lazy"><figcaption>10-Year Treasury yield, last 45 days.</figcaption></figure>
+</section>
+<section><h2>Top Stories</h2>
+<h3>Big deal closes</h3>
+<p>Two sentences here. <a href="https://example.com/a">source</a></p></section>
+<section class="term" aria-labelledby="term-h"><h2 id="term-h">Term of the Day</h2><p><strong>Cap rate:</strong> Net operating income divided by price.</p></section>
+</main>
+<footer>
+<p>For informational purposes only. Not investment advice.</p>
+<p>CRE Blurb &middot; Drafted by pipeline, reviewed by Robert</p>
+</footer>
+</div>
+</body>
+</html>
