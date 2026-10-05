@@ -1,6 +1,6 @@
 # CRE Blurb
 
-A daily commercial real estate (CRE) briefing for Substack. Every morning a program gathers rates, debt news, deals, REIT moves and top stories, and Claude writes a draft. I review it and hit publish. The pipeline only ever saves a draft; it never publishes or emails subscribers.
+A daily commercial real estate (CRE) briefing for Substack. Every morning a program gathers rates, debt news, deals, REIT moves and top stories, and Claude writes a draft. I review it and hit publish. The 5 AM pipeline only ever saves a draft; it never publishes anything or emails subscribers. Publishing to the website is a separate step that I trigger myself (see Publishing below).
 
 The original idea is in [`BRIEF.md`](BRIEF.md); the design is in `docs/superpowers/specs/`.
 
@@ -44,3 +44,16 @@ After that it runs on its own every morning. The database lives on a `data` bran
 
 ## If the draft has a "Review before publishing" banner
 The automatic checks found something suspicious (for example a number the model typed itself, or a missing source link). Nothing is wrong with the pipeline; it is asking for a human look. Read the banner, check the flagged lines against the linked sources, fix or delete them, remove the banner, then publish by hand on Substack.
+
+## Publishing
+The website is at https://robertcoles04.github.io/cre-newsletter/ (GitHub Pages).
+
+1. Open the `Draft: CRE Blurb <date>` Issue and read the draft. To change it, edit `issues/<date>.md` on github.com (the pencil icon) and save.
+2. Add the `approved` label to the Issue.
+3. About 2 minutes later the issue is live. GitHub comments on the Issue with the link and closes it.
+
+What blocks a publish: any leftover `[CHECK]` or `{{` in the text, or the "Claude unavailable: fact sheet only" heading. The "Review before publishing" banner is removed automatically. If a check fails, GitHub comments on the Issue with what to fix and removes the `approved` label. Fix the file, then add `approved` again.
+
+To rebuild the site without approving anything (for example after a design change): on GitHub go to Actions, pick "Publish CRE Blurb", then Run workflow.
+
+One-time setup: the repo must be public (or on a plan that allows Pages), and in Settings -> Pages the source must be set to "GitHub Actions".

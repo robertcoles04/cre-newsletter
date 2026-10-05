@@ -3,7 +3,7 @@
 CRE Blurb: daily commercial real estate (CRE) newsletter for Substack. A scheduled Python pipeline collects news + data, Claude drafts the issue, Robert (the owner, the user) reviews and publishes. Full original spec: `BRIEF.md`. Design spec: `docs/superpowers/specs/2026-10-04-cre-newsletter-design.md`.
 
 ## Status
-Phase 1 built on branch phase1-mvp (2026-10-04); pending: merge, secrets, first scheduled run. Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery). Workflow: `.github/workflows/daily.yml` (cron 09:00 + 10:00 UTC, DB kept on the `data` branch).
+Phase 1 is merged (pending secrets + first scheduled run). Website publishing is built (GitHub Pages; approve a draft Issue by adding the `approved` label, workflow `.github/workflows/publish.yml`), pending going public + enabling Pages. Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery). Workflow: `.github/workflows/daily.yml` (cron 09:00 + 10:00 UTC, DB kept on the `data` branch).
 
 ## Commands
 - Setup: `python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt`; copy `.env.example` to `.env`.
@@ -20,7 +20,7 @@ Phase 1 built on branch phase1-mvp (2026-10-04); pending: merge, secrets, first 
 - No X via browser cookies; no LinkedIn scraping. Gmail ingestion deferred.
 
 ## Guardrails (non-negotiable)
-- Pipeline saves drafts only. Never publishes or sends to subscribers.
+- The 5 AM pipeline saves drafts only. Only the label-triggered publish workflow puts an approved issue on the website; nothing is emailed.
 - Rates, bps changes, REIT prices: inserted by code from APIs, never written by the model.
 - Deal numbers must appear in source text, else blank or `[CHECK]`.
 - Summarize in our own words, link every claim, max one short quote per source.

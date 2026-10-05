@@ -54,7 +54,9 @@ jobs:
       - name: Create draft label
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh label create draft --color BFD4F2 || true
+        run: |
+          gh label create draft --color BFD4F2 || true
+          gh label create approved --color 0E8A16 || true
 
       - name: Run pipeline
         env:

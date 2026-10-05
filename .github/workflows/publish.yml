@@ -1,0 +1,115 @@
+name: Publish CRE Blurb
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pages: write
+  id-token: write
+
+# One publish at a time; never cancel a deploy half-way.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Runs for a manual rebuild, or when `approved` is added to a draft Issue.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'approved' &&
+      startsWith(github.event.issue.title, 'Draft: CRE Blurb '))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Read the date from the Issue title
+        id: day
+        if: github.event_name == 'issues'
+        env:
+          TITLE: ${{ github.event.issue.title }}
+          ISSUE: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$TITLE" =~ ^Draft:\ CRE\ Blurb\ ([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
+            echo "day=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          else
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "Could not read a date from the title. Expected: Draft: CRE Blurb YYYY-MM-DD"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Check the issue is safe to publish
+        id: gate
+        if: github.event_name == 'issues'
+        env:
+          DAY: ${{ steps.day.outputs.day }}
+        run: |
+          set -o pipefail
+          python -m src.publish "$DAY" | tee gate.txt
+
+      - name: Report gate failure and remove the label
+        if: failure() && steps.gate.outcome == 'failure'
+        env:
+          DAY: ${{ steps.day.outputs.day }}
+          ISSUE: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Not published. Fix these in issues/$DAY.md, then add the \`approved\` label again:"
+            echo
+            cat gate.txt
+          } > comment.md
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+          gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label approved
+
+      - name: Save the published list
+        if: github.event_name == 'issues'
+        run: |
+          git config user.name "cre-blurb-bot"
+          git config user.email "cre-blurb-bot@users.noreply.github.com"
+          git add issues/published.json
+          if ! git diff --cached --quiet; then
+            git commit -m "publish: $(date -u +%F)"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Build the site
+        run: python -m src.site build --out site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Comment and close the Issue
+        if: github.event_name == 'issues'
+        env:
+          DAY: ${{ steps.day.outputs.day }}
+          ISSUE: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --body "Published: https://robertcoles04.github.io/cre-newsletter/issues/$DAY/"
+          gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY"
