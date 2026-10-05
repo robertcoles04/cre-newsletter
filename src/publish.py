@@ -12,7 +12,7 @@ from pathlib import Path
 
 BANNER = "> **Review before publishing:**"
 FALLBACK_PREFIX = "# Claude unavailable"
-BOM = "﻿"
+BOM = "\ufeff"
 
 
 def _snip(line: str) -> str:
@@ -21,7 +21,7 @@ def _snip(line: str) -> str:
 
 def check(md: str) -> list[str]:
     """Plain-English reasons the draft cannot be published; empty when clean."""
-    lines = md.replace("\r\n", "\n").split("\n")
+    lines = md.lstrip(BOM).replace("\r\n", "\n").split("\n")
     rules = [
         ("a [CHECK] marker is still in the text",
          lambda s: "[check]" in s.lower()),
@@ -45,11 +45,8 @@ def strip_banner(md: str) -> str:
     Only a banner that is the first non-blank line is stripped; a banner-like
     line anywhere else stays in the text so it gets checked normally.
     """
-    text = md.lstrip(BOM).replace("
-", "
-")
-    lines = text.split("
-")
+    text = md.lstrip(BOM).replace("\r\n", "\n")
+    lines = text.split("\n")
     i = 0
     while i < len(lines) and lines[i].strip() == "":
         i += 1
@@ -60,8 +57,7 @@ def strip_banner(md: str) -> str:
         i += 1
     if i < len(lines) and lines[i].strip() == "":
         i += 1
-    return "
-".join(lines[i:])
+    return "\n".join(lines[i:])
 
 
 def _published_path(root: Path) -> Path:
