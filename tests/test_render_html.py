@@ -1,5 +1,5 @@
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
 from src.checks import FOOTER
 from src.render_html import render_issue_html, render_page
@@ -121,7 +121,9 @@ GOLDEN_PATH = Path(__file__).parent / "fixtures" / "preview_golden.html"
 
 
 def test_defaults_match_golden():
-    golden = GOLDEN_PATH.read_bytes().decode("utf-8")
+    golden = GOLDEN_PATH.read_bytes().decode("utf-8").replace("
+", "
+")
     assert render_issue_html(MD, FACTSHEET, ["p1"], "chart.png") == golden
 
 
