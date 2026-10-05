@@ -13,18 +13,21 @@ HEADINGS = {"sun_belt": "Sun Belt", "west_coast": "West Coast", "international":
 
 
 def _words(*names: str) -> re.Pattern:
-    return re.compile(r"\b(?:" + "|".join(names) + r")\b", re.I)
+    # Lookarounds instead of \b so names ending in "." ("L.A.", "U.K.") still match.
+    return re.compile(r"(?<!\w)(?:" + "|".join(names) + r")(?!\w)", re.I)
 
 
 KEYWORDS = {
     "sun_belt": _words(
-        "Texas", "Florida", "Georgia", "Arizona", "North Carolina", "South Carolina",
+        # "Georgia" is left out (also a country); "Atlanta" covers it.
+        "Texas", "Florida", "Arizona", "North Carolina", "South Carolina",
         "Carolinas?", "Tennessee", "Dallas", "Fort Worth", "DFW", "Houston", "Austin",
         "San Antonio", "Miami", "Fort Lauderdale", "Tampa", "Orlando", "Jacksonville",
         "Atlanta", "Phoenix", "Scottsdale", "Nashville", "Charlotte", "Raleigh", "Durham"),
     "west_coast": _words(
         "Los Angeles", r"L\.A\.", "San Francisco", "Bay Area", "Silicon Valley", "San Jose",
-        "Oakland", "San Diego", "Orange County", "Seattle", "Bellevue", "Portland",
+        "Oakland", "San Diego", "Orange County", "Seattle", "Bellevue",
+        r"Portland, Ore\.?", "Portland, Oregon",
         "California", "Oregon"),
     "international": _words(
         "London", "U\\.K\\.", "UK", "Britain", "British", "Europe", "European", "Germany",

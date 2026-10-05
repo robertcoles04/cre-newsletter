@@ -29,7 +29,7 @@ RATE_SERIES = ("DGS10", "DGS5", "SOFR", "DFF")
 EXTRA_SERIES = (
     ("DGS2", "DGS2", "pct", None),
     ("T10Y2Y", "T10Y2Y", "spread", None),
-    ("HY_OAS", "BAMLH0A0HYM2", "pct", None),
+    ("HY_OAS", "BAMLH0A0HYM2", "pct", "day"),  # as-of kept only if != RATES_ASOF
     ("MORTGAGE30US", "MORTGAGE30US", "pct", "day"),
     ("BANK_CRE_LOANS", "CREACBW027SBOG", "billions", "day"),
     ("BANK_CRE_DQ", "DRCRELEXFACBS", "pct", "quarter"),
@@ -149,6 +149,8 @@ def _rate_values(conn: sqlite3.Connection, run_date: date) -> tuple[dict, float 
             dgs10 = last.value
             values["RATES_ASOF"] = _day(last.date)
     values.update(_extra_values(conn, run_date))
+    if values.get("HY_OAS_ASOF") in (values.get("RATES_ASOF"), NA):
+        values.pop("HY_OAS_ASOF", None)  # same day as the other rates: no label needed
     return values, dgs10
 
 
@@ -168,6 +170,20 @@ def fed_bucket(label: str) -> str | None:
     return None
 
 
+def _to_100(sums: dict[str, float]) -> dict[str, float]:
+    """Scale to percentages with one decimal that add up to exactly 100.0 (largest
+    remainder: leftover tenths go to the buckets that lost the most to rounding)."""
+    total = sum(sums.values())
+    if total <= 0:
+        return {}
+    tenths = {k: v / total * 1000 for k, v in sums.items()}
+    floors = {k: int(t) for k, t in tenths.items()}
+    short = 1000 - sum(floors.values())
+    for k in sorted(tenths, key=lambda k: floors[k] - tenths[k])[:short]:
+        floors[k] += 1
+    return {k: n / 10 for k, n in floors.items()}
+
+
 def _fed_values(odds: FedOdds | None, run_date: date) -> tuple[dict, list[str]]:
     """Fed values plus the names of any outcomes that fit none of cut/hold/hike."""
     # Meeting date comes from the FOMC calendar, independent of the odds feed.
@@ -178,15 +194,15 @@ def _fed_values(odds: FedOdds | None, run_date: date) -> tuple[dict, list[str]]:
     if odds is not None and odds.outcomes:
         label, prob = odds.outcomes[0]
         values["FED_TOP"] = f"{label} {prob * 100:.1f}%"
-        sums = {"cut": 0.0, "hold": 0.0, "hike": 0.0}
+        sums: dict[str, float] = {}
         for label, prob in odds.outcomes:
             bucket = fed_bucket(label)
             if bucket is None:
                 unmapped.append(label)
             else:
-                sums[bucket] += prob
-        for bucket, total in sums.items():
-            values[f"FED_{bucket.upper()}"] = f"{total * 100:.1f}%"
+                sums[bucket] = sums.get(bucket, 0.0) + prob
+        for bucket, pct in _to_100(sums).items():  # buckets with no market stay n/a
+            values[f"FED_{bucket.upper()}"] = f"{pct:.1f}%"
     return values, unmapped
 
 
@@ -206,7 +222,7 @@ def _reit_names(values: dict, info: dict) -> None:
 
 
 def _mentions(row, name: str | None, ticker: str) -> bool:
-    text = f"{row['title']} {row['summary'] or ''}"
+    text = row["title"]  # title only: a passing mention in a summary is not "the reason"
     if name and re.search(r"\b" + re.escape(name) + r"\b", text, re.I):
         return True
     # Tickers: case-sensitive, and not one or two letters ("O" would match everything).

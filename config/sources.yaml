@@ -53,7 +53,7 @@ google_news:
     region: sun_belt
     priority: 35
   - name: West Coast CRE
-    query: "\"commercial real estate\" (\"Los Angeles\" OR \"San Francisco\" OR \"Bay Area\" OR \"San Diego\" OR Seattle OR Portland)"
+    query: "\"commercial real estate\" (\"Los Angeles\" OR \"San Francisco\" OR \"Bay Area\" OR \"San Diego\" OR Seattle OR \"Portland, Oregon\")"
     region: west_coast
     priority: 35
   - name: The Real Deal LA

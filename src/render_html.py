@@ -12,6 +12,7 @@ from datetime import date
 import markdown
 
 from src.checks import FOOTER
+from src.cleanup import tidy
 
 NA = "n/a"
 
@@ -44,7 +45,7 @@ SUMMARY_GROUPS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
         ("REIT yield vs. 10-Year Treasury", "SPREAD_10Y", None),
     ]),
     ("Credit", [
-        ("High-yield spread", "HY_OAS", "HY_OAS_CHG"),
+        ("High-yield spread ({HY_OAS_ASOF})", "HY_OAS", "HY_OAS_CHG"),
         ("Bank CRE loans ({BANK_CRE_LOANS_ASOF})", "BANK_CRE_LOANS", "BANK_CRE_LOANS_CHG"),
         ("Bank CRE delinquency ({BANK_CRE_DQ_ASOF})", "BANK_CRE_DQ", "BANK_CRE_DQ_CHG"),
         ("CMBS delinquency ({CMBS_DQ_MONTH})", "CMBS_DQ", "CMBS_DQ_CHG"),
@@ -62,7 +63,9 @@ HINTS = {
     "DFF": "The Fed's overnight rate; moves all other rates",
     "MORTGAGE30US": "Average US home loan rate (Freddie Mac)",
     "FED_MEETING": "When the Fed next decides on rates",
-    "FED_CUT": "Polymarket traders' odds for that meeting",
+    "FED_CUT": "Chance rates go down (Polymarket traders' odds for that meeting)",
+    "FED_HOLD": "Chance rates stay the same",
+    "FED_HIKE": "Chance rates go up",
     "VNQ": "A fund holding about 150 REITs",
     "REIT_UP": "{REIT_UP_TYPE}",
     "REIT_DOWN": "{REIT_DOWN_TYPE}",
@@ -123,7 +126,19 @@ DASH_BETWEEN = re.compile(r"(?<=\S)[ \t]*" + DASHES + r"+[ \t]*(?=\S)")
 DASH_EDGE = re.compile(r"[ \t]*" + DASHES + r"+[ \t]*")
 
 
+LINKISH = re.compile(r"\]\([^)\n]*\)|<https?://[^>\s]+>|https?://[^\s)>\]]+")
+
+
 def no_dashes(text: str) -> str:
+    """Replace dashes in prose only: link targets "](...)", autolinks and bare URLs stay."""
+    out, last = [], 0
+    for m in LINKISH.finditer(text):
+        out += [_no_dashes_prose(text[last:m.start()]), m.group(0)]
+        last = m.end()
+    return "".join(out + [_no_dashes_prose(text[last:])])
+
+
+def _no_dashes_prose(text: str) -> str:
     """Owner style: no em/en dashes on the site. "a [em dash] b" and "a[em dash]b" become "a, b";
     a range like "2020[en dash]2021" becomes "2020-2021"; hyphens are kept."""
     text = DASH_DIGITS.sub("-", text)
@@ -266,7 +281,7 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     md = CHART_IMG.sub("", md)
     md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
     md = md.replace("{{", "").replace("}}", "")
-    md = no_dashes(md)
+    md = tidy(no_dashes(md))
 
     values = (factsheet or {}).get("values") or {}
     if run_date is None and factsheet and factsheet.get("date"):

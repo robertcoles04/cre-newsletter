@@ -6,6 +6,8 @@ check_issue returns a list of {kind, detail} problems; an empty list means clean
 import re
 from pathlib import Path
 
+from src.cleanup import empty_headings
+
 ROOT = Path(__file__).resolve().parent.parent
 FOOTER = "For informational purposes only. Not investment advice."
 REQUIRED_PLACEHOLDERS = ("DGS10", "DGS10_CHG", "SOFR", "FED_TOP", "VNQ")
@@ -225,6 +227,10 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
 
     problems += _check_numbers(sections, factsheet)
 
+    if (factsheet.get("day_type") == "sunday" and "WEEK_AHEAD" in factsheet.get("values", {})
+            and "WEEK_AHEAD" not in PLACEHOLDER.findall(md)):
+        problems.append({"kind": "missing_placeholder", "detail": "WEEK_AHEAD"})
+
     if factsheet.get("day_type") in REQUIRED_DAYS:
         present = set(PLACEHOLDER.findall(md))
         for name in REQUIRED_PLACEHOLDERS:
@@ -234,6 +240,9 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     lines = [ln.strip() for ln in md.splitlines() if ln.strip()]
     if not lines or lines[-1] != FOOTER:
         problems.append({"kind": "footer", "detail": "footer missing or not the last line"})
+
+    for name in empty_headings(md):
+        problems.append({"kind": "empty_heading", "detail": name})
 
     if "<!--" in md:
         problems.append({"kind": "leftover_comment", "detail": "template comment left in draft"})

@@ -119,7 +119,8 @@ def test_cmbs_values_from_stored_items_newest_first_and_stale_ignored():
     save_items(conn, [
         _trepp_item("CMBS Delinquency Rate Fell 5 bps in August 2026", 34),
         _trepp_item("CMBS Delinquency Rate Rose 17 Basis Points in September 2026", 4,
-                    summary="The rate rose 17 basis points to 8.02% in September 2026."),
+                    summary="The Trepp CMBS delinquency rate rose 17 basis points to 8.02% in "
+                            "September 2026."),
     ])
     v = trepp.cmbs_values(conn, TUE)
     assert v == {"CMBS_DQ_CHG": "+17 bps", "CMBS_DQ_MONTH": "Sept 2026",

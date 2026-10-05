@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from src.config import ET
 
 MAX_AGE_DAYS = 45
-TITLE = re.compile(r"CMBS Delinquency Rate", re.I)
+TITLE = re.compile(r"^\s*CMBS Delinquency Rate\b", re.I)  # no sector prefix (Office...)
 UP = re.compile(r"\b(?:rose|rises|climb(?:s|ed)|jump(?:s|ed)|increas(?:es|ed)|"
                 r"spik(?:es|ed)|ris(?:es|en)|ticks? up|ticked up|moves? up|moved up|"
                 r"edg(?:es|ed) up|surg(?:es|ed)|up)\b", re.I)
@@ -29,7 +29,15 @@ MONTHS = ("January", "February", "March", "April", "May", "June", "July", "Augus
 SHORT = {"January": "Jan", "February": "Feb", "August": "Aug", "September": "Sept",
          "October": "Oct", "November": "Nov", "December": "Dec"}
 MONTH = re.compile(r"\b(" + "|".join(m[:3] for m in MONTHS) + r")[a-z]*\.?\s+(\d{4})\b", re.I)
-RATE = re.compile(r"\brate\b[^.%]*?\bto\s+(\d{1,2}\.\d{1,2})%", re.I)
+# Overall rate only: "the overall delinquency rate ... to 7.29%" or Trepp's lead sentence
+# "The Trepp CMBS delinquency rate rose 17 basis points to 8.02%". Sector rates (office,
+# lodging...) never match.
+RATE = re.compile(
+    r"(?:\boverall\b[^.%]{0,60}?\brate\b"
+    r"|\bThe Trepp (?:commercial mortgage-backed securities \(CMBS\)|CMBS) delinquency rate\b)"
+    r"[^.%]{0,100}?\bto\s+(\d{1,2}\.\d{1,2})%", re.I)
+DIRECTION = re.compile(UP.pattern + "|" + DOWN.pattern + "|" + FLAT.pattern, re.I)
+BPS_AFTER = re.compile(r"\s+(?:by\s+)?(\d+)\s*(?:bps?\b|basis[- ]points?\b)", re.I)
 
 
 def _month(text: str) -> str | None:
@@ -43,23 +51,25 @@ def _month(text: str) -> str | None:
 def parse_title(title: str) -> dict | None:
     """{"chg": "+17 bps", "month": "Sept 2026"} or None if the title is not usable.
 
-    Unchanged/flat -> "0 bps". A move with no bps figure is not usable (no number to show).
+    The title must start with "CMBS Delinquency Rate" (no sector prefix). The first
+    direction word decides: flat -> "0 bps"; up/down needs a bps figure right after it
+    ("Rose 17 bps", "Fell by 9 basis points"), else None, so a later clause such as
+    "...; Office Rate Falls 50 bps" is never read as the overall move.
     """
-    if not TITLE.search(title):
+    head = TITLE.match(title)
+    if not head:
         return None
     month = _month(title)
-    if FLAT.search(title):
+    rest = title[head.end():]
+    word = DIRECTION.search(rest)
+    if not word:
+        return None
+    if FLAT.fullmatch(word.group(0)):
         return {"chg": "0 bps", "month": month}
-    bps = BPS.search(title)
+    bps = BPS_AFTER.match(rest, word.end())
     if not bps:
         return None
-    n = int(bps.group(1))
-    after = title[TITLE.search(title).end():]  # direction word follows the subject
-    up, down = UP.search(after), DOWN.search(after)
-    if not up and not down:
-        return None
-    if down and (not up or down.start() < up.start()):  # first direction word wins
-        n = -n
+    n = int(bps.group(1)) * (-1 if DOWN.fullmatch(word.group(0)) else 1)
     return {"chg": "0 bps" if n == 0 else f"{n:+d} bps", "month": month}
 
 
@@ -76,7 +86,8 @@ def cmbs_values(conn: sqlite3.Connection, run_date: date) -> dict | None:
     start = end - timedelta(days=MAX_AGE_DAYS)
     rows = conn.execute(
         "SELECT title, url, summary, published_at FROM items"
-        " WHERE title LIKE '%delinquency rate%' AND published_at >= ? AND published_at <= ?"
+        " WHERE source = 'Trepp' AND title LIKE '%delinquency rate%'"
+        " AND published_at >= ? AND published_at <= ?"
         " ORDER BY published_at DESC",
         (start.isoformat(timespec="seconds"), end.isoformat(timespec="seconds"))).fetchall()
     for row in rows:

@@ -20,6 +20,7 @@ from src.checks import FOOTER, check_issue, load_banned
 from src.collect import calendar, google_news, polymarket, reits, rss
 from src.config import ET, env, http_client, load_sources
 from src.factsheet import build_factsheet, day_type
+from src.cleanup import tidy
 from src.fill import fill
 from src.markets import HEADINGS, REGIONS
 from src.rates import collect_rates
@@ -222,7 +223,33 @@ def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
             problems.append(f"check/{p['kind']}: {p['detail']}")
     except Exception as exc:
         problems.append(f"check: {_err(exc)}")
+    md = ensure_week_ahead(md, factsheet)  # after the check, which flags a missing list
     return _ensure_footer(md)  # after the check, so a missing footer is still flagged
+
+
+WEEK_AHEAD_LINE = "{{WEEK_AHEAD}}"
+
+
+def ensure_week_ahead(md: str, factsheet: dict) -> str:
+    """Sunday safety net: if the draft lost the code-filled {{WEEK_AHEAD}} list, put it back
+    at the end of "## Week Ahead", or add that section before Term of the Day / the end."""
+    if (factsheet.get("day_type") != "sunday" or "WEEK_AHEAD" not in factsheet.get("values", {})
+            or WEEK_AHEAD_LINE in md):
+        return md
+    lines = md.rstrip("\n").split("\n")
+    heads = [i for i, ln in enumerate(lines) if ln.startswith("## ")]
+    week = next((i for i in heads if lines[i][3:].strip() == "Week Ahead"), None)
+    if week is not None:
+        nxt = next((i for i in heads if i > week), len(lines))
+        while nxt > week + 1 and not lines[nxt - 1].strip():
+            nxt -= 1
+        lines[nxt:nxt] = ["", WEEK_AHEAD_LINE]
+    else:
+        at = next((i for i in heads if lines[i][3:].strip() == "Term of the Day"), None)
+        if at is None:
+            at = next((i for i in range(len(lines)) if lines[i].strip() == FOOTER), len(lines))
+        lines[at:at] = ["## Week Ahead", "", WEEK_AHEAD_LINE, ""]
+    return "\n".join(lines) + "\n"
 
 
 def _scrub(text: str) -> tuple[str, str | None]:
@@ -308,6 +335,7 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
         md, snippet = _scrub(md)
         if snippet:
             problems.append(f"fill: stray braces {snippet}")
+        md = tidy(md)  # after fill + scrub: drop empty subheads and "Why n/a moved" lines
 
         with tempfile.TemporaryDirectory() as tmp:
             chart = _make_chart(conn, run_date, Path(tmp), problems)
