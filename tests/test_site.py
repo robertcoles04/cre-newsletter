@@ -129,10 +129,9 @@ def test_archive_and_about(built):
     assert "<h2>October 2026</h2>" in archive
     assert 'href="../issues/2026-10-06/"' in archive
     about = _read(out / "about/index.html")
-    for s in ["fred.stlouisfed.org", "home.treasury.gov", "polymarket.com",
-              "alphavantage.co", "news outlets linked in each story",
-              "For informational purposes only. Not investment advice."]:
-        assert s in about
+    assert "students and young professionals" in about
+    assert "For informational purposes only. Not investment advice." in about
+    assert "Data sources" not in about
 
 
 def test_build_twice_idempotent(built):
