@@ -98,7 +98,8 @@ def test_numbers_section_replaced_and_prose_kept():
 def test_footer_present_no_braces_no_comments():
     html = render()
     assert FOOTER in html
-    assert "Drafted by pipeline, reviewed by Robert" in html
+    assert ("Written with AI from the linked sources. Every number is pulled automatically "
+            "from public data. Edited by Robert.") in html
     assert "{{" not in html and "<!--" not in html and "template note" not in html
 
 

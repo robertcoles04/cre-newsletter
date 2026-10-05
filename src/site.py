@@ -7,18 +7,22 @@ import json
 import re
 import shutil
 import sys
-from datetime import date
+from datetime import date, datetime, time, timezone
+from email.utils import format_datetime
 from html import escape
 from pathlib import Path
+from xml.sax.saxutils import escape as xml_escape
 
-from src.checks import FOOTER
 from src.publish import _valid_date, check, load_published, strip_banner
 from src.render_html import render_issue_html, render_page
 
 SITE_URL = "https://robertcoles04.github.io/cre-newsletter/"
 SITE_NAME = "CRE Blurb"
 RECENT = 10
+RECENT_MIN = 3  # the home page's "Recent issues" list shows once there are this many
+FEED_ITEMS = 20
 DESC_MAX = 155
+REPO_ISSUES = "https://github.com/robertcoles04/cre-newsletter/issues"
 
 SITE_CSS = """<style>
 .site-nav { display: flex; flex-wrap: wrap; gap: 4px 24px; padding: 12px 40px;
@@ -27,12 +31,21 @@ SITE_CSS = """<style>
 @media (max-width: 600px) { .site-nav { padding: 12px 16px; } }
 </style>"""
 
+# The disclaimer is not repeated here: every page's footer already carries it once.
 ABOUT = (
     "<h1>About CRE Blurb</h1>"
-    "<p>CRE Blurb is a free daily commercial real estate briefing tailored towards "
+    "<p>CRE Blurb is a free daily commercial real estate briefing built for "
     "students and young professionals in the industry, providing fresh market data "
     "and news about the daily moves in commercial real estate.</p>"
-    f"<p>{escape(FOOTER)}</p>"
+    "<h2>How each issue is made</h2>"
+    "<p>Each morning, a script gathers the latest commercial real estate news and public "
+    "market data. Claude, an AI model, drafts the issue in plain English from those linked "
+    "sources. Every number (rates, prices, odds) is filled in automatically from public "
+    "data and is never typed by the AI. Robert reviews every issue before anything is "
+    "published.</p>"
+    "<h2>Corrections</h2>"
+    f'<p>Spot an error? Open an issue at <a href="{REPO_ISSUES}">'
+    "github.com/robertcoles04/cre-newsletter/issues</a> and we'll fix it.</p>"
 )
 
 _SECTION = re.compile(r"^## +(.+?)\s*$", re.M)
@@ -49,14 +62,20 @@ def _label(d: date) -> str:
 
 
 def describe(md: str, day: date) -> str:
-    """One-sentence summary for meta description / og:description."""
+    """One-sentence summary for meta description / og:description. Uses the first
+    bullet of The Brief when there is one, else the first prose line after The Numbers."""
     md = md.replace("\r\n", "\n")
     parts = _SECTION.split(md)  # [pre, heading, body, heading, body, ...]
     for heading, body in zip(parts[1::2], parts[2::2]):
         if heading == "The Numbers":
             continue
+        brief = heading == "The Brief"
         for line in body.split("\n"):
             s = line.strip()
+            if brief and s[:2] in ("- ", "* "):
+                s = s[2:].strip()
+            elif brief:
+                continue
             if (not s or s[0] in "#-*>!" or s[0].isdigit() or s.startswith("<!--")):
                 continue
             s = _LINK.sub(r"\1", s)
@@ -75,12 +94,16 @@ def describe(md: str, day: date) -> str:
 def _nav(p: str) -> str:
     p = _a(p)
     return (f'<nav class="site-nav" aria-label="Site"><a href="{p}">Home</a>'
-            f'<a href="{p}archive/">Archive</a><a href="{p}about/">About</a></nav>')
+            f'<a href="{p}archive/">Archive</a><a href="{p}about/">About</a>'
+            f'<a href="{p}feed.xml">RSS</a></nav>')
 
 
-def _head(title: str, desc: str, url: str, og_type: str, image: str | None = None) -> str:
+def _head(title: str, desc: str, url: str, og_type: str, image: str | None = None,
+          site_url: str = SITE_URL) -> str:
     tags = [f'<meta name="description" content="{_a(desc)}">',
             f'<link rel="canonical" href="{_a(url)}">',
+            f'<link rel="alternate" type="application/rss+xml" title="{_a(SITE_NAME)}" '
+            f'href="{_a(site_url)}feed.xml">',
             f'<meta property="og:title" content="{_a(title)}">',
             f'<meta property="og:description" content="{_a(desc)}">',
             f'<meta property="og:url" content="{_a(url)}">',
@@ -128,7 +151,7 @@ def _issue_page(issue: dict, prefix: str, chart_rel: str | None, site_url: str,
     url = f"{site_url}issues/{d}/"
     title = f"{SITE_NAME} | {day:%B} {day.day}, {day.year}"
     image = f"{url}chart.png" if chart_rel else None
-    head = _head(title, describe(issue["md"], day), url, "article", image)
+    head = _head(title, describe(issue["md"], day), url, "article", image, site_url)
     return render_issue_html(issue["md"], issue["factsheet"], [], chart_rel,
                              head_extra=head, nav=_nav(prefix), extra_body=extra_body,
                              title=title)
@@ -150,8 +173,30 @@ def _archive(issues: list[dict], site_url: str) -> str:
         body = "<h1>Archive</h1>" + "".join(
             f"<h2>{m}</h2>{_link_list(items, '../')}" for m, items in months.items())
     head = _head(f"{SITE_NAME} | Archive", "Every published issue of CRE Blurb.",
-                 f"{site_url}archive/", "website")
+                 f"{site_url}archive/", "website", site_url=site_url)
     return render_page(f"{SITE_NAME} | Archive", body, head_extra=head, nav=_nav("../"))
+
+
+def feed_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
+    """RSS 2.0 feed of the newest FEED_ITEMS published issues (issues: newest first)."""
+    items = []
+    for i in issues[:FEED_ITEMS]:
+        link = f"{site_url}issues/{i['date']}/"
+        pub = format_datetime(datetime.combine(i["day"], time(10, 0), tzinfo=timezone.utc))
+        title = f"{SITE_NAME}, {_label(i['day'])}"
+        items.append(
+            "<item>"
+            f"<title>{xml_escape(title)}</title>"
+            f"<link>{xml_escape(link)}</link>"
+            f'<guid isPermaLink="true">{xml_escape(link)}</guid>'
+            f"<description>{xml_escape(describe(i['md'], i['day']))}</description>"
+            f"<pubDate>{pub}</pubDate>"
+            "</item>")
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel>'
+            f"<title>{xml_escape(SITE_NAME)}</title><link>{xml_escape(site_url)}</link>"
+            "<description>A free daily commercial real estate briefing for students and "
+            "young professionals.</description><language>en-us</language>"
+            + "".join(items) + "</channel></rss>\n")
 
 
 def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
@@ -177,28 +222,32 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
     if issues:
         newest = issues[0]
         recent = (f"<section><h2>Recent issues</h2>"
-                  f"{_link_list(issues[:RECENT], '')}</section>")
+                  f"{_link_list(issues[:RECENT], '')}</section>"
+                  if len(issues) >= RECENT_MIN else "")
         rel = f"issues/{newest['date']}/chart.png" if charts.get(newest["date"]) else None
         home = _issue_page(newest, "", rel, site_url, extra_body=recent)
     else:
         print("no dates published yet: building the placeholder home page")
         desc = "A free daily commercial real estate briefing."
         home = render_page(SITE_NAME, "<p>The first issue of CRE Blurb is coming soon.</p>",
-                           head_extra=_head(SITE_NAME, desc, site_url, "website"),
+                           head_extra=_head(SITE_NAME, desc, site_url, "website",
+                                            site_url=site_url),
                            nav=_nav(""))
     _write(out / "index.html", home)
+    _write(out / "feed.xml", feed_xml(issues, site_url))
     _write(out / "archive" / "index.html", _archive(issues, site_url))
     _write(out / "about" / "index.html", render_page(
         f"{SITE_NAME} | About", ABOUT, nav=_nav("../"),
-        head_extra=_head(f"{SITE_NAME} | About", "What CRE Blurb is and where its data comes from.",
-                         f"{site_url}about/", "website")))
+        head_extra=_head(f"{SITE_NAME} | About", "What CRE Blurb is and how each issue is made.",
+                         f"{site_url}about/", "website", site_url=site_url)))
     _write(out / "404.html", render_page(
         f"{SITE_NAME} | Page not found",
-        f'<h1>Page not found</h1><p><a href="{_a(site_url)}">Home</a> &middot; '
+        f"<h1>Page not found</h1><p>Page not found. Today's issue is on the home page.</p>"
+        f'<p><a href="{_a(site_url)}">Home</a> &middot; '
         f'<a href="{_a(site_url)}archive/">Archive</a></p>',
         nav=_nav(site_url),
         head_extra=_head(f"{SITE_NAME} | Page not found", "Page not found.",
-                         f"{site_url}404.html", "website")))
+                         f"{site_url}404.html", "website", site_url=site_url)))
     return [i["date"] for i in issues]
 
 

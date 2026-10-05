@@ -1,8 +1,12 @@
 """Week Ahead calendar: scheduled events for the 7 days after the run date.
 
-Source: the Federal Reserve's public calendar JSON (keyless). Kept: FOMC meetings and
-minutes, the Beige Book, and speeches/testimony by Board members (Chair, Vice Chair,
-Governors). Routine statistical releases (H.8, G.19...) are skipped.
+Sources:
+- The Federal Reserve's public calendar JSON (keyless). Kept: FOMC meetings and
+  minutes, the Beige Book, and speeches/testimony by Board members (Chair, Vice Chair,
+  Governors). Routine statistical releases (H.8, G.19...) are skipped.
+- FRED's release calendar (`fred/releases/dates`, free with the existing FRED key), kept
+  to a short allowlist of major releases (CPI, jobs, GDP...). FRED gives dates, not
+  times, so those rows have no time.
 
 Checked 2026-10-05 and not used (see CLAUDE.md Decisions):
 - BLS release calendar (bls.ics) answers 403 "Access Denied" to a descriptive
@@ -23,6 +27,25 @@ NO_EVENTS = "No major scheduled releases this week."
 FOMC_KEEP = ("FOMC Meeting", "FOMC Minutes")
 BOARD_TITLE = re.compile(r"\b(?:Chair|Governor)\b")
 TIME = re.compile(r"^(\d{1,2}):(\d{2})\s*([ap])\.?m\.?$", re.I)
+
+FRED_RELEASES_URL = "https://api.stlouisfed.org/fred/releases/dates"
+FRED_RELEASE_PAGE = "https://fred.stlouisfed.org/release?rid={rid}"
+# Major releases worth a Week Ahead line: FRED release name (lowercase) -> display title.
+MAJOR_RELEASES = {
+    "consumer price index": "Consumer Price Index (CPI)",
+    "employment situation": "Jobs report (Employment Situation)",
+    "gross domestic product": "GDP",
+    "personal income and outlays": "PCE inflation (Personal Income and Outlays)",
+    "advance monthly sales for retail and food services": "Retail sales",
+    "retail sales": "Retail sales",
+    "producer price index": "Producer Price Index (PPI)",
+    "job openings and labor turnover survey": "Job openings (JOLTS)",
+    "new residential construction": "Housing starts (New Residential Construction)",
+    "construction spending": "Construction spending",
+    "new residential sales": "New home sales",
+    "existing home sales": "Existing home sales",
+    "employment cost index": "Employment Cost Index",
+}
 
 
 def _time(raw: str | None) -> str | None:
@@ -95,6 +118,42 @@ def week_window(events: list[dict], run_date: date) -> list[dict]:
             seen.add(key)
             out.append(ev)
     return out
+
+
+def parse_fred_releases(data: dict) -> list[dict]:
+    """Major releases from a FRED releases/dates JSON reply, one event per release and day."""
+    events, seen = [], set()
+    for row in (data or {}).get("release_dates", []):
+        if not isinstance(row, dict):
+            continue
+        title = MAJOR_RELEASES.get(" ".join(str(row.get("release_name", "")).split()).lower())
+        day = str(row.get("date", ""))
+        try:
+            date.fromisoformat(day)
+        except ValueError:
+            continue
+        if title is None or (day, title) in seen:
+            continue
+        seen.add((day, title))
+        rid = row.get("release_id")
+        url = (FRED_RELEASE_PAGE.format(rid=rid) if isinstance(rid, int)
+               else "https://fred.stlouisfed.org/releases/calendar")
+        events.append({"date": day, "time": None, "title": title, "source": "FRED",
+                       "url": url})
+    return events
+
+
+def fetch_fred_releases(client, api_key: str, run_date: date) -> list[dict]:
+    """Major data releases scheduled in the 7 days after run_date. Raises on HTTP errors."""
+    resp = client.get(FRED_RELEASES_URL, params={
+        "api_key": api_key, "file_type": "json",
+        "realtime_start": (run_date + timedelta(days=1)).isoformat(),
+        "realtime_end": (run_date + timedelta(days=WINDOW_DAYS)).isoformat(),
+        "include_release_dates_with_no_data": "true",
+        "sort_order": "asc", "limit": 1000,
+    })
+    resp.raise_for_status()
+    return week_window(parse_fred_releases(resp.json()), run_date)
 
 
 def fetch_week(client, run_date: date) -> list[dict]:

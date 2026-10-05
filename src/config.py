@@ -82,3 +82,26 @@ def http_client() -> httpx.Client:
         transport=transport,
         follow_redirects=True
     )
+
+
+def display_source(name: str, names: dict | None = None) -> str:
+    """Display name for a story source: "Globest" -> "GlobeSt.com", "citybiz" -> "Citybiz"
+    (config/sources.yaml `source_names`, matched case-insensitively). Unlisted names are
+    returned unchanged."""
+    if names is None:
+        names = _source_names()
+    return names.get((name or "").strip().lower(), name)
+
+
+_SOURCE_NAMES: dict | None = None
+
+
+def _source_names() -> dict:
+    global _SOURCE_NAMES
+    if _SOURCE_NAMES is None:
+        try:
+            raw = load_sources().get("source_names") or {}
+        except OSError:
+            raw = {}
+        _SOURCE_NAMES = {str(k).lower(): str(v) for k, v in raw.items()}
+    return _SOURCE_NAMES

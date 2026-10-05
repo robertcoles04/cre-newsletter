@@ -43,14 +43,14 @@ def test_friday_has_3_top_and_weekday_5():
         add_item(conn, n, importance=n, anchor=datetime(2026, 10, 9, 5, tzinfo=ET))
     fri = fs(conn, date(2026, 10, 9))
     assert len(fri["top"]) == 3
-    assert len(fri["quick_hits"]) == 8  # R14: Friday gets Quick Hits
+    assert len(fri["quick_hits"]) == 6  # R14: Friday gets Quick Hits (capped at 6)
     assert fri["quick_hits"][0]["title"] == "Title 8"
     conn2 = connect(":memory:")
     for n in range(14):
         add_item(conn2, n, importance=n)
     wk = fs(conn2, date(2026, 10, 6))
     assert len(wk["top"]) == 5
-    assert len(wk["quick_hits"]) == 8
+    assert len(wk["quick_hits"]) == 6
     assert wk["top"][0]["title"] == "Title 13"
     assert set(wk["top"][0]) == {"id", "title", "source", "url", "summary", "also_covered",
                                   "section"}
@@ -173,7 +173,7 @@ def test_sunday_week_ahead_and_reit_week():
     sun = fs(conn, date(2026, 10, 11), odds)
     assert sun["week_ahead"] == {"fomc_dates": [], "FED_TOP": "FED_TOP", "events": [],
                                  "list": "WEEK_AHEAD"}
-    assert sun["values"]["WEEK_AHEAD"] == "Fed calendar unavailable today."
+    assert sun["values"]["WEEK_AHEAD"] == "Calendar unavailable today."
     assert sun["values"]["FED_TOP"] == "No change 90.0%"
     v = sun["values"]
     assert sun["reit_week"] == {"best": ["REITW_BEST_1", "REITW_BEST_2", "REITW_BEST_3"],

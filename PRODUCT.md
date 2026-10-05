@@ -24,7 +24,7 @@ Rates-and-debt first, with a daily "learn the market" term, and every number pul
 
 ## Capabilities and Constraints
 
-- Sections: The Numbers (rates, Fed odds, REIT strip, chart), Debt Markets (+ Distress Watch), Top Stories, Quick Hits, AI in Real Estate, Term of the Day; Friday Deals of the Week; Saturday Week in Review / AI Weekly; Sunday REIT Weekly / Week Ahead.
+- Sections: The Brief (3 linked bullets, every day), The Numbers (rates, Fed odds, REIT strip, chart), Debt Markets (+ Distress Watch), Top Stories (+ Coffee chat line), Market Watch, Quick Hits (up to 6), AI in Real Estate (or AI Infrastructure), Term of the Day, then the Data Room; Friday Deals of the Week; Saturday Week in Review / Market Spotlight / AI Weekly; Sunday REIT Weekly / Week Ahead / Careers Corner.
 - Numbers may be "n/a" when a source fails; the design must make that look intentional, not broken.
 - Footer on every issue: "For informational purposes only. Not investment advice."
 

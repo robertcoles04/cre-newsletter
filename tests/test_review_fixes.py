@@ -11,7 +11,7 @@ from src.config import ET
 from src.factsheet import build_factsheet
 from src.markets import region_of
 from src.models import FedOdds, Item, RatePoint, ReitQuote
-from src.render_html import hint_for, market_summary, no_dashes, render_issue_html
+from src.render_html import data_room, hint_for, market_summary, no_dashes, render_issue_html
 from src.store import connect, save_items, save_rates
 
 TUE = date(2026, 10, 6)
@@ -255,11 +255,12 @@ def test_hy_spread_asof_only_when_different_from_rates():
                       RatePoint("BAMLH0A0HYM2", date(2026, 10, 1), 3.1)])
     v = build_factsheet(conn, TUE, None, [], [], None)["values"]
     assert v["HY_OAS_ASOF"] == "Oct 1"
-    assert "High-yield spread (Oct 1)" in market_summary(v, None, "")
+    assert "High-yield spread (Oct 1)" in data_room(v, TUE)
     save_rates(conn, [RatePoint("BAMLH0A0HYM2", date(2026, 10, 2), 3.0)])
     v = build_factsheet(conn, TUE, None, [], [], None)["values"]
     assert "HY_OAS_ASOF" not in v
-    assert "High-yield spread<" in market_summary(v, None, "")
+    assert "High-yield spread " in data_room(v, TUE)  # followed by the Updated tag
+    assert "High-yield spread (" not in data_room(v, TUE)
 
 
 def test_cleanup_footer_matches_checks():

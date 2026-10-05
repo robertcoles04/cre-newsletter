@@ -13,12 +13,12 @@ The original idea is in [`BRIEF.md`](BRIEF.md); the design is in `docs/superpowe
 
 ## What the Market Summary shows
 The table at the top of each issue is built by code, never by Claude. Each row has a short gray line explaining it.
-- **Rates:** 10-, 5- and 2-Year Treasuries, the 10Y-2Y curve, SOFR, Fed funds, and the 30-year mortgage rate (weekly, with its as-of date in the label).
+- **Rates:** 10-, 5- and 2-Year Treasuries, the 10Y-2Y curve, SOFR, the Fed funds target range, and the 30-year mortgage rate. A row whose data is from a different day than the 10-Year shows "(as of ...)" in its gray line.
 - **Federal Reserve:** the next FOMC meeting, plus Polymarket odds of a cut, a hold and a hike.
 - **REITs:** VNQ (the real estate stock fund), the day's biggest gain and drop by company name, VNQ's dividend yield and its spread to the 10-Year. Under the table, a "Why it moved" line cites a news story about the company, or says there was no company-specific news.
-- **Credit:** the high-yield bond spread, total bank CRE loans (weekly), the bank CRE delinquency rate (quarterly, labeled e.g. "Q2 2026") and Trepp's monthly CMBS delinquency rate, read from Trepp's headline.
+- **Data Room** (after Term of the Day, not in the table): the high-yield bond spread, total bank CRE loans (weekly), the bank CRE delinquency rate (quarterly, labeled e.g. "Q2 2026") and Trepp's monthly CMBS delinquency rate, read from Trepp's headline. Rows updated in the last 7 days are tagged "Updated".
 
-Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Alpha Vantage, Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
+Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Alpha Vantage, Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar plus FRED's release calendar (major data releases only). The site also publishes an RSS feed at `feed.xml`. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
 
 ## Local setup
 ```bash

@@ -7,7 +7,7 @@ built here from factsheet["values"], never from model text; the Markdown's own
 
 import html
 import re
-from datetime import date
+from datetime import date, timedelta
 
 import markdown
 
@@ -29,7 +29,7 @@ SUMMARY_GROUPS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
         ("10Y-2Y curve", "T10Y2Y", "T10Y2Y_CHG"),
         ("SOFR", "SOFR", "SOFR_CHG"),
         ("Fed Funds", "DFF", "DFF_CHG"),
-        ("30-Year Mortgage ({MORTGAGE30US_ASOF})", "MORTGAGE30US", "MORTGAGE30US_CHG"),
+        ("30-Year Mortgage", "MORTGAGE30US", "MORTGAGE30US_CHG"),
     ]),
     ("Federal Reserve", [
         ("FOMC: next Fed meeting", "FED_MEETING", None),
@@ -52,6 +52,14 @@ SUMMARY_GROUPS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
     ]),
 ]
 SUMMARY_ROWS = [row for _, rows in SUMMARY_GROUPS for row in rows]
+# Groups shown in a separate "Data Room" block after Term of the Day instead of the
+# daily Market Summary: slower-moving data that rarely changes from one day to the next.
+DATA_ROOM_GROUPS = {"Credit"}
+DATA_ROOM_INTRO = "Slower-moving credit data. Rows marked Updated changed since the last issue."
+UPDATED_DAYS = 7  # a Data Room row is "Updated" when its KEY_DATE is this recent
+# Rates rows whose own as-of (KEY_ASOF, set only when it differs from RATES_ASOF) is added
+# to the hint, e.g. "Base rate for floating-rate property loans (as of Oct 2)".
+ROW_ASOF = {key for _, key, _ in dict(SUMMARY_GROUPS)["Rates"]}
 # Short muted line under a row label, keyed by the row's value key, so every row explains
 # itself. "{KEY}" pulls a value (the best/worst REIT's property type); no hint if missing.
 HINTS = {
@@ -60,17 +68,18 @@ HINTS = {
     "DGS2": "Tracks where the Fed is expected to set rates",
     "T10Y2Y": "Negative = short-term rates above long-term, often a slowdown signal",
     "SOFR": "Base rate for floating-rate property loans",
-    "DFF": "The Fed's overnight rate; moves all other rates",
-    "MORTGAGE30US": "Average US home loan rate (Freddie Mac)",
+    "DFF": "The Fed's target for overnight bank lending; other rates key off it",
+    "MORTGAGE30US": ("30-year home mortgage rate (Freddie Mac); a housing-demand gauge, "
+                     "not a CRE loan rate"),
     "FED_MEETING": "When the Fed next decides on rates",
-    "FED_CUT": "Chance rates go down (Polymarket traders' odds for that meeting)",
+    "FED_CUT": "Chance rates go down. Prediction-market odds from Polymarket traders",
     "FED_HOLD": "Chance rates stay the same",
     "FED_HIKE": "Chance rates go up",
     "VNQ": "A fund holding about 150 REITs",
     "REIT_UP": "{REIT_UP_TYPE}",
     "REIT_DOWN": "{REIT_DOWN_TYPE}",
     "VNQ_YIELD": "Yearly income per $100 invested in VNQ",
-    "SPREAD_10Y": "Negative means safe Treasuries pay more than REIT dividends",
+    "SPREAD_10Y": "Below zero: Treasuries out-yield REIT dividends, so REITs look pricey vs. bonds",
     "HY_OAS": "Extra interest risky companies pay over Treasuries; higher = lenders more nervous",
     "BANK_CRE_LOANS": "Total commercial property loans banks hold",
     "BANK_CRE_DQ": "Share of banks' commercial property loans that are behind on payments",
@@ -111,7 +120,10 @@ def hint_for(key: str, values: dict) -> str:
     m = HINT_VALUE.match(hint)
     if m:
         v = values.get(m.group(1))
-        return "" if _is_na(v) else v
+        hint = "" if _is_na(v) else v
+    asof = values.get(f"{key}_ASOF") if key in ROW_ASOF else None
+    if not _is_na(asof):
+        hint = f"{hint} (as of {asof})" if hint else f"As of {asof}"
     return hint
 
 
@@ -176,7 +188,10 @@ def _change(chg: str | None) -> str:
     return f'<span class="chg unch">{_esc(c)}</span>'
 
 
-def _row(label: str, key: str, chg_key: str | None, values: dict) -> str:
+def _row(label: str, key: str, chg_key: str | None, values: dict, *, tag: str = "",
+         quiet: bool = False) -> str:
+    """One summary row. `tag` adds a muted word after the label ("Updated"); `quiet`
+    shows the change in muted text without an arrow (a Data Room row with no new data)."""
     label = summary_label(label, values)
     raw = values.get(key, NA)
     val, chg = raw, values.get(chg_key) if chg_key else None
@@ -187,20 +202,58 @@ def _row(label: str, key: str, chg_key: str | None, values: dict) -> str:
         name = values.get(f"{key}_NAME")  # "NNN REIT (NNN)" instead of the bare ticker
         if not _is_na(name):
             val = name
+    change = _change(chg)
+    if quiet and change:
+        change = f'<span class="chg unch">{_esc(chg.strip())}</span>'
     if _is_na(val) and not _is_na(chg):  # change only (e.g. CMBS delinquency)
-        cell = _change(chg)
+        cell = change
     elif _is_na(val):
         cell = GHOST
     else:
-        cell = f'<span class="val">{_value(val)}</span>{_change(chg)}'
+        cell = f'<span class="val">{_value(val)}</span>{change}'
     hint = hint_for(key, values)
     hint_html = f'<span class="hint">{_esc(hint)}</span>' if hint else ""
-    return f'<div class="row"><dt>{_esc(label)}{hint_html}</dt><dd>{cell}</dd></div>'
+    tag_html = f' <span class="tag">{_esc(tag)}</span>' if tag else ""
+    return (f'<div class="row"><dt>{_esc(label)}{tag_html}{hint_html}</dt>'
+            f'<dd>{cell}</dd></div>')
+
+
+def _updated(key: str, values: dict, run_date: date | None) -> bool:
+    """True when the row's KEY_DATE (ISO) is within UPDATED_DAYS of the run date."""
+    raw = values.get(f"{key}_DATE")
+    if run_date is None or _is_na(raw):
+        return False
+    try:
+        d = date.fromisoformat(str(raw)[:10])
+    except ValueError:
+        return False
+    return run_date - timedelta(days=UPDATED_DAYS) <= d <= run_date
+
+
+def data_room(values: dict, run_date: date | None) -> str:
+    """The Data Room block (slower-moving credit rows), or "" when it has no rows."""
+    cells = []
+    for title, rows in SUMMARY_GROUPS:
+        if title not in DATA_ROOM_GROUPS:
+            continue
+        for lbl, k, ck in rows:
+            if not has_row(k, ck, values):
+                continue
+            fresh = _updated(k, values, run_date)
+            cells.append(_row(lbl, k, ck, values, tag="Updated" if fresh else "",
+                              quiet=not fresh))
+    if not cells:
+        return ""
+    return ('<section class="data-room" aria-labelledby="dataroom-h">'
+            '<h2 id="dataroom-h">Data Room</h2>'
+            f'<p class="intro">{_esc(DATA_ROOM_INTRO)}</p><dl>{"".join(cells)}</dl></section>')
 
 
 def market_summary(values: dict, chart_rel: str | None, prose_html: str) -> str:
     groups = []
     for title, rows in SUMMARY_GROUPS:
+        if title in DATA_ROOM_GROUPS:
+            continue
         cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if has_row(k, ck, values)]
         if cells:
             groups.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
@@ -252,13 +305,26 @@ def _term(body: str) -> str:
             f'{_md(body)}</section>')
 
 
-def _cover(run_date: date | None, day_type: str | None) -> str:
+WORDS_PER_MINUTE = 230
+LINK_TARGET = re.compile(r"\]\([^)\n]*\)")
+
+
+def read_minutes(md: str) -> int:
+    """Reading time: words / 230, rounded, at least 1. Link targets are not words."""
+    text = LINK_TARGET.sub("]", md)
+    words = sum(1 for tok in text.split() if re.search(r"\w", tok))
+    return max(1, round(words / WORDS_PER_MINUTE))
+
+
+def _cover(run_date: date | None, day_type: str | None, minutes: int | None = None) -> str:
     bits = []
     if run_date:
         bits.append(f'<time datetime="{run_date.isoformat()}">'
                     f'{run_date:%A}, {run_date:%B} {run_date.day}, {run_date.year}</time>')
     if day_type in EDITIONS:
         bits.append(f'<span>{EDITIONS[day_type]}</span>')
+    if minutes:
+        bits.append(f'<span>{minutes} min read</span>')
     line = '<span class="sep" aria-hidden="true"></span>'.join(bits)
     return (f'<header class="cover"><h1>CRE Blurb</h1>'
             f'{f"<p class=dateline>{line}</p>" if line else ""}</header>'
@@ -291,6 +357,8 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     pre, sections = _split(md)
     body = [_md(pre)] if pre.strip() else []
     summary_done = factsheet is None
+    room = data_room(values, run_date) if factsheet is not None else ""
+    brief_at = None  # index in body just after The Brief
     for heading, text in sections:
         if heading == "The Numbers" and not summary_done:
             body.append(market_summary(values, chart_rel, _numbers_prose(text)))
@@ -299,16 +367,25 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
             continue
         elif heading == "Term of the Day":
             body.append(_term(text))
+            if room:  # the Data Room follows Term of the Day
+                body.append(room)
+                room = ""
         else:
             body.append(f'<section>{_md(f"## {heading}{text}")}</section>')
+            if heading == "The Brief" and brief_at is None:
+                brief_at = len(body)
     if not summary_done:  # weekend issues have no Numbers section: lead with the summary
-        body.insert(1 if pre.strip() else 0, market_summary(values, chart_rel, ""))
+        at = brief_at if brief_at is not None else (1 if pre.strip() else 0)
+        body.insert(at, market_summary(values, chart_rel, ""))
+    if room:  # no Term of the Day: the Data Room goes last
+        body.append(room)
 
     if title is None:
         title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
     return PAGE.format(
         title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
-        cover=_cover(run_date, day_type), nav=_slot(nav), notes=_notes(problems),
+        cover=_cover(run_date, day_type, read_minutes(md)), nav=_slot(nav),
+        notes=_notes(problems),
         body="\n".join(body), extra_body=_slot(extra_body), footer=_esc(FOOTER))
 
 
@@ -383,6 +460,10 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
 .tri { flex: none; }
 .na { color: var(--ghost); cursor: help; }
 .caption { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+.data-room dl { margin: 0; }
+.data-room .intro { color: var(--muted); font-size: 15px; }
+.tag { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; margin-left: 4px; }
 .takeaway { margin-top: 18px; }
 .chart { margin: 24px 0 0; }
 .chart img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline); }
@@ -437,7 +518,7 @@ PAGE = """<!doctype html>
 </main>
 <footer>
 <p>{footer}</p>
-<p>CRE Blurb &middot; Drafted by pipeline, reviewed by Robert</p>
+<p>Written with AI from the linked sources. Every number is pulled automatically from public data. Edited by Robert.</p>
 </footer>
 </div>
 </body>

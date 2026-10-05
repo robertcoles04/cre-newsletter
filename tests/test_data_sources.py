@@ -13,7 +13,8 @@ from src.config import ET
 from src.factsheet import build_factsheet, fmt_spread
 from src.markets import pick, region_of
 from src.models import Item, RatePoint
-from src.render_html import market_summary, no_dashes, render_issue_html, summary_label
+from src.render_html import (data_room, market_summary, no_dashes, render_issue_html,
+                              summary_label)
 from src.store import connect, save_items, save_rates
 
 FIX = Path("tests/fixtures")
@@ -52,6 +53,7 @@ def test_curve_spread_shown_in_bps_including_negative():
 
 def test_weekly_mortgage_and_bank_loans_with_asof():
     conn = connect(":memory:")
+    _save(conn, "DGS10", [("2026-10-01", 4.2), ("2026-10-02", 4.3)])
     _save(conn, "MORTGAGE30US", [("2026-09-24", 7.30), ("2026-10-01", 7.28)])
     _save(conn, "CREACBW027SBOG", [("2026-09-16", 2978.0), ("2026-09-23", 2981.0)])
     v = fs(conn)["values"]
@@ -71,7 +73,8 @@ def test_quarterly_delinquency_change_vs_prior_quarter():
 
 def test_missing_series_are_na():
     v = fs(connect(":memory:"))["values"]
-    assert v["DGS2"] == v["T10Y2Y_CHG"] == v["MORTGAGE30US_ASOF"] == "n/a"
+    assert v["DGS2"] == v["T10Y2Y_CHG"] == "n/a"
+    assert "MORTGAGE30US_ASOF" not in v  # no data: no as-of
 
 
 @respx.mock
@@ -124,7 +127,8 @@ def test_cmbs_values_from_stored_items_newest_first_and_stale_ignored():
     ])
     v = trepp.cmbs_values(conn, TUE)
     assert v == {"CMBS_DQ_CHG": "+17 bps", "CMBS_DQ_MONTH": "Sept 2026",
-                 "CMBS_DQ_URL": "https://www.trepp.com/x/4", "CMBS_DQ": "8.02%"}
+                 "CMBS_DQ_URL": "https://www.trepp.com/x/4", "CMBS_DQ": "8.02%",
+                 "CMBS_DQ_DATE": "2026-10-02"}
     stale = connect(":memory:")
     save_items(stale, [_trepp_item("CMBS Delinquency Rate Rose 3 bps in June 2026", 60)])
     assert trepp.cmbs_values(stale, TUE) is None
@@ -205,13 +209,16 @@ VALUES = {
 
 def test_summary_has_new_rows_labels_and_credit_group():
     html = market_summary(VALUES, None, "")
-    for label in ("2-Year Treasury", "10Y-2Y curve", "30-Year Mortgage (Oct 1)",
-                  "High-yield spread", "Bank CRE delinquency (Q1 2026)",
-                  "CMBS delinquency (Sept 2026)", ">Credit<"):
+    for label in ("2-Year Treasury", "10Y-2Y curve", "30-Year Mortgage<", "(as of Oct 1)"):
         assert label in html, label
-    assert "Bank CRE loans<" in html  # n/a as-of is dropped from the label
-    assert "+17 bps" in html  # change-only row
+    assert "Credit" not in html and "High-yield" not in html  # moved to the Data Room
     assert "Sources" not in html and "Rates as of Oct 2 close.</p>" in html
+    room = data_room(VALUES, TUE)
+    for label in ("High-yield spread", "Bank CRE delinquency (Q1 2026)",
+                  "CMBS delinquency (Sept 2026)", ">Data Room<"):
+        assert label in room, label
+    assert "Bank CRE loans<" in room  # n/a as-of is dropped from the label
+    assert "+17 bps" in room  # change-only row
 
 
 def test_summary_skips_missing_rows_and_caption_without_asof():
@@ -252,7 +259,8 @@ def test_prompts_ban_dashes_and_set_quick_hits_ai_and_market_watch_style():
     draft.edit("x", sheet, run=lambda p, m: seen.append(p) or "x")
     for prompt in seen:
         assert "Never use em dashes or en dashes" in prompt
-        assert "12-year-old" in prompt
+        assert "smart college student new to CRE" in prompt
+        assert "12-year-old" not in prompt and "5 year old" not in prompt
     assert "AI tool or use case" in seen[0] and "Market Watch" in seen[0]
     assert "## Market Watch" in seen[0]  # weekday template
 
@@ -296,7 +304,7 @@ def _add(conn, n, title, section="top", importance=5, region=None):
 
 def test_factsheet_markets_dedupe_vs_top_and_quick_hits():
     conn = connect(":memory:")
-    for n in range(13):  # 5 top + 8 quick hits, all Dallas stories with high importance
+    for n in range(11):  # 5 top + 6 quick hits, all Dallas stories with high importance
         _add(conn, n, f"Dallas story {n}", importance=9)
     _add(conn, 50, "Atlanta retail center sells", importance=2)
     _add(conn, 51, "Tokyo office deal", importance=3)
@@ -375,13 +383,15 @@ def test_collect_records_trepp_and_calendar_problems_and_continues(tmp_path, mon
 def test_collect_passes_week_events_and_trepp_through(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "env", lambda name, required=True: None)
     monkeypatch.setattr(main.polymarket, "fetch_fed_odds", lambda c, t: None)
-    monkeypatch.setattr(main.calendar, "fetch_week", lambda c, d: [{"date": "x"}])
+    ev = {"date": "2026-10-14", "time": None, "title": "Beige Book",
+          "source": "Federal Reserve", "url": "https://www.federalreserve.gov/x"}
+    monkeypatch.setattr(main.calendar, "fetch_week", lambda c, d: [ev])
     monkeypatch.setattr(main.trepp, "cmbs_values", lambda c, d: {"CMBS_DQ_CHG": "0 bps"})
     problems = []
     out = main._collect(connect(str(tmp_path / "t.db")),
                         {"feeds": [], "google_news": [], "fred_series": []},
                         SUN, _Client(), problems)
-    assert out[3] == {"cmbs": {"CMBS_DQ_CHG": "0 bps"}, "week_events": [{"date": "x"}]}
+    assert out[3] == {"cmbs": {"CMBS_DQ_CHG": "0 bps"}, "week_events": [ev]}
     assert not any(p.startswith(("trepp", "calendar")) for p in problems)
 
 

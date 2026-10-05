@@ -73,7 +73,9 @@ fred_series:
   - DGS10
   - DGS5
   - SOFR
-  - DFF
+  - DFF               # effective fed funds: fallback if the target range is missing
+  - DFEDTARL          # Fed funds target range, lower bound
+  - DFEDTARU          # Fed funds target range, upper bound
   - DGS2
   - T10Y2Y
   - BAMLH0A0HYM2      # ICE BofA US high-yield option-adjusted spread
@@ -110,6 +112,23 @@ reit_info:
   ADC: {name: Agree Realty, type: "Owns net-lease retail like grocery and auto parts stores", group: net-lease retail}
   NNN: {name: NNN REIT, type: "Owns single-tenant retail like convenience stores", group: net-lease retail}
   STAG: {name: STAG Industrial, type: "Owns warehouses and factories", group: warehouse}
+
+# Display names for story sources (Google News often reports a lowercase or domain-style
+# name). Keys match case-insensitively; anything not listed is shown as reported.
+source_names:
+  globest: GlobeSt.com
+  globest.com: GlobeSt.com
+  citybiz: Citybiz
+  multihousingnews.com: Multi-Housing News
+  rebusinessonline: REBusiness Online
+  rebusinessonline.com: REBusiness Online
+  yieldpro.com: Yield PRO
+  forbes.com: Forbes
+  bridgingandcommercial.co.uk: Bridging & Commercial
+  scanx.trade: ScanX
+  therealdeal.com: The Real Deal
+  bisnow.com: Bisnow
+  cpexecutive.com: CPE
 
 lookback_hours:
   default: 30

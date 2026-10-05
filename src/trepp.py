@@ -96,7 +96,9 @@ def cmbs_values(conn: sqlite3.Connection, run_date: date) -> dict | None:
             continue
         values = {"CMBS_DQ_CHG": parsed["chg"],
                   "CMBS_DQ_MONTH": parsed["month"] or "n/a",
-                  "CMBS_DQ_URL": row["url"]}
+                  "CMBS_DQ_URL": row["url"],
+                  # ISO publish date: the Data Room tags rows updated in the last 7 days.
+                  "CMBS_DQ_DATE": str(row["published_at"])[:10]}
         rate = parse_rate(row["summary"])
         if rate:
             values["CMBS_DQ"] = rate

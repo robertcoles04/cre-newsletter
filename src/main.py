@@ -111,6 +111,25 @@ sleep = time.sleep
 AV_SPACING_SECONDS = 13
 
 
+def _week_events(client, run_date: date, fred_key: str | None,
+                 problems: list[str]) -> list[dict] | None:
+    """Sunday Week Ahead: Fed calendar events merged with FRED's major data releases,
+    de-duplicated and sorted. None only when both sources fail."""
+    found: list[list[dict]] = []
+    try:
+        found.append(calendar.fetch_week(client, run_date))
+    except Exception as exc:
+        problems.append(f"calendar: {_err(exc)}")
+    if fred_key:
+        try:
+            found.append(calendar.fetch_fred_releases(client, fred_key, run_date))
+        except Exception as exc:
+            problems.append(f"calendar/fred: {_err(exc)}")
+    if not found:
+        return None
+    return calendar.week_window([ev for evs in found for ev in evs], run_date)
+
+
 def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
     """Run every collector. Returns (fed odds, reit quotes, vnq yield, extras), where
     extras holds "cmbs" (Trepp values or None) and "week_events" (Sunday only)."""
@@ -134,11 +153,9 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
     except Exception as exc:
         problems.append(f"trepp: {_err(exc)}")
 
+    fred_key = env("FRED_API_KEY", required=False)
     if day_type(run_date) == "sunday":
-        try:
-            extras["week_events"] = calendar.fetch_week(client, run_date)
-        except Exception as exc:
-            problems.append(f"calendar: {_err(exc)}")
+        extras["week_events"] = _week_events(client, run_date, fred_key, problems)
 
     for g in sources.get("google_news", []):
         try:
@@ -150,7 +167,6 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
         except Exception as exc:
             problems.append(f"news/{g['name']}: {_err(exc)}")
 
-    fred_key = env("FRED_API_KEY", required=False)
     if not fred_key:
         problems.append("fred: missing FRED_API_KEY")
     try:

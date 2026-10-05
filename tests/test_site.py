@@ -59,8 +59,7 @@ def test_home_shows_newest_date(built):
     _, out, _ = built
     home = _read(out / "index.html")
     assert "Tuesday, October 6, 2026" in home
-    assert 'href="issues/2026-10-05/"' in home
-    assert "Monday, October 5, 2026" in home  # recent list label
+    assert "Recent issues" not in home  # hidden until there are 3 published issues
     assert f'<link rel="canonical" href="{site.SITE_URL}issues/2026-10-06/">' in home
 
 
@@ -129,8 +128,12 @@ def test_archive_and_about(built):
     assert "<h2>October 2026</h2>" in archive
     assert 'href="../issues/2026-10-06/"' in archive
     about = _read(out / "about/index.html")
-    assert "students and young professionals" in about
-    assert "For informational purposes only. Not investment advice." in about
+    assert "students and young professionals" in about and "built for" in about
+    assert "tailored towards" not in about
+    assert about.count("For informational purposes only. Not investment advice.") == 1
+    assert "How each issue is made" in about and "never typed by the AI" in about
+    assert "Corrections" in about
+    assert 'href="https://github.com/robertcoles04/cre-newsletter/issues"' in about
     assert "Data sources" not in about
 
 
@@ -202,3 +205,57 @@ def test_raw_html_date_skipped(tmp_path, capsys):
     assert site.build(root, out) == ["2026-10-05"]
     assert "2026-10-06" in capsys.readouterr().out
     assert not (out / "issues/2026-10-06").exists()
+
+
+# --- review round: RSS, recent list, 404, footer ------------------------------
+
+def test_recent_list_shows_from_three_issues(tmp_path):
+    root = tmp_path / "repo"
+    for d in ("2026-10-05", "2026-10-06", "2026-10-07"):
+        _issue(root, d, MD_06)
+    _published(root, ["2026-10-05", "2026-10-06", "2026-10-07"])
+    out = tmp_path / "site"
+    site.build(root, out)
+    home = _read(out / "index.html")
+    assert "Recent issues" in home
+    assert 'href="issues/2026-10-05/"' in home and "Monday, October 5, 2026" in home
+
+
+def test_rss_feed_parses_and_is_linked(built):
+    import xml.etree.ElementTree as ET_xml
+    _, out, _ = built
+    feed = ET_xml.parse(out / "feed.xml").getroot()
+    assert feed.tag == "rss" and feed.get("version") == "2.0"
+    items = feed.findall("./channel/item")
+    assert [i.findtext("title") for i in items] == [
+        "CRE Blurb, Tuesday, October 6, 2026", "CRE Blurb, Monday, October 5, 2026"]
+    assert items[0].findtext("link") == f"{site.SITE_URL}issues/2026-10-06/"
+    assert items[0].findtext("description") == "Office leasing picked up."
+    assert items[0].findtext("pubDate").startswith("Tue, 06 Oct 2026")
+    for rel in ("index.html", "archive/index.html", "about/index.html", "404.html",
+                "issues/2026-10-05/index.html"):
+        page = _read(out / rel)
+        assert (f'<link rel="alternate" type="application/rss+xml" title="CRE Blurb" '
+                f'href="{site.SITE_URL}feed.xml">') in page, rel
+        assert ">RSS</a>" in page, rel
+
+
+def test_feed_caps_at_20_items_and_escapes():
+    issues = [{"date": f"2026-09-{d:02d}", "day": date(2026, 9, d),
+               "md": "## Top Stories\n\nA & B <deal> closed.\n"} for d in range(30, 0, -1)]
+    xml = site.feed_xml(issues)
+    assert xml.count("<item>") == 20
+    assert "A &amp; B &lt;deal&gt; closed." in xml
+
+
+def test_404_copy(built):
+    _, out, _ = built
+    page = _read(out / "404.html")
+    assert "Page not found. Today&#x27;s issue is on the home page." in page or \
+        "Page not found. Today's issue is on the home page." in page
+
+
+def test_describe_uses_the_brief_first_bullet():
+    md = ("## The Brief\n\n- Office rents hit a record in Manhattan. [CO](https://x.com/1)\n"
+          "- Two\n\n## The Numbers\n\n- x\n\n## Top Stories\n\nOther text.\n")
+    assert site.describe(md, date(2026, 10, 5)) == "Office rents hit a record in Manhattan."

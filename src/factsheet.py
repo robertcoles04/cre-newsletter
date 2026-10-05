@@ -13,15 +13,21 @@ from pathlib import Path
 import yaml
 
 from src.collect.calendar import week_ahead_markdown
-from src.config import ET, load_sources
+from src.config import ET, display_source, load_sources
 from src.markets import pick as pick_markets
 from src.models import FedOdds, ReitQuote
 from src.rates import fmt_bps, latest_with_change, lookback_days
 from src.store import get_quotes, get_rates, recent_items
 
 NA = "n/a"
-CALENDAR_DOWN = "Fed calendar unavailable today."
+CALENDAR_DOWN = "Calendar unavailable today."
 RATE_SERIES = ("DGS10", "DGS5", "SOFR", "DFF")
+FED_TARGET = ("DFEDTARL", "DFEDTARU")  # Fed funds target range: lower, upper bound
+# Rates rows that get their own as-of (KEY_ASOF, shown in the row hint) when their latest
+# observation is not RATES_ASOF's day (SOFR posts a day late; mortgage is weekly).
+ROW_ASOF_KEYS = ("DGS5", "DGS2", "T10Y2Y", "SOFR", "DFF", "MORTGAGE30US")
+# Data Room rows: KEY_DATE (ISO) lets the page tag rows updated in the last 7 days.
+DATED_KEYS = ("HY_OAS", "BANK_CRE_LOANS", "BANK_CRE_DQ")
 # Extra FRED series: (value key, FRED id, value format, as-of format or None).
 #   pct: "4.83%" with a bps change; spread: "45 bps" with a bps change;
 #   billions: "$2,981B" with a % change vs the prior observation.
@@ -35,7 +41,7 @@ EXTRA_SERIES = (
     ("BANK_CRE_DQ", "DRCRELEXFACBS", "pct", "quarter"),
 )
 TOP_COUNT = {"weekday": 5, "friday": 3}
-QUICK_HITS_COUNT = 8
+QUICK_HITS_COUNT = 6
 DEBT_COUNT = 4
 AI_MIN_IMPORTANCE = 7
 WEEK_TOP_COUNT = 5
@@ -59,8 +65,9 @@ def _anchor(run_date: date) -> datetime:
 
 def _story(row: sqlite3.Row) -> dict:
     return {
-        "id": row["id"], "title": row["title"], "source": row["source"],
+        "id": row["id"], "title": row["title"],
         "url": row["url"], "summary": row["summary"] or "",
+        "source": display_source(row["source"]),
         "also_covered": json.loads(row["also_covered"] or "[]"),
         "section": row["section"],
     }
@@ -92,6 +99,70 @@ def _ai_rank(rows: list) -> list:
     return sorted(rows, key=_ai_bucket)
 
 
+# Stock-market recaps ("Real estate stocks slide as ...") go stale fast: a recap from
+# yesterday can contradict today's REIT numbers, so recaps older than RECAP_MAX_HOURS
+# are dropped from the day's stories.
+RECAP_MAX_HOURS = 24
+RECAP_SUBJECT = re.compile(
+    r"\b(?:REITs?|REIT (?:stocks|shares|index)|real estate (?:stocks|shares|equities|sector)|"
+    r"property (?:stocks|shares)|stock market|stocks|Wall Street|Dow|S&P 500|Nasdaq)\b", re.I)
+RECAP_MOVE = re.compile(
+    r"\b(?:slid|slides?|sliding|f[ae]ll|falls|falling|drop(?:s|ped|ping)?|sank|sinks?|sunk|"
+    r"tumbl\w*|declin\w*|slump\w*|retreat\w*|rise|rises|rising|rose|rall\w*|climb\w*|"
+    r"gain\w*|jump\w*|surg\w*|soar\w*|rebound\w*)\b", re.I)
+
+
+def is_recap(row) -> bool:
+    title = row["title"] or ""
+    return bool(RECAP_SUBJECT.search(title) and RECAP_MOVE.search(title))
+
+
+def _published(row) -> datetime | None:
+    try:
+        dt = datetime.fromisoformat(str(row["published_at"]))
+    except (TypeError, ValueError, KeyError, IndexError):
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=ET)
+
+
+def drop_stale_recaps(rows: list, anchor: datetime) -> list:
+    """Remove REIT/stock-market recap stories published more than RECAP_MAX_HOURS before
+    the run's 5 AM anchor."""
+    cutoff = anchor - timedelta(hours=RECAP_MAX_HOURS)
+    out = []
+    for r in rows:
+        pub = _published(r)
+        if is_recap(r) and pub is not None and pub < cutoff:
+            continue
+        out.append(r)
+    return out
+
+
+# Politically charged government-agency deals (immigration detention, prisons) are real
+# news but not market-moving: they rank below other stories for Top Stories and stay
+# eligible for Quick Hits. "ICE" is matched case-sensitively and not as the exchange
+# (ICE Mortgage Technology, ICE BofA indexes).
+CHARGED = re.compile(
+    r"\b(?:Immigration and Customs Enforcement|immigration detention|detention (?:center|"
+    r"facility|facilities|complex|beds?)|deportation|prisons?|jails?|correctional|"
+    r"incarcerat\w*)\b", re.I)
+CHARGED_ICE = re.compile(r"\bICE\b(?!\s+(?:Mortgage|Data|Futures|Benchmark|BofA))")
+
+
+def is_charged(row) -> bool:
+    text = f"{row['title'] or ''} {row['summary'] or ''}"
+    return bool(CHARGED.search(text) or CHARGED_ICE.search(text))
+
+
+def pick_top(news: list, n: int) -> tuple[list, list]:
+    """(top stories, the rest in rank order). Charged stories go to Top Stories only when
+    there are not enough other stories."""
+    calm = [r for r in news if not is_charged(r)]
+    top = (calm + [r for r in news if is_charged(r)])[:n]
+    taken = {id(r) for r in top}
+    return top, [r for r in news if id(r) not in taken]
+
+
 def _pct(value: float) -> str:
     return f"{round(value, 1) + 0.0:+.1f}%"  # + 0.0 turns -0.0 into 0.0
 
@@ -110,8 +181,9 @@ def fmt_spread(value_pct: float) -> str:
     return f"{n} bps"
 
 
-def _extra_values(conn: sqlite3.Connection, run_date: date) -> dict:
-    values = {}
+def _extra_values(conn: sqlite3.Connection, run_date: date) -> tuple[dict, dict]:
+    """Values for EXTRA_SERIES, plus {key: date of its latest observation}."""
+    values, dates = {}, {}
     for key, sid, kind, asof in EXTRA_SERIES:
         points = get_rates(conn, sid, run_date - timedelta(days=lookback_days(sid)))
         if not points:
@@ -120,6 +192,7 @@ def _extra_values(conn: sqlite3.Connection, run_date: date) -> dict:
                 values[f"{key}_ASOF"] = NA
             continue
         last, chg = latest_with_change(points)
+        dates[key] = last.date
         if kind == "billions":
             values[key] = f"${last.value:,.0f}B"
             prev = sorted(points, key=lambda p: p.date)[-2].value if len(points) > 1 else None
@@ -129,12 +202,39 @@ def _extra_values(conn: sqlite3.Connection, run_date: date) -> dict:
             values[f"{key}_CHG"] = fmt_bps(chg)
         if asof:
             values[f"{key}_ASOF"] = _quarter(last.date) if asof == "quarter" else _day(last.date)
-    return values
+    return values, dates
 
 
-def _rate_values(conn: sqlite3.Connection, run_date: date) -> tuple[dict, float | None]:
-    values = {}
+def fed_target(conn: sqlite3.Connection, run_date: date) -> tuple[str, str] | None:
+    """Fed funds target range ("3.75% to 4.00%") and the upper bound's change vs the prior
+    day in bps, from FRED DFEDTARL/DFEDTARU. None if either series is missing."""
+    latest = {}
+    for sid in FED_TARGET:
+        points = get_rates(conn, sid, run_date - timedelta(days=lookback_days(sid)))
+        if not points:
+            return None
+        latest[sid] = latest_with_change(points)
+    (lo, _), (hi, chg) = latest["DFEDTARL"], latest["DFEDTARU"]
+    return f"{lo.value:.2f}% to {hi.value:.2f}%", fmt_bps(chg)
+
+
+def move_size(chg_bps: int | None) -> str | None:
+    """How big the 10Y move was: "unchanged" (under 3 bps), "small" (3 to 9), "notable"
+    (10 or more). None when there is no change to measure."""
+    if chg_bps is None:
+        return None
+    size = abs(chg_bps)
+    if size < 3:
+        return "unchanged"
+    return "small" if size < 10 else "notable"
+
+
+def _rate_values(conn: sqlite3.Connection,
+                 run_date: date) -> tuple[dict, float | None, int | None]:
+    """(values, 10Y level, 10Y change in bps)."""
+    values, dates = {}, {}
     dgs10: float | None = None
+    dgs10_chg: int | None = None
     for series in RATE_SERIES:
         points = get_rates(conn, series, run_date - timedelta(days=lookback_days(series)))
         if not points:
@@ -145,13 +245,30 @@ def _rate_values(conn: sqlite3.Connection, run_date: date) -> tuple[dict, float 
         last, chg = latest_with_change(points)
         values[series] = f"{last.value:.2f}%"
         values[f"{series}_CHG"] = fmt_bps(chg)
+        dates[series] = last.date
         if series == "DGS10":
-            dgs10 = last.value
+            dgs10, dgs10_chg = last.value, chg
             values["RATES_ASOF"] = _day(last.date)
-    values.update(_extra_values(conn, run_date))
+    extra, extra_dates = _extra_values(conn, run_date)
+    values.update(extra)
+    dates.update(extra_dates)
+    target = fed_target(conn, run_date)
+    if target is not None:  # the target range replaces the effective rate (DFF fallback)
+        values["DFF"], values["DFF_CHG"] = target
+        dates.pop("DFF", None)  # a policy setting, valid every day: no as-of needed
     if values.get("HY_OAS_ASOF") in (values.get("RATES_ASOF"), NA):
         values.pop("HY_OAS_ASOF", None)  # same day as the other rates: no label needed
-    return values, dgs10
+    asof = dates.get("DGS10")
+    for key in ROW_ASOF_KEYS:
+        d = dates.get(key)
+        if d is not None and asof is not None and d != asof:
+            values[f"{key}_ASOF"] = _day(d)
+        else:
+            values.pop(f"{key}_ASOF", None)
+    for key in DATED_KEYS:
+        if key in dates:
+            values[f"{key}_DATE"] = dates[key].isoformat()
+    return values, dgs10, dgs10_chg
 
 
 FED_HOLD_WORDS = re.compile(r"no change|hold|unchanged|pause", re.I)
@@ -341,7 +458,7 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
     hours = sources["lookback_hours"]
     lookback = hours["monday"] if run_date.weekday() == 0 else hours["default"]
 
-    values, dgs10 = _rate_values(conn, run_date)
+    values, dgs10, dgs10_chg = _rate_values(conn, run_date)
     fed, unmapped = _fed_values(odds, run_date)
     values.update(fed)
     problems.extend(f"polymarket: unmapped outcome {name!r}" for name in unmapped)
@@ -355,17 +472,19 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         values["SPREAD_10Y"] = (NA if dgs10 is None
                                 else fmt_bps(round((vnq_yield * 100 - dgs10) * 100)))
 
-    window = _by_rank(recent_items(conn, anchor - timedelta(hours=lookback)))
+    window = drop_stale_recaps(
+        _by_rank(recent_items(conn, anchor - timedelta(hours=lookback))), anchor)
     news = [r for r in window if r["section"] in ("top", "deal")]
-    n_top = TOP_COUNT.get(dtype, 0)
-    top = news[:n_top]
-    quick = news[n_top:n_top + QUICK_HITS_COUNT] if dtype in ("weekday", "friday") else []
+    top, rest = pick_top(news, TOP_COUNT.get(dtype, 0))
+    quick = rest[:QUICK_HITS_COUNT] if dtype in ("weekday", "friday") else []
 
     sheet = {
         "date": run_date.isoformat(),
         "day_type": dtype,
         "problems": list(problems),
         "values": values,
+        # 10Y move size, so "What it means" is scaled to the move (see the template).
+        "move_size": move_size(dgs10_chg),
         "top": [_story(r) for r in top],
         "quick_hits": [_story(r) for r in quick],
         "debt": [_story(r) for r in window if r["section"] == "debt"][:DEBT_COUNT],

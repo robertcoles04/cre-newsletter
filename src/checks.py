@@ -16,10 +16,11 @@ MAX_EM_DASHES = 0  # owner style: none (render_html.no_dashes also strips them f
 MAX_SENTENCE_WORDS = 30
 BUDGET_SLACK = 1.3
 BUDGETS = {
-    "The Numbers": 100, "Debt Markets": 200, "Top Stories": 500, "Quick Hits": 300,
-    "AI in Real Estate": 80, "Term of the Day": 50, "Week in Review": 200,
-    "AI in Real Estate Weekly": 150, "REIT Weekly": 200, "Week Ahead": 120,
-    "Market Watch": 200,
+    "The Brief": 60, "The Numbers": 100, "Debt Markets": 200, "Top Stories": 500,
+    "Quick Hits": 220, "AI in Real Estate": 80, "AI Infrastructure": 80,
+    "Term of the Day": 50, "Week in Review": 200, "AI in Real Estate Weekly": 150,
+    "REIT Weekly": 200, "Week Ahead": 120, "Market Watch": 200, "Market Spotlight": 150,
+    "Careers Corner": 100,
 }
 # Market-data sections: every number there must come from a placeholder.
 MARKET_SECTIONS = {"The Numbers", "REIT Weekly", "Week Ahead"}
@@ -56,6 +57,15 @@ NUMBER = re.compile(
 # "91 dollars" and odds like "81 to 19". "10Y", "5Y" and "Oct 28" do not match.
 MARKET_EXTRA = re.compile(r"\d+\.\d+|\d+\s+(?:dollars\b|to\s+\d+)", re.I)
 LIST_ITEM = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
+# Contradiction check: prose saying REITs fell while VNQ rose (or the reverse).
+REIT_SUBJECT = re.compile(
+    r"\b(?:REITs?|REIT (?:stocks|shares)|real estate (?:stocks|shares|equities)|"
+    r"property stocks)\b", re.I)
+REIT_DOWN_WORDS = re.compile(
+    r"\b(?:slid|slides?|sliding|f[ae]ll|falls|falling|drop(?:s|ped|ping)?|sank|sinks?|"
+    r"sunk|tumbl\w*|declin\w*|slump\w*)\b", re.I)
+REIT_UP_WORDS = re.compile(
+    r"\b(?:rose|rises?|rising|rall\w*|climb\w*|gain\w*|jump\w*|surg\w*|soar\w*|rebound\w*)\b", re.I)
 SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
 
 
@@ -189,6 +199,43 @@ def _check_sentences(md: str) -> list[dict]:
     return problems
 
 
+def _vnq_sign(factsheet: dict) -> int:
+    """+1 / -1 for VNQ_CHG like "+0.4%" / "-1.2%"; 0 when flat or unavailable."""
+    raw = str((factsheet.get("values") or {}).get("VNQ_CHG", ""))
+    m = re.match(r"\s*([+-]?\d+(?:\.\d+)?)", raw)
+    if not m:
+        return 0
+    value = float(m.group(1))
+    return (value > 0) - (value < 0)
+
+
+CLAUSE_END = re.compile(r"[,;:(]|\b(?:as|while|but|after|because|even though|and|though)\b",
+                        re.I)
+
+
+def _check_contradictions(sections, factsheet) -> list[dict]:
+    """Editor note when prose says REITs / real estate stocks fell while VNQ_CHG is
+    positive, or rose while it is negative. A simple keyword + sign check: the move word
+    must follow the subject in the same clause ("REITs fell as rates rose" is a fall)."""
+    sign = _vnq_sign(factsheet)
+    if sign == 0:
+        return []
+    wrong = REIT_DOWN_WORDS if sign > 0 else REIT_UP_WORDS
+    problems = []
+    for name, body in sections:
+        for unit in _prose_units(body):
+            for sentence in SENTENCE_END.split(_plain(unit)):
+                clauses = [CLAUSE_END.split(sentence[m.end():], 1)[0]
+                           for m in REIT_SUBJECT.finditer(sentence)]
+                if any(wrong.search(c) for c in clauses):
+                    snippet = " ".join(sentence.split()[:10])
+                    vnq = "up" if sign > 0 else "down"
+                    problems.append({"kind": "contradiction",
+                                     "detail": f"{name or 'intro'}: says {snippet!r} but "
+                                               f"VNQ is {vnq} today"})
+    return problems
+
+
 def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     problems: list[dict] = []
     sections = _sections(md)
@@ -226,6 +273,7 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
             problems.append({"kind": "missing_link", "detail": s["url"]})
 
     problems += _check_numbers(sections, factsheet)
+    problems += _check_contradictions(sections, factsheet)
 
     if (factsheet.get("day_type") == "sunday" and "WEEK_AHEAD" in factsheet.get("values", {})
             and "WEEK_AHEAD" not in PLACEHOLDER.findall(md)):

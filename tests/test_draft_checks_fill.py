@@ -259,12 +259,14 @@ KNOWN = {"DATE", "DGS10", "DGS10_CHG", "DGS5", "DGS5_CHG", "SOFR", "SOFR_CHG", "
 
 def test_templates_structure():
     heads = {
-        "weekday": ["The Numbers", "Debt Markets", "Top Stories", "Quick Hits",
+        "weekday": ["The Brief", "The Numbers", "Debt Markets", "Top Stories", "Quick Hits",
                     "AI in Real Estate", "Term of the Day"],
-        "friday": ["The Numbers", "Debt Markets", "Top Stories", "Quick Hits",
+        "friday": ["The Brief", "The Numbers", "Debt Markets", "Top Stories", "Quick Hits",
                    "Deals of the Week", "AI in Real Estate", "Term of the Day"],
-        "saturday": ["Week in Review", "AI in Real Estate Weekly", "Term of the Day"],
-        "sunday": ["REIT Weekly", "Week Ahead", "Term of the Day"],
+        "saturday": ["The Brief", "Week in Review", "Market Spotlight",
+                     "AI in Real Estate Weekly", "Term of the Day"],
+        "sunday": ["The Brief", "REIT Weekly", "Week Ahead", "Careers Corner",
+                   "Term of the Day"],
     }
     for day, want in heads.items():
         text = (ROOT / "templates" / f"{day}.md").read_text(encoding="utf8")
@@ -272,11 +274,17 @@ def test_templates_structure():
         assert [h for h in got if h in want] == [h for h in want], day
         lines = [ln for ln in text.splitlines() if ln.strip()]
         assert lines[-1] == FOOTER, day
-        assert "no market rates" in text and "made-up round-number example" in text, day
+        assert got[0] == "The Brief", day
+        assert "Never use a market rate" in text and "round illustrative figures" in text, day
+        assert "12-year-old" not in text and "smart college student new to CRE" in text, day
         names = set(re.findall(r"\{\{(\w+)\}\}", text))
         assert names <= KNOWN, (day, names - KNOWN)
         if day in ("weekday", "friday"):
             assert "![Chart of the Day](img/{{DATE}}-chart.png)" in text
+            assert "**Coffee chat line:**" in text
+            assert text.index("**Coffee chat line:**") < text.index("## Market Watch")
+            assert "Best: {{REIT_UP}}. Worst: {{REIT_DOWN}}." in text
+            assert "{{SPREAD_10Y}} vs. the 10Y" in text and "Up to 6 items" in text
             assert {"DGS10", "DGS10_CHG", "SOFR", "FED_TOP", "VNQ"} <= names
 
 

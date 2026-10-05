@@ -24,19 +24,25 @@ Sample (illustrative data): `samples/preview-sample.html`.
 
 ## Components
 - **Cover band:** full-width navy, "CRE Blurb" in serif, white. Date line
-  ("Monday, October 5, 2026 • Daily Edition"; Saturday and Sunday say "Weekend
-  Edition") in navy tint. A 3px gold rule element closes it.
+  ("Monday, October 5, 2026 • Daily Edition • 4 min read"; Saturday and Sunday say
+  "Weekend Edition"; read time = words / 230, rounded, min 1) in navy tint. A 3px gold rule element closes it.
 - **Market Summary:** OM "Investment Summary" table built by code from
-  `factsheet["values"]`, never model text. Groups Rates / Federal Reserve / REITs /
-  Credit (Rates now include the 2Y, the 10Y-2Y curve and the 30-year mortgage; Credit
-  holds the high-yield spread, bank CRE loans and delinquency, and Trepp's CMBS
-  delinquency). Weekly/quarterly rows carry their as-of in the label, e.g.
-  "30-Year Mortgage (Oct 1)". Rows are label | value + change with hairline dividers.
+  `factsheet["values"]`, never model text. Groups Rates / Federal Reserve / REITs
+  (Rates include the 2Y, the 10Y-2Y curve and the 30-year mortgage; Fed Funds shows
+  the target range "3.75% to 4.00%"). A Rates row whose latest date differs from
+  RATES_ASOF adds "(as of Oct 2)" to its hint. Rows are label | value + change with
+  hairline dividers.
   Rows whose key is missing are skipped; a row with only a change (CMBS delinquency
   when Trepp states no rate) shows just the change. Caption: "Rates as of
   {RATES_ASOF} close." only (no sources line). Replaces the
   Markdown `## The Numbers`; only its prose ("What it means") is kept under it,
   then the chart `<img>` with a caption.
+- **Data Room:** after Term of the Day, the slower-moving Credit rows (high-yield
+  spread, bank CRE loans and delinquency, Trepp CMBS delinquency) in the same row
+  styling, with the intro "Slower-moving credit data. Rows marked Updated changed since
+  the last issue." Rows dated within 7 days get a muted uppercase "Updated" tag and a
+  normal change mark; older rows show their change muted with no arrow. Their as-of
+  stays in the label, e.g. "Bank CRE delinquency (Q1 2026)".
 - **Change marks:** authored inline SVG triangle + signed text + color. Color is
   never the only signal.
 - **n/a:** the muted text "n/a" (ghost color) with `title="Data unavailable today"`.
@@ -49,8 +55,9 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - **Term panel:** navy-wash block, term in serif. No colored side border.
 - **Editor notes:** amber box at the very top, "Editor notes, not for publishing",
   only when `problems` is non-empty.
-- **Footer:** the exact FOOTER text plus "CRE Blurb · Drafted by pipeline,
-  reviewed by Robert", small and muted.
+- **Footer:** the exact FOOTER text (once per page) plus "Written with AI from the
+  linked sources. Every number is pulled automatically from public data. Edited by
+  Robert.", small and muted.
 
 ## Rules
 - No JavaScript. Self-contained except the Google Fonts link and the chart image.
