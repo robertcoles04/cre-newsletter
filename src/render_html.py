@@ -112,7 +112,7 @@ def market_summary(values: dict, chart_rel: str | None, prose_html: str) -> str:
     if chart_rel:
         parts.append(f'<figure class="chart"><img src="{_esc(chart_rel)}" '
                      'alt="Line chart of the 10-Year Treasury yield over the last 45 days" '
-                     'width="680" height="340" loading="lazy">'
+                     'width="800" height="400" loading="lazy">'
                      '<figcaption>10-Year Treasury yield, last 45 days.</figcaption></figure>')
     parts.append("</section>")
     return "\n".join(parts)
@@ -158,7 +158,8 @@ def _cover(run_date: date | None, day_type: str | None) -> str:
         bits.append(f'<span>{EDITIONS[day_type]}</span>')
     line = '<span class="sep" aria-hidden="true"></span>'.join(bits)
     return (f'<header class="cover"><h1>CRE Blurb</h1>'
-            f'{f"<p class=dateline>{line}</p>" if line else ""}</header>')
+            f'{f"<p class=dateline>{line}</p>" if line else ""}</header>'
+            '<div class="cover-rule" role="presentation"></div>')
 
 
 def _notes(problems: list[str]) -> str:
@@ -220,8 +221,8 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
 :focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
 .sheet { max-width: 680px; margin: 0 auto; background: var(--sheet);
   box-shadow: 0 1px 2px rgba(14, 42, 71, .06), 0 8px 24px rgba(14, 42, 71, .07); }
-.cover { background: var(--navy); color: #FFFFFF; padding: 44px 40px 28px;
-  border-bottom: 3px solid var(--gold); }
+.cover { background: var(--navy); color: #FFFFFF; padding: 44px 40px 28px; }
+.cover-rule { height: 3px; background: var(--gold); }
 .cover h1 { font-family: var(--serif); font-weight: 400; font-size: 3rem; line-height: 1.05;
   letter-spacing: -0.01em; margin: 0; }
 .dateline { margin: 14px 0 0; color: var(--navy-tint); font-size: 15px;
@@ -294,7 +295,7 @@ footer p { margin: 0 0 4px; }
   h2 { font-size: 1.4rem; }
   .row { gap: 10px; }
   dd { white-space: normal; }
-  .chg { margin-left: 6px; min-width: 0; }
+  .chg { margin-left: 6px; min-width: 4.8em; }
 }
 """
 
