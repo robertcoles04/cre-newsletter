@@ -6,196 +6,420 @@
 <title>CRE Blurb | October 6, 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Public+Sans:wght@400;500;600;700&display=swap">
 <style>
 :root {
-  --ground: #EEF0F2; --sheet: #FFFFFF; --navy: #0E2A47; --navy-tint: #B9C8DA;
-  --navy-wash: #F2F5F9; --navy-select: #CCD8E6; --gold: #B08D3C; --ink: #1B2430;
-  --muted: #56616F; --hairline: #D9DDE3; --up: #1F7A4D; --down: #B23A3A; --ghost: #A3ABB5;
+  --paper: #FFFFFF; --ink: #121417; --navy: #0E2A47; --navy-tint: #B9C8DA; --gold: #A9853A;
+  --gold-on-navy: #C9A85A; --hairline: #DADDE1; --muted: #5B6470; --panel: #F3F5F8;
+  --deck: #3A424C; --up: #1F7A4D; --down: #B23A3A; --up-on-navy: #9ED9B6;
+  --down-on-navy: #F2A6A6; --select: #CCD8E6;
   --amber-bg: #FBF4E4; --amber-line: #E3C88A; --amber-ink: #6E4A0B;
-  --serif: "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --display: "Libre Caslon Display", "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   --sans: "Public Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans);
-  font-size: 18px; line-height: 1.65; padding: 40px 16px 56px; }
-::selection { background: var(--navy-select); color: var(--ink); }
-:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
-.sheet { max-width: 860px; margin: 0 auto; background: var(--sheet);
-  box-shadow: 0 1px 2px rgba(14, 42, 71, .06), 0 8px 24px rgba(14, 42, 71, .07); }
-.cover { background: var(--navy); color: #FFFFFF; padding: 56px 48px 32px; }
-.cover-rule { height: 3px; background: var(--gold); }
-.cover h1 { font-family: var(--serif); font-weight: 400; font-size: 3.4rem; line-height: 1.05;
-  letter-spacing: -0.01em; margin: 0; }
-.tagline { margin: 12px 0 0; color: var(--navy-tint); font-size: 17px; line-height: 1.45;
-  max-width: 46ch; }
-.dateline { margin: 18px 0 0; color: var(--navy-tint); font-size: 15px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-.dateline .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--navy-tint); }
-main { padding: 8px 48px 8px; }
-main > *:first-child { margin-top: 40px; }
-p, li { max-width: 70ch; }
-p { margin: 0 0 1.05em; }
-h2 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; line-height: 1.2;
-  color: var(--navy); margin: 3rem 0 1.2rem; padding-bottom: .5rem;
-  border-bottom: 1px solid var(--gold); text-wrap: balance; }
-main h1 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; color: var(--navy);
-  margin: 2rem 0 1rem; }
-h3 { font-family: var(--sans); font-weight: 700; font-size: 1.18rem; line-height: 1.35;
-  color: var(--ink); margin: 2.1rem 0 .5rem; text-wrap: balance; }
-h2 + h3 { margin-top: 1.4rem; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif);
+  font-size: 17px; line-height: 1.55; overflow-x: hidden; }
+::selection { background: var(--select); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
 a { color: var(--navy); text-decoration: underline; text-decoration-thickness: 1px;
-  text-underline-offset: 3px; text-decoration-color: rgba(14, 42, 71, .45); }
-a:hover { text-decoration-color: var(--navy); text-decoration-thickness: 2px; }
-ul, ol { padding-left: 1.2em; margin: 0 0 1.05em; }
-li { margin: 0 0 .55em; }
-li::marker { color: var(--gold); }
+  text-underline-offset: 3px; text-decoration-color: rgba(14, 42, 71, .35); }
+a:hover { color: var(--navy); text-decoration-color: var(--navy); }
+p, li { max-width: 70ch; }
+p { margin: 0 0 1em; }
+ul, ol { padding-left: 1.2em; margin: 0 0 1em; }
+li { margin: 0 0 .5em; }
 strong { font-weight: 700; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+.skip { position: absolute; left: 8px; top: -60px; background: var(--navy); color: #FFFFFF;
+  padding: 10px 14px; z-index: 10; text-decoration: none; font-family: var(--sans); }
+.skip:focus { top: 8px; }
+
+/* Masthead: utility row, ticker, name, double rule, nav */
+.utility { border-bottom: 1px solid var(--hairline); font-family: var(--sans); font-size: 12px;
+  line-height: 1.5; color: var(--muted); }
+.utility .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+  padding-top: 10px; padding-bottom: 10px; }
+.utility .edition { letter-spacing: .08em; text-transform: uppercase; font-weight: 600;
+  color: var(--navy); }
+.ticker { background: var(--navy); color: #FFFFFF; font-family: var(--sans); font-size: 13px;
+  line-height: 1.4; font-variant-numeric: tabular-nums; padding: 10px 0 10px 24px;
+  overflow: hidden; white-space: nowrap; }
+.ticker-track { display: inline-flex; animation: cb-ticker calc(var(--n, 12) * 4.6s) linear infinite; }
+.ticker:hover .ticker-track { animation-play-state: paused; }
+@keyframes cb-ticker { from { transform: translateX(0); } to { transform: translateX(-33.3333%); } }
+.tk { padding-right: 30px; }
+.tk b { font-weight: 600; }
+.tk-date { font-weight: 700; letter-spacing: .1em; font-size: 11px; color: var(--gold-on-navy);
+  align-self: center; }
+.tk-rate, .tk-flat { color: var(--navy-tint); }
+.tk-up { color: var(--up-on-navy); }
+.tk-down { color: var(--down-on-navy); }
+.tk .tri { width: 8px; height: 8px; margin-right: 2px; vertical-align: 0; }
+.masthead { text-align: center; padding-top: 36px; }
+.masthead .name { margin: 0 auto; max-width: none; font-family: var(--display); font-weight: 400;
+  font-size: clamp(48px, 7vw, 76px); line-height: 1; letter-spacing: -.01em; color: var(--ink); }
+.tagline { margin: 12px auto 0; max-width: none; font-family: var(--sans); font-size: 12px;
+  line-height: 1.5; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.tagline-short, .dateline-m { display: none; }
+.double-rule { margin-top: 22px; height: 7px; border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--ink); }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 34px;
+  padding: 4px 0; border-bottom: 1px solid var(--hairline); font-family: var(--sans);
+  font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.site-nav a { color: var(--ink); text-decoration: none; padding: 12px 0;
+  border-bottom: 2px solid transparent; }
+.site-nav a:hover { border-bottom-color: var(--hairline); }
+.site-nav a[aria-current="page"] { border-bottom-color: var(--gold); }
+
+/* Shared type: section labels, display titles, headlines */
+main { padding-top: 32px; overflow-wrap: break-word; }
+main img, main svg { max-width: 100%; }
+main h1 { font-family: var(--display); font-weight: 400; font-size: 44px; line-height: 1.1;
+  margin: 8px 0 16px; }
+main h2, .group-name, .toc-title { font-family: var(--sans); font-size: 13px; font-weight: 700;
+  line-height: 1.4; letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+  margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); max-width: none; }
+main h2 .icon, main h3 .icon { display: inline-block; vertical-align: -0.15em; margin-right: 8px; }
+.icon { flex: none; color: var(--navy); }
+.display, main h2.display { font-family: var(--display); font-weight: 400; font-size: 34px;
+  line-height: 1.1; letter-spacing: 0; text-transform: none; border: 0; padding: 0;
+  margin: 0 0 6px; color: var(--ink); }
+h3 { font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1.25;
+  margin: 24px 0 8px; text-wrap: balance; }
+h2 + h3 { margin-top: 0; }
+.hl a { color: var(--ink); text-decoration: none; }
+.hl a:hover { text-decoration: underline; text-decoration-color: var(--ink); }
+.kicker { margin: 0 0 10px; font-family: var(--sans); font-size: 12px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--navy); }
+.source, .caption, .intro, .coffee-note, .return { font-family: var(--sans); font-size: 13px;
+  line-height: 1.5; color: var(--muted); }
 .why strong { color: var(--muted); font-weight: 600; }
-.group-name, .toc-title, .pull-label { font-size: 13px; font-weight: 600; line-height: 1.4;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--navy); }
-.summary dl, .data-room dl { margin: 0; }
-.group + .group { margin-top: 32px; }
-.group-name { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--gold); max-width: none; }
-.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px;
-  align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
-.data-room .row:first-child { border-top: 1px solid var(--hairline); }
-dt { color: var(--ink); }
-.hint { display: block; color: var(--muted); font-size: 14.5px; line-height: 1.4;
-  margin-top: 3px; }
+.sec, .coffee, .pair, .summary, .toc { margin-top: 44px; }
+.pair .sec { margin-top: 0; }
+
+/* Front: lead story beside The Brief, then the Market Snapshot strip */
+.front { display: flex; flex-direction: column; }
+.front .brief { order: -2; }
+.front .snapshot { order: -1; }
+.lead { margin-top: 28px; }
+.lead .hl { margin: 0; font-family: var(--serif); font-weight: 700; font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.08; letter-spacing: -.01em; text-transform: none; border: 0; padding: 0;
+  color: var(--ink); text-wrap: balance; }
+.deck p { margin: 14px 0 0; font-size: 21px; line-height: 1.45; color: var(--deck); }
+.lead .source { margin: 14px 0 0; }
+.why-panel { margin-top: 22px; padding: 18px 20px; background: var(--panel);
+  border-top: 2px solid var(--navy); }
+.why-panel p { margin: 0; font-size: 18px; line-height: 1.6; max-width: none; }
+.why-panel p + p { margin-top: 10px; }
+.why-label { display: block; font-family: var(--sans); font-size: 13px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--navy); }
+.brief h2, .snapshot h2 { border-bottom-width: 2px; margin-bottom: 14px; }
+.brief ol { list-style: none; margin: 0; padding: 0; counter-reset: brief; }
+.brief li { counter-increment: brief; position: relative; padding-left: 30px; margin: 0;
+  font-size: 17px; line-height: 1.45; max-width: none; }
+.brief li + li { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.brief li::before { content: counter(brief); position: absolute; left: 0; top: 0;
+  font-family: var(--display); font-size: 26px; line-height: 1; color: var(--gold); }
+.brief li + li::before { top: 16px; }
+.brief p:last-child { margin-bottom: 0; }
+.snapshot { margin-top: 30px; }
+.snapshot h2 { margin-bottom: 0; }
+.snapshot .cell { grid-template-columns: minmax(0, 1fr) auto; }
+.snapshot .cell dt { grid-column: 1; grid-row: 1; }
+.snapshot .cell dd { grid-column: 2; grid-row: 1 / span 2; display: flex;
+  flex-direction: column; align-items: flex-end; gap: 1px; }
+.snapshot .cell .hint { grid-column: 1; grid-row: 2; display: block; margin: 0;
+  text-align: left; white-space: normal; }
+.snapshot .chg { margin-left: 0; }
+.snapshot .caption { margin: 10px 0 0; }
+.snapshot .caption a { white-space: nowrap; }
+@media (min-width: 600px) {
+  .snapshot dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-bottom: 1px solid var(--ink); }
+  .snapshot .cell { display: block; padding: 14px 24px 16px; border-bottom: 0;
+    border-left: 1px solid var(--hairline); }
+  .snapshot .cell:first-child { padding-left: 0; border-left: 0; }
+  .snapshot .cell:last-child { padding-right: 0; }
+  .snapshot .cell dt { font-size: 14px; font-weight: 600; }
+  .snapshot .cell dd { flex-direction: row; align-items: baseline; justify-content: flex-start;
+    flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; text-align: left; max-width: none; }
+  .snapshot .cell .val { font-size: 30px; line-height: 1.1; }
+  .snapshot .cell .chg { font-size: 14px; }
+  .snapshot .cell .hint { margin-top: 6px; }
+}
+
+/* Data rows (Snapshot, The Numbers, Data Room) */
+dl { margin: 0; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px;
+  align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--hairline);
+  font-family: var(--sans); }
+dt { font-size: 15px; line-height: 1.4; color: var(--ink); }
+.hint { display: block; color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 2px; }
 dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap; }
-.val { font-weight: 600; font-size: 1.08rem; }
-.chg { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px;
-  font-size: 16px; min-width: 5.6em; justify-content: flex-end; }
+.val { font-weight: 600; font-size: 16px; }
+.chg { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;
+  margin-left: 10px; font-size: 13px; font-weight: 500; }
 .chg.up { color: var(--up); }
 .chg.down { color: var(--down); }
 .chg.unch { color: var(--muted); }
 .chg.rate { color: var(--navy); }  /* rates: direction only, no good/bad color */
 .tri { flex: none; }
 .na { color: var(--muted); font-style: italic; }
-.caption { color: var(--muted); font-size: 15px; margin: 14px 0 0; }
-.data-room .intro { color: var(--muted); font-size: 15px; }
-.tag { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .06em;
+.tag { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .08em;
   text-transform: uppercase; margin-left: 4px; }
-.takeaway { margin-top: 24px; }
-.chart { margin: 32px 0 0; min-width: 0; }
+
+/* Top Stories grid */
+.story { padding: 18px 0; border-bottom: 1px solid var(--hairline); min-width: 0; }
+.story:first-child { padding-top: 4px; }
+.story .hl { margin: 0; font-size: 24px; line-height: 1.18; }
+.story p { margin: 10px 0 0; font-size: 17px; line-height: 1.55; }
+.story .source { font-size: 13px; }
+.top-stories > p { font-size: 17px; }
+
+/* Coffee chat band */
+.coffee { padding: 28px 0; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.coffee-note { margin: 10px 0 18px; font-size: 14px; }
+.points { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; counter-reset: pt; }
+.points li { counter-increment: pt; margin: 0; font-size: 18px; line-height: 1.5;
+  font-style: italic; }
+.points li::before { content: "0" counter(pt); display: block; font-style: normal;
+  font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .1em;
+  color: var(--gold); }
+.points a { font-style: normal; }
+
+/* Debt Markets, Market Watch, Quick Hits, other sections */
+.sec p { font-size: 17px; line-height: 1.6; }
+.watch h3 { font-size: 20px; }
+.quick-hits ul { list-style: none; margin: 0; padding: 0; }
+.quick-hits li { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--hairline);
+  font-size: 16px; line-height: 1.55; max-width: none; }
+.quick-hits li:first-child { padding-top: 0; }
+.sec-body > *:last-child { margin-bottom: 0; }
+
+/* The Numbers */
+.summary { padding-top: 28px; border-top: 3px solid var(--ink); }
+.summary .intro { margin: 0 0 20px; }
+.group-name { margin: 0; }
+.group + .group, .chart + .group, .chart-pair + .group, .num-side { margin-top: 32px; }
+.summary .caption { margin: 10px 0 0; }
+.chart { margin: 28px 0 0; min-width: 0; }
 .chart picture { display: block; }
 .chart img { display: block; width: 100%; max-width: 100%; height: auto; }
-.chart figcaption { color: var(--muted); font-size: 15px; line-height: 1.45; margin-top: 10px;
-  padding-top: 10px; border-top: 1px solid var(--hairline); }
+.chart figcaption { font-family: var(--sans); color: var(--muted); font-size: 13px;
+  line-height: 1.45; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); }
 .chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0 28px; }
-.chart + .group, .chart-pair + .group { margin-top: 36px; }
-.brief, .term, .data-room { background: var(--navy-wash); padding: 6px 32px 22px; }
-.brief { margin: 2.4rem 0 0; }
-.term, .data-room { margin: 3rem 0 0; }
-.brief h2, .term h2, .data-room h2 { margin-top: 1.3rem; }
-.brief ul { margin-bottom: 0; }
-.brief li { margin-bottom: .75em; }
-.brief li:last-child, .brief p:last-child, .term p:last-child { margin-bottom: 0; }
-.pull { margin: 2.2rem 0; padding: 18px 0 20px; border-top: 1px solid var(--gold);
-  border-bottom: 1px solid var(--gold); }
-.pull-label { margin: 0 0 2px; }
-.pull-note { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
-.pull-text, .pull-list { font-family: var(--serif); font-style: italic; font-size: 1.25rem;
-  line-height: 1.5; color: var(--navy); margin: 0; max-width: 60ch; }
-.pull-list { padding-left: 1.2em; }
-.pull-list li { margin: 0 0 .6em; }
-.pull-list li:last-child { margin-bottom: 0; }
-.snapshot { margin: 2.4rem 0 0; }
-.snapshot h2 { margin-top: 0; }
-.snapshot dl { margin: 0; }
-.snapshot .caption a { white-space: nowrap; }
-.return { color: var(--muted); font-size: 15px; margin: 3rem 0 0; }
-.return + .issue-nav, .return + section { margin-top: 1.2rem; }
-.icon { flex: none; color: var(--navy); }
-h2 .icon, h3 .icon { display: inline-block; vertical-align: -0.12em; margin-right: 10px; }
-h3 .icon { vertical-align: -0.18em; }
-.toc { margin: 2rem 0 0; padding: 14px 0 16px; border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline); }
-.toc-title { margin: 0 0 6px; }
+.takeaway { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--hairline); }
+.takeaway p { font-size: 17px; line-height: 1.6; }
+
+/* Term of the Day and Data Room */
+.term { background: var(--panel); padding: 22px 20px; border-top: 2px solid var(--gold); }
+.term h2 { border: 0; padding: 0; margin: 0; color: var(--navy); }
+.term-name { margin: 12px 0 0; font-family: var(--display); font-size: 32px; line-height: 1.1; }
+.term-def p { margin: 10px 0 0; font-size: 18px; line-height: 1.6; }
+.data-room .intro { margin: 0 0 4px; }
+.pair.back .pb { margin-top: 32px; }
+.term.solo, .data-room.solo { margin-top: 44px; }
+
+/* Jump list (phones and tablets), end of issue, notes, footer */
+.toc { padding: 12px 0 14px; border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline); font-family: var(--sans); }
+.toc-title { border: 0; padding: 0; margin: 0 0 4px; }
 .toc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap;
-  gap: 4px 24px; font-size: 16px; }
+  gap: 0 20px; font-size: 15px; }
 .toc li { margin: 0; }
-.skip { position: absolute; left: 8px; top: -60px; background: var(--navy); color: #FFFFFF;
-  padding: 10px 14px; z-index: 10; text-decoration: none; }
-.skip:focus { top: 8px; }
-.issue-nav { margin: 3rem 0 0; padding-top: 16px; border-top: 1px solid var(--hairline);
-  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
-  font-size: 16px; }
+.toc a, .issue-nav a, .issue-list a { display: inline-flex; align-items: center; min-height: 44px; }
+.return { margin: 48px 0 0; font-size: 14px; }
+.issue-nav { margin: 12px 0 0; padding-top: 8px; border-top: 1px solid var(--hairline);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 24px;
+  font-family: var(--sans); font-size: 15px; }
 .issue-nav .top { margin-left: auto; }
-main { overflow-wrap: break-word; }
-main img, main svg { max-width: 100%; }
-.term p:first-of-type strong { font-family: var(--serif); font-weight: 700; color: var(--navy);
-  font-size: 1.15rem; }
+.recent { margin-top: 32px; }
 .notes { background: var(--amber-bg); border: 1px solid var(--amber-line); color: var(--amber-ink);
-  margin: 24px 48px 0; padding: 14px 20px; font-size: 15px; }
-.notes h2 { font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--amber-ink);
-  border: 0; margin: 0 0 6px; padding: 0; }
+  margin: 0 0 24px; padding: 14px 20px; font-family: var(--sans); font-size: 15px; }
+.notes h2 { font-size: 13px; color: var(--amber-ink); border: 0; margin: 0 0 6px; padding: 0; }
 .notes ul { margin: 0; }
 .notes li { margin: 0 0 2px; overflow-wrap: anywhere; }
-.notes li::marker { color: var(--amber-ink); }
-footer { margin: 56px 48px 0; padding: 20px 0 36px; border-top: 1px solid var(--hairline);
-  color: var(--muted); font-size: 14px; line-height: 1.55; }
-footer p { margin: 0 0 4px; }
-@media (max-width: 600px) {
-  body { padding: 0; font-size: 17px; }
-  .sheet { box-shadow: none; }
-  .cover { padding: 34px 16px 24px; }
-  .cover h1 { font-size: 2.5rem; }
-  .tagline { font-size: 15px; }
-  main { padding: 0 16px; }
-  main > *:first-child { margin-top: 28px; }
-  .notes { margin: 16px 16px 0; padding: 12px 14px; }
-  footer { margin: 40px 16px 0; }
-  .brief, .term, .data-room { padding: 4px 16px 16px; }
-  h2 { font-size: 1.5rem; margin-top: 2.5rem; }
-  h3 { font-size: 1.1rem; }
-  .pull-text, .pull-list { font-size: 1.15rem; }
-  .hint { font-size: 14px; }
-  .row { gap: 12px; }
+footer { margin-top: 56px; border-top: 3px solid var(--ink); }
+footer .wrap { padding-top: 22px; padding-bottom: 40px; display: flex; flex-wrap: wrap;
+  justify-content: space-between; align-items: baseline; gap: 8px 24px; font-family: var(--sans);
+  font-size: 13px; line-height: 1.5; color: var(--muted); }
+footer p { margin: 0; }
+footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--ink); }
+
+/* Archive, About, Glossary, 404 */
+.page { max-width: 820px; margin: 0 auto; }
+.page h2 { margin-top: 40px; }
+.page h1 + h2, .page h1 + p + h2 { margin-top: 24px; }
+.issue-list { list-style: none; margin: 0; padding: 0; }
+.issue-list li { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--hairline); max-width: none; }
+.issue-list .when { font-family: var(--sans); font-size: 14px; }
+.issue-list .headline { display: block; padding-bottom: 8px; font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); }
+.gloss { margin: 0; padding: 22px 0; border-bottom: 1px solid var(--hairline); }
+.gloss .term-name { margin: 0; padding: 0; border: 0; font-family: var(--display);
+  font-size: 30px; font-weight: 400; line-height: 1.1; letter-spacing: 0; text-transform: none; }
+.gloss .term-def p { font-size: 17px; }
+.gloss-from { margin: 8px 0 0; font-family: var(--sans); font-size: 13px; color: var(--muted); }
+
+/* Desktop: the 12-column broadsheet grid */
+@media (min-width: 900px) {
+  .front { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .front .brief, .front .snapshot { order: 0; }
+  /* The lead is a flex column: its "Why it matters" panel sits at the bottom, so the
+     lead and The Brief end at about the same height. */
+  .lead { grid-column: span 8; margin-top: 0; padding-right: 32px; display: flex;
+    flex-direction: column; border-right: 1px solid var(--hairline); }
+  .lead > .why-panel { margin-top: auto; }
+  .lead > :has(+ .why-panel) { margin-bottom: 22px; }
+  .front .brief { grid-column: span 4; }
+  .front .brief li + li { margin-top: 14px; padding-top: 14px; }
+  .front .brief li + li::before { top: 14px; }
+  .front .snapshot { grid-column: 1 / -1; margin-top: 36px; }
+  .front.no-brief .lead { grid-column: 1 / -1; padding-right: 0; border-right: 0; }
+  .front.no-lead .brief { grid-column: 1 / -1; }
+  .front.no-lead .brief ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 32px; }
+  .front.no-lead .brief li + li { margin-top: 0; padding-top: 0; border-top: 0; }
+  .front.no-lead .brief li + li::before { top: 0; }
+  .stories { display: grid; }
+  .stories.c1 { grid-template-columns: minmax(0, 1fr); }
+  .stories.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stories.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .story, .story:first-child { padding: 0 24px; border-bottom: 0;
+    border-left: 1px solid var(--hairline); }
+  .c1 .story, .c2 .story:nth-child(2n+1), .c3 .story:nth-child(3n+1) { padding-left: 0;
+    border-left: 0; }
+  .c2 .story:nth-child(2n), .c3 .story:nth-child(3n), .story:last-child { padding-right: 0; }
+  .c2 .story:nth-child(n+3), .c3 .story:nth-child(n+4) { margin-top: 28px; padding-top: 24px;
+    border-top: 1px solid var(--hairline); }
+  .c3 .story:last-child:nth-child(3n+2) { grid-column: span 2; }
+  .coffee { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .coffee-head { grid-column: span 4; }
+  .coffee-note { margin-bottom: 0; }
+  .points { grid-column: span 8; gap: 24px; }
+  .points.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .points.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pair { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .pair > .pa { grid-column: span 7; padding-right: 32px; border-right: 1px solid var(--hairline); }
+  .pair > .pb { grid-column: span 5; }
+  .pair > :only-child { grid-column: 1 / -1; padding-right: 0; border-right: 0; }
+  .pair.back > .pa { padding-right: 0; border-right: 0; }
+  /* the Term panel fills its cell, so a taller Data Room never leaves a blank area */
+  .pair.back > .pa { display: flex; flex-direction: column; }
+  .pair.back > .pa > .term { flex: 1; }
+  .pair.back .pb { margin-top: 0; }
+  .term { padding: 26px 28px; }
+  .quick-hits ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; }
+  .quick-hits li, .quick-hits li:first-child { padding: 0 0 14px; border-bottom: 0; }
+  .wide .sec-body, .solo .sec-body { columns: 2; column-gap: 48px; column-rule: 1px solid var(--hairline); }
+  .wide .sec-body > *, .solo .sec-body > * { break-inside: avoid; }
+  .wide .sec-body h3, .solo .sec-body h3 { break-after: avoid; margin-top: 0; }
+  .num-cols { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .num-main { grid-column: span 7; }
+  .num-side { grid-column: span 5; margin-top: 0; }
+  .num-cols > :only-child { grid-column: 1 / -1; }
+  .takeaway { columns: 2; column-gap: 48px; }
+  .takeaway p { break-inside: avoid; }
+  .toc { display: none; }
+  .issue-list li { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 4px 24px;
+    align-items: baseline; padding: 14px 0; }
+  .issue-list .headline { padding-bottom: 0; }
+}
+
+/* Phones */
+@media (max-width: 599px) {
+  .wrap { padding-left: 16px; padding-right: 16px; }
+  body { font-size: 16px; }
+  .utility { display: none; }
+  .ticker { font-size: 12px; padding: 9px 0 9px 16px; }
+  .ticker-track { animation-duration: calc(var(--n, 12) * 2.5s); }
+  .tk { padding-right: 22px; }
+  .tk-date { font-size: 12px; }
+  .masthead { padding-top: 22px; }
+  .dateline-m { display: block; margin: 0 auto 8px; max-width: none; font-family: var(--sans);
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .tagline { font-size: 10px; letter-spacing: .12em; margin-top: 8px; }
+  .tagline-long { display: none; }
+  .tagline-short { display: inline; }
+  .double-rule { margin-top: 16px; }
+  .site-nav { flex-wrap: nowrap; justify-content: space-between; gap: 0; padding: 0;
+    font-size: 12px; letter-spacing: .08em; }
+  .site-nav a { display: flex; align-items: center; min-height: 44px; padding: 0; }
+  main { padding-top: 22px; }
+  main h1 { font-size: 34px; }
+  main h2 { font-size: 12px; }
+  .display, main h2.display { font-size: 28px; }
+  .brief { background: var(--panel); padding: 16px; border-top: 2px solid var(--navy); }
+  .brief h2 { border: 0; padding: 0; margin-bottom: 10px; }
+  .brief li { font-size: 16px; padding-left: 24px; }
+  .brief li + li { margin-top: 12px; padding-top: 0; border-top: 0; }
+  .brief li + li::before { top: 0; }
+  .brief li::before { font-size: 22px; }
+  .snapshot { margin-top: 24px; }
+  .lead .hl { font-size: 30px; line-height: 1.1; }
+  .deck p { font-size: 17px; line-height: 1.5; margin-top: 10px; }
+  .why-panel { background: none; padding: 12px 0 0; margin-top: 14px;
+    border-top: 1px solid var(--hairline); }
+  .why-panel p { font-size: 16px; line-height: 1.55; }
+  .why-label { font-size: 12px; }
+  .sec, .coffee, .pair, .summary, .toc { margin-top: 28px; }
+  .story { padding: 14px 0; }
+  .story .hl { font-size: 21px; line-height: 1.2; }
+  .story p, .sec p, .takeaway p { font-size: 16px; line-height: 1.5; }
+  .coffee { padding: 20px 0; }
+  .coffee-note { margin: 6px 0 14px; }
+  .points { gap: 14px; }
+  .points li { font-size: 17px; }
+  .quick-hits li { font-size: 16px; line-height: 1.5; }
+  .term { padding: 18px 16px; }
+  .term-name { font-size: 26px; margin-top: 8px; }
+  .term-def p { font-size: 16px; line-height: 1.55; margin-top: 8px; }
+  .row { gap: 10px; padding: 10px 0; }
   /* Value over change, right-aligned, so long values never wrap awkwardly. */
-  dd { display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
-    max-width: 52vw; }
-  .val { white-space: normal; text-align: right; font-size: 1.04rem; }
-  .chg { margin-left: 0; min-width: 0; font-size: 15px; }
-  .toc a, .issue-nav a, .issue-list a { display: inline-flex; align-items: center;
-    min-height: 44px; }
-  .toc ul { gap: 0 18px; }
+  dd { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; max-width: 52vw; }
+  .val { white-space: normal; text-align: right; }
+  .chg { margin-left: 0; }
+  .issue-list .headline { font-size: 18px; }
+  footer { margin-top: 32px; }
+  footer .wrap { display: block; padding-top: 18px; padding-bottom: 28px; font-size: 12px; }
+  footer p { margin: 0 0 4px; }
+}
+@media (max-width: 359px) {
+  .site-nav { font-size: 11px; letter-spacing: .03em; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .ticker { overflow-x: auto; }
+  .ticker-track { animation: none; }
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 </style>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
-<div class="sheet" id="top">
-<header class="cover"><h1>CRE Blurb</h1><p class="tagline">The daily commercial real estate briefing for students and young professionals.</p><p class=dateline><time datetime="2026-10-06">Tuesday, October 6, 2026</time><span class="sep" aria-hidden="true"></span><span>Daily Edition</span><span class="sep" aria-hidden="true"></span><span>1 min read</span></p></header><div class="cover-rule" role="presentation"></div>
+<header class="site-head" id="top"><div class="utility"><div class="wrap"><span><time datetime="2026-10-06">Tuesday, October 6, 2026</time></span><span class="edition">Daily Edition · 1 min read</span><span>Free. New issue every weekday morning, lighter on weekends.</span></div></div><div class="ticker" role="img" aria-label="Markets as of Oct 2 close: 10-Year 4.28% up 4 bps, 5-Year 3.91% down 2 bps, SOFR 3.87% unchanged, VNQ $89.50 up 0.4%, NNN up 1.9%, MAA down 1.0%, Fed hold odds 82.5%" style="--n: 8"><div class="ticker-track" aria-hidden="true"><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span></div></div><div class="masthead wrap"><p class="dateline-m">Tuesday, October 6, 2026 · Daily Edition</p><p class="name">CRE Blurb</p><p class="tagline"><span class="tagline-long">The daily commercial real estate briefing for students and young professionals</span><span class="tagline-short">Daily CRE briefing for students</span></p><div class="double-rule" role="presentation"></div></div></header>
+<main id="content" class="wrap">
 <aside class="notes" aria-labelledby="notes-h"><h2 id="notes-h">Editor notes, not for publishing</h2><ul><li>p1</li></ul></aside>
-<main id="content">
-<section class="snapshot" aria-labelledby="snapshot-h"><h2 id="snapshot-h">Market Snapshot</h2><dl><div class="row"><dt>10-Year Treasury<span class="hint">Benchmark for long-term property loans</span></dt><dd><span class="val">4.28%</span><span class="chg up rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+4 bps</span></dd></div><div class="row"><dt>SOFR<span class="hint">Base rate for floating-rate property loans</span></dt><dd><span class="val">3.87%</span><span class="chg unch">unch</span></dd></div><div class="row"><dt>Real estate stocks (VNQ)<span class="hint">A fund holding about 150 REITs</span></dt><dd><span class="val">$89.50</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+0.4%</span></dd></div></dl><p class="caption">Rates as of Oct 2 close. <a href="#summary-h">Full market data below</a></p></section>
-<nav class="toc" aria-labelledby="toc-h"><p class="toc-title" id="toc-h">In this issue</p><ul><li><a href="#top-stories">Top Stories</a></li><li><a href="#summary-h">Market Summary</a></li><li><a href="#term-h">Term of the Day</a></li></ul></nav>
-<section><h2 id="top-stories">Top Stories</h2>
-<h3>Big deal closes</h3>
-<p>Two sentences here. <a href="https://example.com/a">source</a></p></section>
-<section class="summary" aria-labelledby="summary-h">
-<h2 id="summary-h">Market Summary</h2>
-<div class="group"><p class="group-name">Rates</p><dl><div class="row"><dt>10-Year Treasury<span class="hint">Benchmark for long-term property loans</span></dt><dd><span class="val">4.28%</span><span class="chg up rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+4 bps</span></dd></div><div class="row"><dt>5-Year Treasury<span class="hint">Benchmark for many 5-year commercial mortgages</span></dt><dd><span class="val">3.91%</span><span class="chg down rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>-2 bps</span></dd></div><div class="row"><dt>SOFR<span class="hint">Base rate for floating-rate property loans</span></dt><dd><span class="val">3.87%</span><span class="chg unch">unch</span></dd></div><div class="row"><dt>Fed Funds<span class="hint">The Fed&#x27;s target for overnight bank lending; other rates key off it</span></dt><dd><span class="na" title="Data unavailable today" aria-label="Data unavailable today">n/a</span></dd></div></dl></div>
-<p class="caption">Rates as of Oct 2 close.</p>
-<div class="group"><p class="group-name">Federal Reserve</p><dl><div class="row"><dt>FOMC: next Fed meeting<span class="hint">When the Fed next decides on rates</span></dt><dd><span class="val">Oct 28</span></dd></div><div class="row"><dt>Odds of a cut<span class="hint">Chance rates go down. Prediction-market odds from Polymarket traders</span></dt><dd><span class="val">15.0%</span></dd></div><div class="row"><dt>Odds of a hold<span class="hint">Chance rates stay the same</span></dt><dd><span class="val">82.5%</span></dd></div><div class="row"><dt>Odds of a hike<span class="hint">Chance rates go up</span></dt><dd><span class="val">2.5%</span></dd></div></dl></div>
-<div class="group"><p class="group-name">REITs</p><dl><div class="row"><dt>Real estate stocks (VNQ)<span class="hint">A fund holding about 150 REITs</span></dt><dd><span class="val">$89.50</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+0.4%</span></dd></div><div class="row"><dt>Biggest gain today</dt><dd><span class="val">NNN</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+1.9%</span></dd></div><div class="row"><dt>Biggest drop today</dt><dd><span class="val">MAA</span><span class="chg down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>-1.0%</span></dd></div><div class="row"><dt>REIT dividend yield<span class="hint">Yearly income per $100 invested in VNQ</span></dt><dd><span class="val">3.95%</span></dd></div><div class="row"><dt>REIT yield vs. 10-Year Treasury<span class="hint">Below zero: Treasuries out-yield REIT dividends, so REITs look pricey vs. bonds</span></dt><dd><span class="val">-33 bps</span></dd></div></dl></div>
+<div class="front no-brief"><article class="lead" id="top-stories" aria-labelledby="lead-h"><p class="kicker">Top Story</p><h2 class="hl" id="lead-h"><a href="https://example.com/a">Big deal closes</a></h2><div class="deck"><p>Two sentences here.</p></div><p class="source">Source: <a href="https://example.com/a">source</a></p></article><section class="snapshot" aria-labelledby="snapshot-h"><h2 id="snapshot-h">Market Snapshot</h2><dl><div class="row cell"><dt>10-Year Treasury</dt><dd><span class="val">4.28%</span><span class="chg up rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+4 bps</span></dd><dd class="hint">Benchmark for long-term property loans</dd></div><div class="row cell"><dt>SOFR</dt><dd><span class="val">3.87%</span><span class="chg unch">unch</span></dd><dd class="hint">Base rate for floating-rate property loans</dd></div><div class="row cell"><dt>Real estate stocks (VNQ)</dt><dd><span class="val">$89.50</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+0.4%</span></dd><dd class="hint">A fund holding about 150 REITs</dd></div></dl><p class="caption">Rates as of Oct 2 close. <a href="#numbers">Full market data</a></p></section></div>
+<nav class="toc" aria-labelledby="toc-h"><p class="toc-title" id="toc-h">In this issue</p><ul><li><a href="#top-stories">Top Stories</a></li><li><a href="#summary-h">The Numbers</a></li><li><a href="#term-h">Term of the Day</a></li></ul></nav>
+<section class="summary" id="numbers" aria-labelledby="summary-h">
+<h2 id="summary-h" class="display">The Numbers</h2>
+<p class="intro">Every number is filled in automatically from public data.</p>
+<div class="num-cols"><div class="num-main"><div class="group"><p class="group-name">Rates</p><dl><div class="row"><dt>10-Year Treasury<span class="hint">Benchmark for long-term property loans</span></dt><dd><span class="val">4.28%</span><span class="chg up rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+4 bps</span></dd></div><div class="row"><dt>5-Year Treasury<span class="hint">Benchmark for many 5-year commercial mortgages</span></dt><dd><span class="val">3.91%</span><span class="chg down rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>-2 bps</span></dd></div><div class="row"><dt>SOFR<span class="hint">Base rate for floating-rate property loans</span></dt><dd><span class="val">3.87%</span><span class="chg unch">unch</span></dd></div><div class="row"><dt>Fed Funds<span class="hint">The Fed&#x27;s target for overnight bank lending; other rates key off it</span></dt><dd><span class="na" title="Data unavailable today" aria-label="Data unavailable today">n/a</span></dd></div></dl></div><p class="caption">Rates as of Oct 2 close.</p><figure class="chart chart-chart"><img src="chart.png" alt="Line chart of the 10-Year Treasury yield over the last 45 days" width="800" height="400"><figcaption>10-Year Treasury yield, last 45 days.</figcaption></figure></div><div class="num-side"><div class="group"><p class="group-name">Federal Reserve</p><dl><div class="row"><dt>FOMC: next Fed meeting<span class="hint">When the Fed next decides on rates</span></dt><dd><span class="val">Oct 28</span></dd></div><div class="row"><dt>Odds of a cut<span class="hint">Chance rates go down. Prediction-market odds from Polymarket traders</span></dt><dd><span class="val">15.0%</span></dd></div><div class="row"><dt>Odds of a hold<span class="hint">Chance rates stay the same</span></dt><dd><span class="val">82.5%</span></dd></div><div class="row"><dt>Odds of a hike<span class="hint">Chance rates go up</span></dt><dd><span class="val">2.5%</span></dd></div></dl></div><div class="group"><p class="group-name">REITs</p><dl><div class="row"><dt>Real estate stocks (VNQ)<span class="hint">A fund holding about 150 REITs</span></dt><dd><span class="val">$89.50</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+0.4%</span></dd></div><div class="row"><dt>Biggest gain today</dt><dd><span class="val">NNN</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+1.9%</span></dd></div><div class="row"><dt>Biggest drop today</dt><dd><span class="val">MAA</span><span class="chg down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>-1.0%</span></dd></div><div class="row"><dt>REIT dividend yield<span class="hint">Yearly income per $100 invested in VNQ</span></dt><dd><span class="val">3.95%</span></dd></div><div class="row"><dt>REIT yield vs. 10-Year Treasury<span class="hint">Below zero: Treasuries out-yield REIT dividends, so REITs look pricey vs. bonds</span></dt><dd><span class="val">-33 bps</span></dd></div></dl></div></div></div>
 <div class="takeaway"><p><strong>What it means:</strong> Floating-rate borrowers keep paying up for longer.</p></div>
-<figure class="chart chart-chart"><img src="chart.png" alt="Line chart of the 10-Year Treasury yield over the last 45 days" width="800" height="400"><figcaption>10-Year Treasury yield, last 45 days.</figcaption></figure>
 </section>
-<section class="term" aria-labelledby="term-h"><h2 id="term-h"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 6.5C10 5 7 4.5 3 4.5v14c4 0 7 .5 9 2 2-1.5 5-2 9-2v-14c-4 0-7 .5-9 2zM12 6.5v14"/></svg>Term of the Day</h2><p><strong>Cap rate:</strong> Net operating income divided by price.</p></section>
+<div class="pair back"><div class="pa"><section class="term" aria-labelledby="term-h"><h2 id="term-h">Term of the Day</h2><p class="term-name">Cap rate</p><div class="term-def"><p>Net operating income divided by price.</p></div></section></div></div>
 </main>
 <footer>
-<p>For informational purposes only. Not investment advice.</p>
+<div class="wrap">
+<p class="foot-name">CRE Blurb</p>
 <p>Written with AI from the linked sources. Every number is pulled automatically from public data. Edited by Robert.</p>
-</footer>
+<p>For informational purposes only. Not investment advice.</p>
 </div>
+</footer>
 </body>
 </html>

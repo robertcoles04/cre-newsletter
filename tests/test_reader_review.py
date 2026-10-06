@@ -137,7 +137,7 @@ def test_read_minutes_and_dateline():
     assert read_minutes("[a](https://very/long/url/" + "x" * 900 + ")") == 1
     html = render_issue_html("## Top Stories\n\n" + "word " * 920, {"values": {},
                              "date": "2026-10-06", "day_type": "weekday"}, [], None)
-    assert "<span>4 min read</span>" in html
+    assert '<span class="edition">Daily Edition · 4 min read</span>' in html
 
 
 # --- 8. Rates labels ---------------------------------------------------------------------

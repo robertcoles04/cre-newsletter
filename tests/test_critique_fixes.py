@@ -179,16 +179,17 @@ def test_coffee_point_number_must_be_sourced():
 def test_talking_points_render_as_pull_list_and_old_line_still_works():
     md = _coffee_md([f"Point one 19.6%. [A]({URL_A})", f"Point two. [A]({URL_A})"])
     html = render_issue_html(md, None, [])
-    assert '<aside class="pull" aria-label="Coffee chat talking points">' in html
-    assert '<p class="pull-label">Coffee chat talking points</p>' in html
+    assert '<section class="coffee" aria-label="Coffee chat talking points">' in html
+    assert '<h2 class="display">Coffee chat talking points</h2>' in html
     assert "Talking points you can use in networking conversations" in html
-    assert '<ul class="pull-list"><li>Point one 19.6%.' in html
+    assert '<ol class="points c2"><li>Point one 19.6%.' in html
     # No blank line after the label: still a list.
     tight = md.replace("points:**\n\n- Point one", "points:**\n- Point one")
-    assert '<ul class="pull-list">' in render_issue_html(tight, None, [])
+    assert '<ol class="points c2">' in render_issue_html(tight, None, [])
     old = render_issue_html("## Top Stories\n\n**Coffee chat line:** A take. [A](" + URL_A
                             + ")\n\n" + FOOTER, None, [])
-    assert '<p class="pull-label">Coffee chat line</p>' in old
+    assert '<h2 class="display">Coffee chat line</h2>' in old
+    assert '<ol class="points c1"><li>A take.' in old
 
 
 # ---------------------------------------------------------------- 5. small fixes
@@ -272,17 +273,20 @@ VALS = {"DGS10": "4.28%", "DGS10_CHG": "+4 bps", "SOFR": "4.30%", "SOFR_CHG": "-
 
 def test_snapshot_then_stories_then_full_summary():
     html = render_issue_html(MD, {"date": "2026-10-06", "day_type": "weekday", "values": VALS}, [])
+    # The front (lead story, The Brief, the Snapshot strip; phones reorder it with CSS),
+    # then the stories, The Numbers, Term of the Day and the Data Room.
     order = [html.index(s) for s in (
-        'id="the-brief"', 'id="snapshot-h"', '<nav class="toc"', 'id="debt-markets"',
-        'id="top-stories"', 'id="quick-hits"', 'id="summary-h"', "Rates were little changed",
+        'id="top-stories"', 'id="the-brief"', 'id="snapshot-h"', '<nav class="toc"',
+        'id="debt-markets"', 'id="quick-hits"', 'id="summary-h"', "Rates were little changed",
         'id="term-h"', 'id="dataroom-h"')]
     assert order == sorted(order)
     snap = html.split('<section class="snapshot"')[1].split("</section>")[0]
-    assert snap.count('<div class="row">') == 3
+    assert snap.count('<div class="row cell">') == 3
     assert "10-Year Treasury" in snap and "SOFR" in snap and "Real estate stocks (VNQ)" in snap
-    assert '<a href="#summary-h">Full market data below</a>' in snap
+    assert '<a href="#numbers">Full market data</a>' in snap
+    assert '<dd class="hint">Benchmark for long-term property loans</dd>' in snap
     toc = html.split('<nav class="toc"')[1].split("</nav>")[0]
-    assert "Market Snapshot" not in toc and toc.index("Quick Hits") < toc.index("Market Summary")
+    assert "Market Snapshot" not in toc and toc.index("Quick Hits") < toc.index("The Numbers")
 
 
 def test_snapshot_empty_without_data():
@@ -337,9 +341,9 @@ def read(p):
 def test_favicon_robots_sitemap(tmp_path):
     out = _build(tmp_path)
     svg = read(out / "favicon.svg")
-    assert svg.startswith("<svg") and "#0E2A47" in svg and "#B08D3C" in svg and ">CB<" in svg
+    assert svg.startswith("<svg") and "#0E2A47" in svg and "#A9853A" in svg and ">CB<" in svg
     for page in ("index.html", "archive/index.html", "about/index.html", "404.html",
-                 "issues/2026-10-06/index.html"):
+                 "glossary/index.html", "issues/2026-10-06/index.html"):
         assert ('<link rel="icon" type="image/svg+xml" href="https://creblurb.org/favicon.svg">'
                 in read(out / page)), page
     robots = read(out / "robots.txt")
@@ -347,7 +351,8 @@ def test_favicon_robots_sitemap(tmp_path):
     assert "Sitemap: https://creblurb.org/sitemap.xml" in robots
     sm = read(out / "sitemap.xml")
     for url in ("https://creblurb.org/", "https://creblurb.org/archive/",
-                "https://creblurb.org/about/", "https://creblurb.org/issues/2026-10-05/",
+                "https://creblurb.org/about/", "https://creblurb.org/glossary/",
+                "https://creblurb.org/issues/2026-10-05/",
                 "https://creblurb.org/issues/2026-10-06/"):
         assert f"<loc>{url}</loc>" in sm
 
@@ -360,16 +365,17 @@ def test_return_line_and_home_note(tmp_path):
     assert line in issue and issue.index(line) < issue.index('<nav class="issue-nav"')
     home = read(out / "index.html")
     assert line in home
-    assert '<p class="site-note">Free. New issue every weekday morning, lighter on weekends.</p>' in home
-    assert '<p class="site-note">' not in read(out / "archive/index.html")
+    # The "Free..." note now sits in every page's masthead utility row.
+    note = "<span>Free. New issue every weekday morning, lighter on weekends.</span>"
+    assert note in home and note in read(out / "archive/index.html")
 
 
 def test_archive_shows_headlines(tmp_path):
     out = _build(tmp_path)
     arc = read(out / "archive/index.html")
-    assert ('Tuesday, October 6, 2026</a>. <span class="headline">Rising rates are breaking '
+    assert ('Tuesday, October 6, 2026</a><span class="headline">Rising rates are breaking '
             'CRE deals</span>') in arc
-    assert ('Monday, October 5, 2026</a>. <span class="headline">Office rents rose</span>'
+    assert ('Monday, October 5, 2026</a><span class="headline">Office rents rose</span>'
             in arc)  # no Top Stories headline: the describe() sentence
     assert site.headline("## Top Stories\n\n### A **bold** [link](https://x.com)\n", D) == \
         "A bold link"
@@ -378,6 +384,6 @@ def test_archive_shows_headlines(tmp_path):
 def test_404_copy_once(tmp_path):
     out = _build(tmp_path)
     page = read(out / "404.html")
-    main = page.split('<main id="content">')[1]
+    main = page.split('<main id="content" class="wrap">')[1]
     assert main.count("Page not found") == 1
     assert "That page doesn't exist. Today's issue is on the home page." in main

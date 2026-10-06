@@ -80,7 +80,8 @@ def test_issue_page_clean(built):
         assert "Editor notes" not in page
         assert "Review before publishing" not in page
         assert "{{" not in page
-        assert '<nav class="site-nav" aria-label="Site"><a href="../../">Home</a>' in page
+        assert ('<nav class="site-nav" aria-label="Site"><a href="../../">Today</a>'
+                '<a href="../../issues/2026-10-06/#numbers">Markets</a>') in page
         assert 'property="og:type" content="article"' in page
 
 
@@ -106,16 +107,18 @@ def test_missing_chart_no_img_no_og_image(built):
 def test_relative_links_resolve(built):
     _, out, _ = built
     pages = [p for p in out.rglob("*.html") if p.name != "404.html"]
-    assert len(pages) == 5
+    assert len(pages) == 6
     for page in pages:
         for href in re.findall(r'(?:href|src)="([^"]*)"', _read(page)):
             if re.match(r"[a-z]+:", href) or href.startswith("//"):
                 continue
-            if href.startswith("#"):  # in-page anchor: the id must exist on the page
-                assert f'id="{href[1:]}"' in _read(page), (page, href)
-                continue
-            target = (page.parent / href).resolve()
-            assert target.is_file() or (target / "index.html").is_file(), (page, href)
+            path, _, frag = href.partition("#")
+            target_page = (page.parent / path).resolve() if path else page
+            if target_page.is_dir():
+                target_page = target_page / "index.html"
+            assert target_page.is_file(), (page, href)
+            if frag:  # anchor: the id must exist on the target page
+                assert f'id="{frag}"' in _read(target_page), (page, href)
 
 
 def test_404_uses_absolute_links(built):
@@ -255,7 +258,7 @@ def test_404_copy(built):
     _, out, _ = built
     page = _read(out / "404.html")
     assert "<p>That page doesn't exist. Today's issue is on the home page.</p>" in page
-    assert page.split('<main id="content">')[1].count("Page not found") == 1  # heading only
+    assert page.split('<main id="content" class="wrap">')[1].count("Page not found") == 1  # heading only
     assert '<link rel="icon" type="image/svg+xml"' in page
 
 

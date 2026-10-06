@@ -50,7 +50,7 @@ def render(md=MD, factsheet=FACTSHEET, problems=(), chart="img/2026-10-06-chart.
 
 def test_summary_rows_render_from_values():
     html = render()
-    assert "Market Summary" in html
+    assert '<h2 id="summary-h" class="display">The Numbers</h2>' in html
     for label in ("10-Year Treasury", "5-Year Treasury", "SOFR", "Fed Funds",
                   "FOMC: next Fed meeting", "Odds of a cut", "Odds of a hold",
                   "Odds of a hike",
@@ -89,7 +89,7 @@ def test_missing_values_are_skipped():
 
 def test_numbers_section_replaced_and_prose_kept():
     html = render()
-    assert "The Numbers" not in html
+    assert 'id="the-numbers"' not in html  # the Markdown section is replaced by ours
     assert "10Y Treasury:" not in html  # model's list lines dropped
     assert "Floating-rate borrowers keep paying up for longer." in html
     assert html.count("2026-10-06-chart.png") == 1
@@ -124,7 +124,7 @@ def test_cover_and_edition():
 def test_stub_without_factsheet_skips_summary():
     md = f"# Pipeline error: fact sheet unavailable\n\n- factsheet: KeyError\n\n{FOOTER}\n"
     html = render_issue_html(md, None, ["factsheet: KeyError"], None)
-    assert "Market Summary" not in html and FOOTER in html
+    assert 'id="numbers"' not in html and FOOTER in html
     assert "<img" not in html
 
 
@@ -145,14 +145,16 @@ def test_site_hooks_placed():
                             nav='<nav class="site-nav">N</nav>', extra_body="<section>R</section>",
                             title="T")
     assert '<title>T</title>\n<meta name="x">' in out
-    assert out.index('class="cover-rule"') < out.index('class="site-nav"') < out.index('<main id="content">')
+    assert (out.index('class="double-rule"') < out.index('class="site-nav"')
+            < out.index('<main id="content"'))
     assert out.index("<section>R</section>") < out.index("</main>")
 
 
 def test_render_page_has_shell_no_notes():
     out = render_page("About | CRE Blurb", "<p>Hi</p>", nav="<nav>N</nav>")
     assert "<title>About | CRE Blurb</title>" in out and "<p>Hi</p>" in out
-    assert "Editor notes" not in out and "<h1>CRE Blurb</h1>" in out
+    assert "Editor notes" not in out and '<p class="name">CRE Blurb</p>' in out
+    assert 'class="ticker"' not in out  # no fact sheet: no ticker
 
 
 POLISH_MD = f"""## The Brief
@@ -185,17 +187,18 @@ Two sentences here. [source](https://news.site/a)
 
 def test_cover_tagline_and_brief_panel():
     html = render(md=POLISH_MD)
-    assert ('<p class="tagline">The daily commercial real estate briefing for students '
-            'and young professionals.</p>') in html
+    assert ('<span class="tagline-long">The daily commercial real estate briefing for '
+            'students and young professionals</span>') in html
+    assert '<span class="tagline-short">Daily CRE briefing for students</span>' in html
     assert '<section class="brief"><h2 id="the-brief">The Brief</h2>' in html
 
 
 def test_coffee_chat_line_is_a_pull_quote():
     html = render(md=POLISH_MD)
-    assert '<aside class="pull" aria-label="Coffee chat line">' in html
-    assert '<p class="pull-label">Coffee chat line</p>' in html
-    assert ('<p class="pull-text">Insurers are lending on apartments again. '
-            '<a href="https://news.site/a">source</a></p>') in html
+    assert '<section class="coffee" aria-label="Coffee chat line">' in html
+    assert '<h2 class="display">Coffee chat line</h2>' in html
+    assert ('<ol class="points c1"><li>Insurers are lending on apartments again. '
+            '<a href="https://news.site/a">source</a></li></ol>') in html
     assert "<strong>Coffee chat line:</strong>" not in html
 
 
@@ -221,6 +224,8 @@ def test_brief_bullets_stay_bullets():
 
 def test_reading_sizes_in_css():
     html = render()
-    assert "font-size: 18px; line-height: 1.65" in html
-    assert ".sheet { max-width: 860px;" in html
-    assert "main { padding: 8px 48px 8px; }" in html
+    assert ".wrap { max-width: 1180px;" in html
+    assert "repeat(12, minmax(0, 1fr))" in html
+    assert "fonts.googleapis.com/css2?family=Libre+Caslon+Display" in html
+    assert "Source+Serif+4" in html and "Public+Sans" in html
+    assert "--ink: #121417" in html and "--gold: #A9853A" in html

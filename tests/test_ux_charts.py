@@ -261,10 +261,13 @@ def page(md=MD, charts=CHARTS):
 def test_charts_sit_with_their_groups():
     html = page()
     summary = html.split('<section class="summary"')[1].split("</section>")[0]
+    # Left column: Rates, its caption, the 10-Year chart, the curve + mortgage pair.
+    # Right column: Federal Reserve + Fed odds, REITs + scoreboard. Then the prose.
     order = [summary.index(s) for s in (
-        ">Rates<", "Rates as of Oct 5 close.", '<div class="chart-pair">', 'src="curve.png"',
-        'src="mortgage.png"', ">Federal Reserve<", 'src="fed.png"', ">REITs<",
-        'src="reits.png"', 'class="takeaway"', 'src="chart.png"')]
+        '<div class="num-main">', ">Rates<", "Rates as of Oct 5 close.", 'src="chart.png"',
+        '<div class="chart-pair">', 'src="curve.png"', 'src="mortgage.png"',
+        '<div class="num-side">', ">Federal Reserve<", 'src="fed.png"', ">REITs<",
+        'src="reits.png"', 'class="takeaway"')]
     assert order == sorted(order)
     for name in CHARTS:
         assert f'alt="Alt for {name} 4.28%" width="800" height="300"' in html
@@ -292,13 +295,11 @@ def test_heading_icons_are_authored_svgs():
     for heading in ("Sun Belt", "West Coast", "International"):
         assert re.search(r'<h3><svg class="icon"[^>]*aria-hidden="true"[^>]*>.*?</svg>'
                          + heading + "</h3>", html, re.S), heading
-    assert re.search(r'<h2 id="term-h"><svg class="icon".*?</svg>Term of the Day</h2>', html,
-                     re.S)
-    assert re.search(r'<h2 id="dataroom-h"><svg class="icon".*?</svg>Data Room</h2>', html,
-                     re.S)
+    # Broadsheet section labels are plain small caps: no icons on h2s.
+    assert '<h2 id="term-h">Term of the Day</h2>' in html
+    assert '<h2 id="dataroom-h">Data Room</h2>' in html
     week = render_issue_html("## Week Ahead\n\n- CPI\n", None, [], None)
-    assert re.search(r'<h2 id="week-ahead"><svg class="icon".*?</svg>Week Ahead</h2>', week,
-                     re.S)
+    assert '<h2 id="week-ahead">Week Ahead</h2>' in week
     assert 'width="18" height="18"' in html
 
 
@@ -306,11 +307,10 @@ def test_jump_list_after_the_snapshot_links_to_section_ids():
     html = page()
     toc = html.split('<nav class="toc"')[1].split("</nav>")[0]
     assert (html.index('id="the-brief"') < html.index('id="snapshot-h"')
-            < html.index('<nav class="toc"') < html.index('id="top-stories"')
-            < html.index('id="summary-h"'))
+            < html.index('<nav class="toc"') < html.index('id="summary-h"'))
     links = re.findall(r'href="#([^"]+)">([^<]+)<', toc)
     assert links == [("top-stories", "Top Stories"), ("market-watch", "Market Watch"),
-                     ("summary-h", "Market Summary"), ("term-h", "Term of the Day"),
+                     ("summary-h", "The Numbers"), ("term-h", "Term of the Day"),
                      ("dataroom-h", "Data Room")]
     for anchor, _ in links:
         assert f'id="{anchor}"' in html
@@ -335,7 +335,7 @@ def test_long_urls_never_show_as_link_text():
 def test_skip_link_landmarks_and_phone_rules():
     html = page()
     assert '<a class="skip" href="#content">Skip to content</a>' in html
-    assert '<div class="sheet" id="top">' in html and '<main id="content">' in html
+    assert '<header class="site-head" id="top">' in html and '<main id="content" class="wrap">' in html
     assert "min-height: 44px" in html and "prefers-reduced-motion" in html
     assert "max-width: 100%" in html
 
@@ -406,7 +406,9 @@ def test_previous_next_and_back_to_top(built):
 
 
 def test_nav_marks_the_current_page(built):
-    assert '<a href="" aria-current="page">Home</a>' in _read(built / "index.html")
+    assert '<a href="./" aria-current="page">Today</a>' in _read(built / "index.html")
+    assert ('<a href="../glossary/" aria-current="page">Glossary</a>'
+            in _read(built / "glossary" / "index.html"))
     assert ('<a href="../archive/" aria-current="page">Archive</a>'
             in _read(built / "archive" / "index.html"))
     assert ('<a href="../about/" aria-current="page">About</a>'

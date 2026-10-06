@@ -1,6 +1,6 @@
 """Render an issue's Markdown + fact-sheet values as a self-contained HTML preview.
 
-Design direction "Offering Memorandum" (see DESIGN.md). The Market Summary block is
+Design direction "Broadsheet" (see DESIGN.md). The Market Summary block is
 built here from factsheet["values"], never from model text; the Markdown's own
 "## The Numbers" section is replaced by it, keeping only its prose sentences.
 """
@@ -114,8 +114,9 @@ DOWN_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidd
             'focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>')
 GHOST = '<span class="na" title="Data unavailable today" aria-label="Data unavailable today">n/a</span>'
 
-FONTS = ("https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400"
-         "&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap")
+FONTS = ("https://fonts.googleapis.com/css2?family=Libre+Caslon+Display"
+         "&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400"
+         "&family=Public+Sans:wght@400;500;600;700&display=swap")
 
 
 def summary_label(label: str, values: dict) -> str:
@@ -204,9 +205,11 @@ def _change(chg: str | None, neutral: bool = False) -> str:
 
 
 def _row(label: str, key: str, chg_key: str | None, values: dict, *, tag: str = "",
-         quiet: bool = False) -> str:
+         quiet: bool = False, cell_layout: bool = False) -> str:
     """One summary row. `tag` adds a muted word after the label ("Updated"); `quiet`
-    shows the change in muted text without an arrow (a Data Room row with no new data)."""
+    shows the change in muted text without an arrow (a Data Room row with no new data).
+    `cell_layout` (the Market Snapshot strip) puts the hint in its own <dd> after the
+    value, so a cell reads label, big value, change, hint."""
     label = summary_label(label, values)
     raw = values.get(key, NA)
     val, chg = raw, values.get(chg_key) if chg_key else None
@@ -229,6 +232,9 @@ def _row(label: str, key: str, chg_key: str | None, values: dict, *, tag: str = 
     hint = hint_for(key, values)
     hint_html = f'<span class="hint">{_esc(hint)}</span>' if hint else ""
     tag_html = f' <span class="tag">{_esc(tag)}</span>' if tag else ""
+    if cell_layout:
+        return (f'<div class="row cell"><dt>{_esc(label)}{tag_html}</dt><dd>{cell}</dd>'
+                + (f'<dd class="hint">{_esc(hint)}</dd>' if hint else "") + "</div>")
     return (f'<div class="row"><dt>{_esc(label)}{tag_html}{hint_html}</dt>'
             f'<dd>{cell}</dd></div>')
 
@@ -271,6 +277,7 @@ def icon(name: str) -> str:
             f'{ICON_PATHS[name]}</svg>')
 
 
+
 def data_room(values: dict, run_date: date | None) -> str:
     """The Data Room block (slower-moving credit rows), or "" when it has no rows."""
     cells = []
@@ -286,8 +293,99 @@ def data_room(values: dict, run_date: date | None) -> str:
     if not cells:
         return ""
     return ('<section class="data-room" aria-labelledby="dataroom-h">'
-            f'<h2 id="dataroom-h">{icon("database")}Data Room</h2>'
+            '<h2 id="dataroom-h">Data Room</h2>'
             f'<p class="intro">{_esc(DATA_ROOM_INTRO)}</p><dl>{"".join(cells)}</dl></section>')
+
+
+# --- The ticker: a navy band of the day's numbers, filled only from the fact sheet ----------
+# (short label, spoken label, value key, change key or None). Order is the band's order.
+TICKER_ITEMS = (
+    ("10-Yr", "10-Year", "DGS10", "DGS10_CHG"),
+    ("5-Yr", "5-Year", "DGS5", "DGS5_CHG"),
+    ("2-Yr", "2-Year", "DGS2", "DGS2_CHG"),
+    ("SOFR", "SOFR", "SOFR", "SOFR_CHG"),
+    ("Fed funds", "Fed funds", "DFF", None),
+    ("30-Yr Mortgage", "30-Year mortgage", "MORTGAGE30US", "MORTGAGE30US_CHG"),
+    ("REITs (VNQ)", "VNQ", "VNQ", "VNQ_CHG"),
+    ("", "", "REIT_UP", None),
+    ("", "", "REIT_DOWN", None),
+    ("Fed hold odds", "Fed hold odds", "FED_HOLD", None),
+    ("High-yield spread", "high-yield spread", "HY_OAS", None),
+    ("CMBS delinquency", "CMBS delinquency", "CMBS_DQ", None),
+)
+PRICE_KEYS = {"VNQ", "REIT_UP", "REIT_DOWN"}  # colored up/down; every other change is neutral
+TICKER_COPIES = 3  # the track holds 3 copies and slides one copy (33.333%) per loop
+
+
+def _bp(text: str) -> str:
+    """"1 bps" reads "1 bp"."""
+    return re.sub(r"(?<![\d.])1 bps\b", "1 bp", text)
+
+
+def _direction(chg: str | None) -> int:
+    if _is_na(chg):
+        return 0
+    c = chg.strip()
+    if not re.search(r"[1-9]", c):
+        return 0
+    return 1 if c.startswith("+") else -1 if c.startswith("-") else 0
+
+
+def _tick_change(chg: str | None, price: bool) -> tuple[str, str]:
+    """(html, words) for one change in the ticker; ("", "") when n/a."""
+    if _is_na(chg):
+        return "", ""
+    c = _bp(chg.strip())
+    d = _direction(c)
+    mag = c.lstrip("+-")
+    if d == 0:
+        return f'<span class="tk-flat">{_esc(mag)}</span>', "unchanged"
+    tone = ("tk-up" if d > 0 else "tk-down") if price else "tk-rate"
+    svg = UP_SVG if d > 0 else DOWN_SVG
+    return (f'<span class="{tone}">{svg}{_esc(mag)}</span>',
+            f'{"up" if d > 0 else "down"} {mag}')
+
+
+def ticker_items(values: dict) -> list[tuple[str, str]]:
+    """[(html, words)] for each ticker item whose value exists and is not n/a."""
+    out = []
+    for short, spoken, key, chg_key in TICKER_ITEMS:
+        raw = values.get(key)
+        if _is_na(raw):
+            continue
+        if key in TICKER_MOVE:  # "UDR +1.7%": the ticker, then its colored move
+            m = MOVE.match(raw.strip())
+            if not m:
+                continue
+            chg_html, chg_words = _tick_change(m.group(2), True)
+            out.append((f'<span class="tk">{_esc(m.group(1))} <b>{chg_html}</b></span>',
+                        f"{m.group(1)} {chg_words}"))
+            continue
+        chg_html, chg_words = _tick_change(values.get(chg_key) if chg_key else None,
+                                           key in PRICE_KEYS)
+        val = raw.strip()
+        out.append((f'<span class="tk">{_esc(short)} <b>{_esc(val)}</b>'
+                    f'{" " + chg_html if chg_html else ""}</span>',
+                    f"{spoken} {val}{' ' + chg_words if chg_words else ''}"))
+    return out
+
+
+def ticker(values: dict | None) -> str:
+    """The scrolling markets band (pure CSS). The moving track is aria-hidden; the band's
+    aria-label reads every value once in words. "" when there is nothing to show."""
+    items = ticker_items(values or {})
+    if not items:
+        return ""
+    asof = (values or {}).get("RATES_ASOF")
+    head = "Markets" + (f" as of {asof} close" if not _is_na(asof) else "")
+    label = f"{head}: " + ", ".join(words for _, words in items)
+    cells = [h for h, _ in items]
+    if not _is_na(asof):
+        cells.insert(0, f'<span class="tk tk-date">{_esc(asof.upper())} CLOSE</span>')
+    track = "".join(cells) * TICKER_COPIES
+    return (f'<div class="ticker" role="img" aria-label="{_esc(label)}" '
+            f'style="--n: {len(cells)}"><div class="ticker-track" aria-hidden="true">'
+            f'{track}</div></div>')
 
 
 # Code-generated charts (src/chart.py), keyed by name. "chart" is the 10-Year Treasury
@@ -305,6 +403,8 @@ DEFAULT_ALT = {"chart": "Line chart of the 10-Year Treasury yield over the last 
 # Charts that follow a Market Summary group, in order.
 GROUP_CHARTS = {"Rates": ("curve", "mortgage"), "Federal Reserve": ("fed",),
                 "REITs": ("reits",)}
+SUMMARY_SIDE = {"Federal Reserve", "REITs"}  # groups in the right-hand column on desktop
+NUMBERS_INTRO = "Every number is filled in automatically from public data."
 
 
 def as_charts(charts) -> dict:
@@ -337,51 +437,67 @@ def figure(name: str, charts: dict) -> str:
 
 
 def market_summary(values: dict, charts, prose_html: str) -> str:
-    """The Market Summary: groups of rows, each followed by its charts, then the prose
-    ("What it means", REIT movers) and the 10-Year chart."""
+    """The Numbers (id "numbers"): the full Market Summary. Desktop: Rates, its caption and
+    the rate charts on the left; Federal Reserve and REITs (each with its chart) on the
+    right; then the prose ("What it means", REIT movers) across the full width."""
     charts = as_charts(charts)
     asof = values.get("RATES_ASOF")
-    parts = ['<section class="summary" aria-labelledby="summary-h">',
-             '<h2 id="summary-h">Market Summary</h2>']
+    main, side = [], []
     for title, rows in SUMMARY_GROUPS:
         if title in DATA_ROOM_GROUPS:
             continue
+        col = side if title in SUMMARY_SIDE else main
         cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if has_row(k, ck, values)]
         if cells:
-            parts.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
-                         f'<dl>{"".join(cells)}</dl></div>')
+            col.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
+                       f'<dl>{"".join(cells)}</dl></div>')
         if title == "Rates" and not _is_na(asof):
-            parts.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
+            col.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
+        if title == "Rates":
+            col.append(figure("chart", charts))
         figs = [f for f in (figure(n, charts) for n in GROUP_CHARTS.get(title, ())) if f]
-        if title == "Rates" and figs:  # yield curve + mortgage: 2-up on desktop
-            parts.append(f'<div class="chart-pair">{"".join(figs)}</div>')
+        if title == "Rates" and figs:  # yield curve + mortgage: 2-up when there is room
+            col.append(f'<div class="chart-pair">{"".join(figs)}</div>')
         else:
-            parts += figs
+            col += figs
+    main, side = [x for x in main if x], [x for x in side if x]
+    cols = "".join(f'<div class="{cls}">{"".join(parts)}</div>'
+                   for cls, parts in (("num-main", main), ("num-side", side)) if parts)
+    parts = ['<section class="summary" id="numbers" aria-labelledby="summary-h">',
+             '<h2 id="summary-h" class="display">The Numbers</h2>',
+             f'<p class="intro">{NUMBERS_INTRO}</p>']
+    if cols:
+        parts.append(f'<div class="num-cols">{cols}</div>')
     if prose_html:
         parts.append(f'<div class="takeaway">{prose_html}</div>')
-    chart = figure("chart", charts)
-    if chart:
-        parts.append(chart)
     parts.append("</section>")
     return "\n".join(parts)
 
 
 def market_snapshot(values: dict) -> str:
-    """The compact Market Snapshot after The Brief: 10-Year, SOFR and VNQ in the same row
-    style, plus a link down to the full Market Summary. "" when none of them has data."""
+    """The Market Snapshot: a full-width strip under the front row with three cells
+    (10-Year, SOFR, VNQ: label, big value, change, hint), plus a link down to The Numbers.
+    Phones show the cells as rows. "" when none of them has data."""
     if not any(not _is_na(values.get(k)) for _, k, _ in SNAPSHOT_ROWS):
         return ""
-    cells = "".join(_row(lbl, k, ck, values) for lbl, k, ck in SNAPSHOT_ROWS)
+    cells = "".join(_row(lbl, k, ck, values, cell_layout=True) for lbl, k, ck in SNAPSHOT_ROWS)
     asof = values.get("RATES_ASOF")
     when = f"Rates as of {_esc(asof)} close. " if not _is_na(asof) else ""
     return ('<section class="snapshot" aria-labelledby="snapshot-h">'
             '<h2 id="snapshot-h">Market Snapshot</h2>'
             f'<dl>{cells}</dl><p class="caption">{when}'
-            '<a href="#summary-h">Full market data below</a></p></section>')
+            '<a href="#numbers">Full market data</a></p></section>')
 
 
 def _md(text: str) -> str:
     return markdown.markdown(text, extensions=["sane_lists"], output_format="html")
+
+
+def _inline(text: str) -> str:
+    """Markdown for one line, without the wrapping <p>."""
+    out = _md(text.strip()).strip()
+    m = re.fullmatch(r"<p>(.*)</p>", out, re.S)
+    return m.group(1) if m and "<p>" not in m.group(1) else out
 
 
 def _split(md: str) -> tuple[str, list[tuple[str, str]]]:
@@ -406,10 +522,32 @@ def _numbers_prose(body: str) -> str:
     return _md("\n\n".join(keep)) if keep else ""
 
 
+TERM_HEAD = re.compile(r"^\s*\*\*([^*\n]+?):?\*\*:?[ \t]*")
+
+
+def _cap(text: str) -> str:
+    """Capitalize the first letter ("when a lender..." -> "When a lender...")."""
+    i = next((n for n, ch in enumerate(text) if ch.isalpha()), None)
+    return text if i is None else text[:i] + text[i].upper() + text[i + 1:]
+
+
+def split_term(body: str) -> tuple[str | None, str]:
+    """"**Cap rate:** Net operating income..." -> ("Cap rate", "Net operating income...").
+    (None, body) when the section does not open with a bold term."""
+    body = body.strip()
+    m = TERM_HEAD.match(body)
+    if not m:
+        return None, body
+    return m.group(1).strip().rstrip(":").strip(), _cap(body[m.end():])
+
+
 def _term(body: str) -> str:
+    """Term of the Day: the label, the term in the display serif, then its definition."""
+    name, rest = split_term(body)
+    name_html = f'<p class="term-name">{_inline(name)}</p>' if name else ""
     return (f'<section class="term" aria-labelledby="term-h">'
-            f'<h2 id="term-h">{icon("book")}Term of the Day</h2>'
-            f'{_md(body)}</section>')
+            f'<h2 id="term-h">Term of the Day</h2>{name_html}'
+            f'<div class="term-def">{_md(rest)}</div></section>')
 
 
 WORDS_PER_MINUTE = 230
@@ -425,22 +563,40 @@ def read_minutes(text: str) -> int:
     return max(1, int(words / WORDS_PER_MINUTE + 0.5))
 
 
-TAGLINE = "The daily commercial real estate briefing for students and young professionals."
+TAGLINE = "The daily commercial real estate briefing for students and young professionals"
+TAGLINE_SHORT = "Daily CRE briefing for students"
+EDITION_NOTE = "Free. New issue every weekday morning, lighter on weekends."
 
 
-def _cover(run_date: date | None, day_type: str | None, minutes: int | None = None) -> str:
-    bits = []
-    if run_date:
-        bits.append(f'<time datetime="{run_date.isoformat()}">'
-                    f'{run_date:%A}, {run_date:%B} {run_date.day}, {run_date.year}</time>')
-    if day_type in EDITIONS:
-        bits.append(f'<span>{EDITIONS[day_type]}</span>')
-    if minutes:
-        bits.append(f'<span>{minutes} min read</span>')
-    line = '<span class="sep" aria-hidden="true"></span>'.join(bits)
-    return (f'<header class="cover"><h1>CRE Blurb</h1><p class="tagline">{TAGLINE}</p>'
-            f'{f"<p class=dateline>{line}</p>" if line else ""}</header>'
-            '<div class="cover-rule" role="presentation"></div>')
+def _date_text(d: date) -> str:
+    return f"{d:%A}, {d:%B} {d.day}, {d.year}"
+
+
+def masthead(run_date: date | None, day_type: str | None, minutes: int | None = None,
+             values: dict | None = None, nav: str = "") -> str:
+    """Every page's masthead: the utility row (date, edition, the "Free..." note), the
+    navy ticker, "CRE Blurb" with its tagline, the thick-and-thin rule and the nav.
+    Phones swap the utility row for a one-line dateline above the name."""
+    edition = EDITIONS.get(day_type or "")
+    when = (f'<time datetime="{run_date.isoformat()}">{_date_text(run_date)}</time>'
+            if run_date else "")
+    ed = edition or ""
+    if ed and minutes:
+        ed = f"{ed} · {minutes} min read"
+    util = "".join(x for x in (
+        f"<span>{when}</span>" if when else "",
+        f'<span class="edition">{ed}</span>' if ed else "",
+        f"<span>{EDITION_NOTE}</span>") if x)
+    short = " · ".join(x for x in (_date_text(run_date) if run_date else "", edition or "") if x)
+    dateline = f'<p class="dateline-m">{short}</p>' if short else ""
+    return ('<header class="site-head" id="top">'
+            f'<div class="utility"><div class="wrap">{util}</div></div>'
+            f'{ticker(values)}'
+            f'<div class="masthead wrap">{dateline}<p class="name">CRE Blurb</p>'
+            f'<p class="tagline"><span class="tagline-long">{TAGLINE}</span>'
+            f'<span class="tagline-short">{TAGLINE_SHORT}</span></p>'
+            '<div class="double-rule" role="presentation"></div>'
+            f'{nav}</div></header>')
 
 
 def _notes(problems: list[str]) -> str:
@@ -481,9 +637,7 @@ def tame_urls(md: str) -> str:
 
 H2_PLAIN = re.compile(r"<h2>(.*?)</h2>", re.S)
 H3_PLAIN = re.compile(r"<h3>(.*?)</h3>", re.S)
-H2_ANY = re.compile(r'<h2 id="([^"]+)"[^>]*>(.*?)</h2>', re.S)
 TAGS = re.compile(r"<[^>]+>")
-TOC_SKIP = {"The Brief", "Market Snapshot"}  # both sit above the list
 TOC_MIN = 3
 
 
@@ -492,18 +646,18 @@ def slug(text: str) -> str:
     return s or "section"
 
 
+def _unique(base: str, used: set[str]) -> str:
+    sid, n = base, 2
+    while sid in used:
+        sid, n = f"{base}-{n}", n + 1
+    used.add(sid)
+    return sid
+
+
 def _decorate(section_html: str, used: set[str], icons_h3: bool = False) -> str:
-    """Give markdown h2s an id (jump-list anchor) and an icon when HEADING_ICONS names one;
-    Market Watch h3s get their region icon."""
+    """Give markdown h2s an id (jump-list anchor); Market Watch h3s get their region icon."""
     def h2(m: re.Match) -> str:
-        text = m.group(1)
-        base = sid = slug(text)
-        n = 2
-        while sid in used:
-            sid, n = f"{base}-{n}", n + 1
-        used.add(sid)
-        name = HEADING_ICONS.get(html.unescape(TAGS.sub("", text)).strip())
-        return f'<h2 id="{sid}">{icon(name) if name else ""}{text}</h2>'
+        return f'<h2 id="{_unique(slug(m.group(1)), used)}">{m.group(1)}</h2>'
 
     def h3(m: re.Match) -> str:
         name = HEADING_ICONS.get(html.unescape(TAGS.sub("", m.group(1))).strip())
@@ -513,18 +667,14 @@ def _decorate(section_html: str, used: set[str], icons_h3: bool = False) -> str:
     return H3_PLAIN.sub(h3, out) if icons_h3 else out
 
 
-def jump_list(body_html: str) -> str:
-    """"In this issue": plain links to each h2 after The Brief. "" below TOC_MIN links."""
-    links = []
-    for sid, inner in H2_ANY.findall(body_html):
-        text = html.unescape(TAGS.sub("", inner)).strip()
-        if text in TOC_SKIP or sid == "notes-h":
-            continue
-        links.append(f'<li><a href="#{_esc(sid)}">{_esc(text)}</a></li>')
+def jump_list(links: list[tuple[str, str]]) -> str:
+    """"In this issue": plain links to each section after The Brief and the Snapshot, in
+    page order. "" below TOC_MIN links. Shown on phones and tablets only (CSS)."""
     if len(links) < TOC_MIN:
         return ""
+    items = "".join(f'<li><a href="#{_esc(sid)}">{_esc(text)}</a></li>' for sid, text in links)
     return ('<nav class="toc" aria-labelledby="toc-h"><p class="toc-title" id="toc-h">'
-            f'In this issue</p><ul>{"".join(links)}</ul></nav>')
+            f'In this issue</p><ul>{items}</ul></nav>')
 
 
 COFFEE = re.compile(r"<p><strong>Coffee chat line:</strong>\s*(.*?)</p>", re.S)
@@ -534,28 +684,53 @@ LIST = re.compile(r"<ul>\s*(.*?)\s*</ul>", re.S)
 LIST_ITEM = re.compile(r"<li>(.*?)</li>", re.S)
 INNER_P = re.compile(r"^\s*<p>(.*)</p>\s*$", re.S)
 
-
 COFFEE_POINTS = re.compile(
     r"<p><strong>Coffee chat talking points:</strong>\s*</p>\s*<ul>\s*(.*?)\s*</ul>", re.S)
 COFFEE_LABEL_MD = re.compile(r"^(\*\*Coffee chat talking points:\*\*)[ \t]*\n(?=[ \t]*[-*+] )",
                              re.M)
+COFFEE_POINTS_MD = re.compile(
+    r"^\*\*Coffee chat talking points:\*\*[ \t]*\n+((?:[ \t]*[-*+][ \t].*(?:\n|$))+)", re.M)
+COFFEE_LINE_MD = re.compile(r"^\*\*Coffee chat line:\*\*[ \t]*(.+?)[ \t]*$", re.M)
+POINTS_NOTE = "Talking points you can use in networking conversations"
+LINE_NOTE = "A one-line take you can use in networking conversations"
+
+
+def coffee_band(label: str, note: str, items: list[str]) -> str:
+    """The Coffee chat band: title and note on the left, the numbered serif italic points
+    on the right (one column per point, up to 3)."""
+    items = [i for i in items if i.strip()]
+    if not items:
+        return ""
+    lis = "".join(f"<li>{i}</li>" for i in items)
+    return (f'<section class="coffee" aria-label="{_esc(label)}">'
+            f'<div class="coffee-head"><h2 class="display">{_esc(label)}</h2>'
+            f'<p class="coffee-note">{_esc(note)}</p></div>'
+            f'<ol class="points c{min(len(items), 3)}">{lis}</ol></section>')
+
+
+def _coffee_from_md(text: str) -> tuple[str, str]:
+    """Pull the Coffee chat block out of a section's Markdown: (rest, band html)."""
+    m = COFFEE_POINTS_MD.search(text)
+    if m:
+        items = [_inline(re.sub(r"^[ \t]*[-*+][ \t]+", "", ln))
+                 for ln in m.group(1).splitlines() if re.sub(r"[-*+\s]", "", ln)]
+        return (text[:m.start()] + text[m.end():],
+                coffee_band("Coffee chat talking points", POINTS_NOTE, items))
+    m = COFFEE_LINE_MD.search(text)
+    if m:
+        return (text[:m.start()] + text[m.end():],
+                coffee_band("Coffee chat line", LINE_NOTE, [_inline(m.group(1))]))
+    return text, ""
 
 
 def _pull_quote(m: re.Match) -> str:
-    """The older single Coffee chat line (issues before Oct 7, 2026) as a pull quote."""
-    return ('<aside class="pull" aria-label="Coffee chat line">'
-            '<p class="pull-label">Coffee chat line</p>'
-            '<p class="pull-note">A one-line take you can use in networking conversations</p>'
-            f'<p class="pull-text">{m.group(1).strip()}</p></aside>')
+    """A Coffee chat line outside Top Stories: the same band."""
+    return coffee_band("Coffee chat line", LINE_NOTE, [m.group(1).strip()])
 
 
 def _talking_points(m: re.Match) -> str:
-    """Coffee chat talking points: the same pull-quote component holding a serif italic
-    list of 2 or 3 sentences."""
-    return ('<aside class="pull" aria-label="Coffee chat talking points">'
-            '<p class="pull-label">Coffee chat talking points</p>'
-            '<p class="pull-note">Talking points you can use in networking conversations</p>'
-            f'<ul class="pull-list">{m.group(1)}</ul></aside>')
+    items = [INNER_P.sub(r"\1", i).strip() for i in LIST_ITEM.findall(m.group(1))]
+    return coffee_band("Coffee chat talking points", POINTS_NOTE, items)
 
 
 def _list_to_paragraphs(m: re.Match) -> str:
@@ -576,21 +751,148 @@ def _list_to_paragraphs(m: re.Match) -> str:
     return "\n".join(out)
 
 
+# Section heading -> section class. Anything else is a full-width "wide" section.
+SECTION_CLASS = {"The Brief": "brief", "Debt Markets": "sec debt", "Market Watch": "sec watch",
+                 "Quick Hits": "sec quick-hits", "Top Stories": "sec top-stories"}
+
+
 def style_section(section_html: str, heading: str) -> str:
-    """Section-level touches: the Coffee chat pull quote, muted "Why it matters:" lead-ins,
-    Market Watch bullets as paragraphs, and The Brief as a highlighted panel."""
+    """Section-level touches: the Coffee chat band, muted "Why it matters:" lead-ins,
+    Market Watch bullets as paragraphs, The Brief as a numbered list, and a body wrapper
+    (two newspaper columns on desktop) for the full-width sections."""
     if heading == "Market Watch":
         section_html = LIST.sub(_list_to_paragraphs, section_html)
     section_html = COFFEE.sub(_pull_quote, section_html)
     section_html = COFFEE_POINTS.sub(_talking_points, section_html)
     section_html = WHY.sub(f'<p class="why">{WHY_LEAD}', section_html)
-    cls = ' class="brief"' if heading == "The Brief" else ""
-    return f"<section{cls}>{section_html}</section>"
+    if heading == "The Brief":
+        section_html = section_html.replace("<ul>", "<ol>").replace("</ul>", "</ol>")
+    cls = SECTION_CLASS.get(heading, "sec wide")
+    if cls.startswith("sec") and "</h2>" in section_html:
+        head, _, body = section_html.partition("</h2>")
+        section_html = f'{head}</h2><div class="sec-body">{body}</div>'
+    return f'<section class="{cls}">{section_html}</section>'
+
+
+# --- Top Stories: the lead story and the story grid -------------------------------------
+H3_MD = re.compile(r"^### +(.+?)\s*$", re.M)
+MD_LINK = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
+TRAIL_LINK = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)\s*$")
+WHY_MD = re.compile(r"\*\*Why it matters:\*\*[ \t]*")
+
+
+def _story(title_md: str, body: str, lead: bool = False) -> str:
+    """One Top Story from its "### " heading and Markdown body: headline (linked to its
+    source), summary, "Why it matters" and a "Source:" line when the source link stands
+    at the end. Nothing is invented: no kicker, no image."""
+    body = body.strip()
+    source = None
+    m = TRAIL_LINK.search(body)
+    if m:
+        before = body[:m.start()].rstrip(" \t")
+        if not before or before.endswith(("\n", ".", "!", "?", ")", '"', "”")):
+            source, body = (m.group(1), m.group(2)), before.strip()
+    title_link = MD_LINK.search(title_md)
+    links = MD_LINK.findall(body)
+    href = (title_link.group(2) if title_link else source[1] if source
+            else links[0][1] if links else None)
+    hl = _inline(MD_LINK.sub(r"\1", title_md))
+    if href:
+        hl = f'<a href="{_esc(href)}">{hl}</a>'
+    parts = WHY_MD.split(body, maxsplit=1)
+    summary, why = parts[0].strip(), (parts[1].strip() if len(parts) > 1 else "")
+    summary_html = _md(summary) if summary else ""
+    src_html = (f'<p class="source">Source: <a href="{_esc(source[1])}">'
+                f'{_inline(source[0])}</a></p>' if source else "")
+    if lead:
+        why_html = (_md(_cap(why)).replace("<p>", '<p><strong class="why-label">Why it matters'
+                                           "</strong> ", 1) if why else "")
+        why_html = f'<div class="why-panel">{why_html}</div>' if why_html else ""
+        deck = f'<div class="deck">{summary_html}</div>' if summary_html else ""
+        return ('<article class="lead" id="top-stories" aria-labelledby="lead-h">'
+                '<p class="kicker">Top Story</p>'
+                f'<h2 class="hl" id="lead-h">{hl}</h2>{deck}{src_html}{why_html}</article>')
+    why_html = _md(why).replace("<p>", f'<p class="why">{WHY_LEAD} ', 1) if why else ""
+    return f'<article class="story"><h3 class="hl">{hl}</h3>{summary_html}{why_html}{src_html}</article>'
+
+
+def top_stories(text: str, used: set[str]) -> tuple[str, str, str]:
+    """(lead html, rest-of-stories section html, coffee band html) from the Top Stories
+    Markdown. Without any "### " story it falls back to one plain section."""
+    text, coffee = _coffee_from_md(text)
+    heads = list(H3_MD.finditer(text))
+    if not heads:
+        if not text.strip():
+            return "", "", coffee
+        sec = style_section(_decorate(_md(f"## Top Stories\n{text}"), used), "Top Stories")
+        return "", sec, coffee
+    intro = text[:heads[0].start()].strip()
+    stories = []
+    for i, m in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        stories.append((m.group(1), text[m.end():end]))
+    lead = _story(*stories[0], lead=True)
+    used.update({"top-stories", "lead-h"})
+    rest = [_story(t, b) for t, b in stories[1:]]
+    if not rest and not intro:
+        return lead, "", coffee
+    n = len(rest)
+    cols = 1 if n == 1 else 2 if n in (2, 4) else 3
+    sid = _unique("more-stories", used)
+    grid = f'<div class="stories c{cols}">{"".join(rest)}</div>' if rest else ""
+    sec = (f'<section class="sec top-stories" aria-labelledby="{sid}">'
+           f'<h2 id="{sid}">{"More top stories" if not rest else "Top Stories"}</h2>'
+           f'{_md(intro) if intro else ""}{grid}</section>')
+    return lead, sec, coffee
+
+
+PAIR_RATIO = 2.0  # stack a pair when one side has this many times the other's words
+
+
+def _words(fragment: str) -> int:
+    return len(html.unescape(TAGS.sub(" ", fragment)).split())
+
+
+def _solo(section: str) -> str:
+    """Mark a section as full width on its own (its body flows in two columns)."""
+    return re.sub(r'^<section class="([^"]*)"', r'<section class="\1 solo"', section, count=1)
+
+
+def _pair(a: str, b: str, cls: str = "") -> str:
+    """Two sections side by side on desktop (7 + 5 columns). When one is missing the
+    other spans the full width, so the grid never shows an empty cell. When one side is
+    much longer (PAIR_RATIO), both go full width, one after the other, so a short column
+    never leaves a tall blank area beside the long one."""
+    if not a and not b:
+        return ""
+    if a and b:
+        wa, wb = _words(a), _words(b)
+        if max(wa, wb) > PAIR_RATIO * max(1, min(wa, wb)):
+            return "\n".join(_solo(x) for x in (a, b))
+    inner = "".join(f'<div class="{k}">{x}</div>' for k, x in (("pa", a), ("pb", b)) if x)
+    return f'<div class="pair{" " + cls if cls else ""}">{inner}</div>'
 
 
 def _first_eager(body_html: str) -> str:
     """Only the first image on the page loads right away; the rest stay lazy."""
     return body_html.replace(' loading="lazy"', "", 1)
+
+
+def prepare_md(md: str) -> str:
+    """Clean an issue's Markdown before rendering: comments, the chart image line, the
+    footer line and stray braces go; URLs get short labels; dashes are replaced."""
+    md = COMMENT.sub("", md)
+    md = CHART_IMG.sub("", md)
+    md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
+    md = md.replace("{{", "").replace("}}", "")
+    md = tidy(no_dashes(tame_urls(md)))
+    md = SAME_TICKER.sub(r"\1", md)  # "Why UDR (UDR) moved" -> "Why UDR moved"
+    return COFFEE_LABEL_MD.sub(r"\1\n\n", md)  # the talking-point bullets parse as a list
+
+
+def _h2_text(section_html: str) -> tuple[str, str] | None:
+    m = re.search(r'<h2 id="([^"]+)"[^>]*>(.*?)</h2>', section_html, re.S)
+    return (m.group(1), html.unescape(TAGS.sub("", m.group(2))).strip()) if m else None
 
 
 def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
@@ -599,13 +901,7 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
                       title: str | None = None, charts: dict | None = None) -> str:
     """`chart_rel` is the 10-Year chart's src (older call style); `charts` maps chart names
     (CHART_NAMES) to {"src", "alt", "width", "height"} and wins over `chart_rel`."""
-    md = COMMENT.sub("", md)
-    md = CHART_IMG.sub("", md)
-    md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
-    md = md.replace("{{", "").replace("}}", "")
-    md = tidy(no_dashes(tame_urls(md)))
-    md = SAME_TICKER.sub(r"\1", md)  # "Why UDR (UDR) moved" -> "Why UDR moved"
-    md = COFFEE_LABEL_MD.sub(r"\1\n\n", md)  # the talking-point bullets parse as a list
+    md = prepare_md(md)
     all_charts = {**as_charts(chart_rel), **(charts or {})}
 
     values = (factsheet or {}).get("values") or {}
@@ -613,211 +909,476 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
         run_date = date.fromisoformat(factsheet["date"])
     day_type = (factsheet or {}).get("day_type")
 
-    # Reading order (every edition): The Brief, a 3-row Market Snapshot, the "In this issue"
-    # list, the story sections in template order, then the full Market Summary (with The
-    # Numbers' prose and the charts), Term of the Day and the Data Room.
+    # Page order (Broadsheet): the front (lead Top Story beside The Brief and the Market
+    # Snapshot), the rest of Top Stories, the Coffee chat band, Debt Markets beside Market
+    # Watch, Quick Hits, any other sections full width, The Numbers, then Term of the Day
+    # beside the Data Room. Phones stack it all: Brief, Snapshot, lead, and so on.
     pre, sections = _split(md)
-    used = {"summary-h", "snapshot-h", "dataroom-h", "term-h", "notes-h", "toc-h",
-            "content", "top"}
+    used = {"summary-h", "snapshot-h", "dataroom-h", "term-h", "notes-h", "toc-h", "numbers",
+            "content", "top", "lead-h"}
     head = [_decorate(_md(pre), used)] if pre.strip() else []
-    brief, stories, terms = [], [], []
+    brief, terms, named, others = "", [], {}, []
+    lead, more, coffee = "", "", ""
     numbers_prose = ""
     for heading, text in sections:
         if heading == "The Numbers":
             numbers_prose = numbers_prose or _numbers_prose(text)
         elif heading == "Term of the Day":
             terms.append(_term(text))
+        elif heading == "Top Stories" and not (lead or more or coffee):
+            lead, more, coffee = top_stories(text, used)
         else:
-            html_ = style_section(_decorate(_md(f"## {heading}{text}"), used,
-                                            icons_h3=heading == "Market Watch"), heading)
-            (brief if heading == "The Brief" and not brief else stories).append(html_)
+            sec = _decorate(_md(f"## {heading}{text}"), used,
+                            icons_h3=heading == "Market Watch")
+            if heading == "The Brief" and not brief:
+                brief = style_section(sec, heading)
+            elif heading in ("Debt Markets", "Market Watch", "Quick Hits") and heading not in named:
+                named[heading] = style_section(sec, heading)
+            else:
+                others.append(style_section(sec, heading))
     has_data = factsheet is not None
     snapshot = market_snapshot(values) if has_data else ""
     summary = market_summary(values, all_charts, numbers_prose) if has_data else ""
     room = data_room(values, run_date) if has_data else ""
-    lead = head + brief + ([snapshot] if snapshot else [])
-    rest = stories + [x for x in (summary, *terms, room) if x]
-    toc = jump_list("\n".join(lead + rest))
-    body = lead + ([toc] if toc else []) + rest
+
+    # The front: the lead story (8 columns) beside The Brief (4), then the Snapshot strip
+    # across the full width. Phones reorder it with CSS: Brief, Snapshot, lead.
+    front = ""
+    if lead or brief or snapshot:
+        cls = "front" + ("" if lead else " no-lead") + ("" if brief else " no-brief")
+        front = f'<div class="{cls}">{lead}{brief}{snapshot}</div>'
+
+    story_part = [x for x in (more, coffee,
+                              _pair(named.get("Debt Markets", ""), named.get("Market Watch", "")),
+                              named.get("Quick Hits", ""), *others) if x]
+    back = _pair("".join(terms), room, "back")
+    rest = story_part + [x for x in (summary, back) if x]
+
+    links = []
+    if lead:
+        links.append(("top-stories", "Top Stories"))
+    for part in rest:
+        for sec in re.findall(r"<section\b.*?(?=<section\b|$)", part, re.S):
+            found = _h2_text(sec)
+            if not found or found[0] in ("notes-h", "more-stories" if lead else ""):
+                continue
+            if sec.startswith('<section class="coffee"'):
+                continue
+            links.append(found)
+    toc = jump_list(links)
+    body = head + ([front] if front else []) + ([toc] if toc else []) + rest
     body_html = _first_eager("\n".join(body))
 
     if title is None:
         title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
     return PAGE.format(
         title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
-        cover=_cover(run_date, day_type, read_minutes(body_html)), nav=_slot(nav),
-        notes=_notes(problems),
-        body=body_html, extra_body=_slot(extra_body),
+        masthead=masthead(run_date, day_type, read_minutes(body_html), values, nav),
+        notes=_slot(_notes(problems)), body=body_html, extra_body=_slot(extra_body),
         footer=_esc(FOOTER))
 
 
-def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = "") -> str:
-    """A non-issue page (About, Archive...) in the same shell: no dateline, no notes."""
+def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = "",
+                factsheet: dict | None = None) -> str:
+    """A non-issue page (About, Archive, Glossary, 404) in the same shell, with the latest
+    issue's date, edition and ticker in the masthead (`factsheet`), and no editor notes."""
+    fs = factsheet or {}
+    run_date = date.fromisoformat(fs["date"]) if fs.get("date") else None
     return PAGE.format(
         title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
-        cover=_cover(None, None), nav=_slot(nav), notes="", body=body_html,
-        extra_body="", footer=_esc(FOOTER))
+        masthead=masthead(run_date, fs.get("day_type"), None, fs.get("values"), nav),
+        notes="", body=f'<div class="page">{body_html}</div>', extra_body="",
+        footer=_esc(FOOTER))
 
 
 CSS = """
 :root {
-  --ground: #EEF0F2; --sheet: #FFFFFF; --navy: #0E2A47; --navy-tint: #B9C8DA;
-  --navy-wash: #F2F5F9; --navy-select: #CCD8E6; --gold: #B08D3C; --ink: #1B2430;
-  --muted: #56616F; --hairline: #D9DDE3; --up: #1F7A4D; --down: #B23A3A; --ghost: #A3ABB5;
+  --paper: #FFFFFF; --ink: #121417; --navy: #0E2A47; --navy-tint: #B9C8DA; --gold: #A9853A;
+  --gold-on-navy: #C9A85A; --hairline: #DADDE1; --muted: #5B6470; --panel: #F3F5F8;
+  --deck: #3A424C; --up: #1F7A4D; --down: #B23A3A; --up-on-navy: #9ED9B6;
+  --down-on-navy: #F2A6A6; --select: #CCD8E6;
   --amber-bg: #FBF4E4; --amber-line: #E3C88A; --amber-ink: #6E4A0B;
-  --serif: "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --display: "Libre Caslon Display", "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   --sans: "Public Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans);
-  font-size: 18px; line-height: 1.65; padding: 40px 16px 56px; }
-::selection { background: var(--navy-select); color: var(--ink); }
-:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
-.sheet { max-width: 860px; margin: 0 auto; background: var(--sheet);
-  box-shadow: 0 1px 2px rgba(14, 42, 71, .06), 0 8px 24px rgba(14, 42, 71, .07); }
-.cover { background: var(--navy); color: #FFFFFF; padding: 56px 48px 32px; }
-.cover-rule { height: 3px; background: var(--gold); }
-.cover h1 { font-family: var(--serif); font-weight: 400; font-size: 3.4rem; line-height: 1.05;
-  letter-spacing: -0.01em; margin: 0; }
-.tagline { margin: 12px 0 0; color: var(--navy-tint); font-size: 17px; line-height: 1.45;
-  max-width: 46ch; }
-.dateline { margin: 18px 0 0; color: var(--navy-tint); font-size: 15px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-.dateline .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--navy-tint); }
-main { padding: 8px 48px 8px; }
-main > *:first-child { margin-top: 40px; }
-p, li { max-width: 70ch; }
-p { margin: 0 0 1.05em; }
-h2 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; line-height: 1.2;
-  color: var(--navy); margin: 3rem 0 1.2rem; padding-bottom: .5rem;
-  border-bottom: 1px solid var(--gold); text-wrap: balance; }
-main h1 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; color: var(--navy);
-  margin: 2rem 0 1rem; }
-h3 { font-family: var(--sans); font-weight: 700; font-size: 1.18rem; line-height: 1.35;
-  color: var(--ink); margin: 2.1rem 0 .5rem; text-wrap: balance; }
-h2 + h3 { margin-top: 1.4rem; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif);
+  font-size: 17px; line-height: 1.55; overflow-x: hidden; }
+::selection { background: var(--select); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
 a { color: var(--navy); text-decoration: underline; text-decoration-thickness: 1px;
-  text-underline-offset: 3px; text-decoration-color: rgba(14, 42, 71, .45); }
-a:hover { text-decoration-color: var(--navy); text-decoration-thickness: 2px; }
-ul, ol { padding-left: 1.2em; margin: 0 0 1.05em; }
-li { margin: 0 0 .55em; }
-li::marker { color: var(--gold); }
+  text-underline-offset: 3px; text-decoration-color: rgba(14, 42, 71, .35); }
+a:hover { color: var(--navy); text-decoration-color: var(--navy); }
+p, li { max-width: 70ch; }
+p { margin: 0 0 1em; }
+ul, ol { padding-left: 1.2em; margin: 0 0 1em; }
+li { margin: 0 0 .5em; }
 strong { font-weight: 700; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+.skip { position: absolute; left: 8px; top: -60px; background: var(--navy); color: #FFFFFF;
+  padding: 10px 14px; z-index: 10; text-decoration: none; font-family: var(--sans); }
+.skip:focus { top: 8px; }
+
+/* Masthead: utility row, ticker, name, double rule, nav */
+.utility { border-bottom: 1px solid var(--hairline); font-family: var(--sans); font-size: 12px;
+  line-height: 1.5; color: var(--muted); }
+.utility .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+  padding-top: 10px; padding-bottom: 10px; }
+.utility .edition { letter-spacing: .08em; text-transform: uppercase; font-weight: 600;
+  color: var(--navy); }
+.ticker { background: var(--navy); color: #FFFFFF; font-family: var(--sans); font-size: 13px;
+  line-height: 1.4; font-variant-numeric: tabular-nums; padding: 10px 0 10px 24px;
+  overflow: hidden; white-space: nowrap; }
+.ticker-track { display: inline-flex; animation: cb-ticker calc(var(--n, 12) * 4.6s) linear infinite; }
+.ticker:hover .ticker-track { animation-play-state: paused; }
+@keyframes cb-ticker { from { transform: translateX(0); } to { transform: translateX(-33.3333%); } }
+.tk { padding-right: 30px; }
+.tk b { font-weight: 600; }
+.tk-date { font-weight: 700; letter-spacing: .1em; font-size: 11px; color: var(--gold-on-navy);
+  align-self: center; }
+.tk-rate, .tk-flat { color: var(--navy-tint); }
+.tk-up { color: var(--up-on-navy); }
+.tk-down { color: var(--down-on-navy); }
+.tk .tri { width: 8px; height: 8px; margin-right: 2px; vertical-align: 0; }
+.masthead { text-align: center; padding-top: 36px; }
+.masthead .name { margin: 0 auto; max-width: none; font-family: var(--display); font-weight: 400;
+  font-size: clamp(48px, 7vw, 76px); line-height: 1; letter-spacing: -.01em; color: var(--ink); }
+.tagline { margin: 12px auto 0; max-width: none; font-family: var(--sans); font-size: 12px;
+  line-height: 1.5; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.tagline-short, .dateline-m { display: none; }
+.double-rule { margin-top: 22px; height: 7px; border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--ink); }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 34px;
+  padding: 4px 0; border-bottom: 1px solid var(--hairline); font-family: var(--sans);
+  font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.site-nav a { color: var(--ink); text-decoration: none; padding: 12px 0;
+  border-bottom: 2px solid transparent; }
+.site-nav a:hover { border-bottom-color: var(--hairline); }
+.site-nav a[aria-current="page"] { border-bottom-color: var(--gold); }
+
+/* Shared type: section labels, display titles, headlines */
+main { padding-top: 32px; overflow-wrap: break-word; }
+main img, main svg { max-width: 100%; }
+main h1 { font-family: var(--display); font-weight: 400; font-size: 44px; line-height: 1.1;
+  margin: 8px 0 16px; }
+main h2, .group-name, .toc-title { font-family: var(--sans); font-size: 13px; font-weight: 700;
+  line-height: 1.4; letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+  margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); max-width: none; }
+main h2 .icon, main h3 .icon { display: inline-block; vertical-align: -0.15em; margin-right: 8px; }
+.icon { flex: none; color: var(--navy); }
+.display, main h2.display { font-family: var(--display); font-weight: 400; font-size: 34px;
+  line-height: 1.1; letter-spacing: 0; text-transform: none; border: 0; padding: 0;
+  margin: 0 0 6px; color: var(--ink); }
+h3 { font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1.25;
+  margin: 24px 0 8px; text-wrap: balance; }
+h2 + h3 { margin-top: 0; }
+.hl a { color: var(--ink); text-decoration: none; }
+.hl a:hover { text-decoration: underline; text-decoration-color: var(--ink); }
+.kicker { margin: 0 0 10px; font-family: var(--sans); font-size: 12px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--navy); }
+.source, .caption, .intro, .coffee-note, .return { font-family: var(--sans); font-size: 13px;
+  line-height: 1.5; color: var(--muted); }
 .why strong { color: var(--muted); font-weight: 600; }
-.group-name, .toc-title, .pull-label { font-size: 13px; font-weight: 600; line-height: 1.4;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--navy); }
-.summary dl, .data-room dl { margin: 0; }
-.group + .group { margin-top: 32px; }
-.group-name { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--gold); max-width: none; }
-.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px;
-  align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
-.data-room .row:first-child { border-top: 1px solid var(--hairline); }
-dt { color: var(--ink); }
-.hint { display: block; color: var(--muted); font-size: 14.5px; line-height: 1.4;
-  margin-top: 3px; }
+.sec, .coffee, .pair, .summary, .toc { margin-top: 44px; }
+.pair .sec { margin-top: 0; }
+
+/* Front: lead story beside The Brief, then the Market Snapshot strip */
+.front { display: flex; flex-direction: column; }
+.front .brief { order: -2; }
+.front .snapshot { order: -1; }
+.lead { margin-top: 28px; }
+.lead .hl { margin: 0; font-family: var(--serif); font-weight: 700; font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.08; letter-spacing: -.01em; text-transform: none; border: 0; padding: 0;
+  color: var(--ink); text-wrap: balance; }
+.deck p { margin: 14px 0 0; font-size: 21px; line-height: 1.45; color: var(--deck); }
+.lead .source { margin: 14px 0 0; }
+.why-panel { margin-top: 22px; padding: 18px 20px; background: var(--panel);
+  border-top: 2px solid var(--navy); }
+.why-panel p { margin: 0; font-size: 18px; line-height: 1.6; max-width: none; }
+.why-panel p + p { margin-top: 10px; }
+.why-label { display: block; font-family: var(--sans); font-size: 13px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--navy); }
+.brief h2, .snapshot h2 { border-bottom-width: 2px; margin-bottom: 14px; }
+.brief ol { list-style: none; margin: 0; padding: 0; counter-reset: brief; }
+.brief li { counter-increment: brief; position: relative; padding-left: 30px; margin: 0;
+  font-size: 17px; line-height: 1.45; max-width: none; }
+.brief li + li { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.brief li::before { content: counter(brief); position: absolute; left: 0; top: 0;
+  font-family: var(--display); font-size: 26px; line-height: 1; color: var(--gold); }
+.brief li + li::before { top: 16px; }
+.brief p:last-child { margin-bottom: 0; }
+.snapshot { margin-top: 30px; }
+.snapshot h2 { margin-bottom: 0; }
+.snapshot .cell { grid-template-columns: minmax(0, 1fr) auto; }
+.snapshot .cell dt { grid-column: 1; grid-row: 1; }
+.snapshot .cell dd { grid-column: 2; grid-row: 1 / span 2; display: flex;
+  flex-direction: column; align-items: flex-end; gap: 1px; }
+.snapshot .cell .hint { grid-column: 1; grid-row: 2; display: block; margin: 0;
+  text-align: left; white-space: normal; }
+.snapshot .chg { margin-left: 0; }
+.snapshot .caption { margin: 10px 0 0; }
+.snapshot .caption a { white-space: nowrap; }
+@media (min-width: 600px) {
+  .snapshot dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-bottom: 1px solid var(--ink); }
+  .snapshot .cell { display: block; padding: 14px 24px 16px; border-bottom: 0;
+    border-left: 1px solid var(--hairline); }
+  .snapshot .cell:first-child { padding-left: 0; border-left: 0; }
+  .snapshot .cell:last-child { padding-right: 0; }
+  .snapshot .cell dt { font-size: 14px; font-weight: 600; }
+  .snapshot .cell dd { flex-direction: row; align-items: baseline; justify-content: flex-start;
+    flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; text-align: left; max-width: none; }
+  .snapshot .cell .val { font-size: 30px; line-height: 1.1; }
+  .snapshot .cell .chg { font-size: 14px; }
+  .snapshot .cell .hint { margin-top: 6px; }
+}
+
+/* Data rows (Snapshot, The Numbers, Data Room) */
+dl { margin: 0; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px;
+  align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--hairline);
+  font-family: var(--sans); }
+dt { font-size: 15px; line-height: 1.4; color: var(--ink); }
+.hint { display: block; color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 2px; }
 dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap; }
-.val { font-weight: 600; font-size: 1.08rem; }
-.chg { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px;
-  font-size: 16px; min-width: 5.6em; justify-content: flex-end; }
+.val { font-weight: 600; font-size: 16px; }
+.chg { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;
+  margin-left: 10px; font-size: 13px; font-weight: 500; }
 .chg.up { color: var(--up); }
 .chg.down { color: var(--down); }
 .chg.unch { color: var(--muted); }
 .chg.rate { color: var(--navy); }  /* rates: direction only, no good/bad color */
 .tri { flex: none; }
 .na { color: var(--muted); font-style: italic; }
-.caption { color: var(--muted); font-size: 15px; margin: 14px 0 0; }
-.data-room .intro { color: var(--muted); font-size: 15px; }
-.tag { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .06em;
+.tag { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .08em;
   text-transform: uppercase; margin-left: 4px; }
-.takeaway { margin-top: 24px; }
-.chart { margin: 32px 0 0; min-width: 0; }
+
+/* Top Stories grid */
+.story { padding: 18px 0; border-bottom: 1px solid var(--hairline); min-width: 0; }
+.story:first-child { padding-top: 4px; }
+.story .hl { margin: 0; font-size: 24px; line-height: 1.18; }
+.story p { margin: 10px 0 0; font-size: 17px; line-height: 1.55; }
+.story .source { font-size: 13px; }
+.top-stories > p { font-size: 17px; }
+
+/* Coffee chat band */
+.coffee { padding: 28px 0; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.coffee-note { margin: 10px 0 18px; font-size: 14px; }
+.points { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; counter-reset: pt; }
+.points li { counter-increment: pt; margin: 0; font-size: 18px; line-height: 1.5;
+  font-style: italic; }
+.points li::before { content: "0" counter(pt); display: block; font-style: normal;
+  font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .1em;
+  color: var(--gold); }
+.points a { font-style: normal; }
+
+/* Debt Markets, Market Watch, Quick Hits, other sections */
+.sec p { font-size: 17px; line-height: 1.6; }
+.watch h3 { font-size: 20px; }
+.quick-hits ul { list-style: none; margin: 0; padding: 0; }
+.quick-hits li { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--hairline);
+  font-size: 16px; line-height: 1.55; max-width: none; }
+.quick-hits li:first-child { padding-top: 0; }
+.sec-body > *:last-child { margin-bottom: 0; }
+
+/* The Numbers */
+.summary { padding-top: 28px; border-top: 3px solid var(--ink); }
+.summary .intro { margin: 0 0 20px; }
+.group-name { margin: 0; }
+.group + .group, .chart + .group, .chart-pair + .group, .num-side { margin-top: 32px; }
+.summary .caption { margin: 10px 0 0; }
+.chart { margin: 28px 0 0; min-width: 0; }
 .chart picture { display: block; }
 .chart img { display: block; width: 100%; max-width: 100%; height: auto; }
-.chart figcaption { color: var(--muted); font-size: 15px; line-height: 1.45; margin-top: 10px;
-  padding-top: 10px; border-top: 1px solid var(--hairline); }
+.chart figcaption { font-family: var(--sans); color: var(--muted); font-size: 13px;
+  line-height: 1.45; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); }
 .chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0 28px; }
-.chart + .group, .chart-pair + .group { margin-top: 36px; }
-.brief, .term, .data-room { background: var(--navy-wash); padding: 6px 32px 22px; }
-.brief { margin: 2.4rem 0 0; }
-.term, .data-room { margin: 3rem 0 0; }
-.brief h2, .term h2, .data-room h2 { margin-top: 1.3rem; }
-.brief ul { margin-bottom: 0; }
-.brief li { margin-bottom: .75em; }
-.brief li:last-child, .brief p:last-child, .term p:last-child { margin-bottom: 0; }
-.pull { margin: 2.2rem 0; padding: 18px 0 20px; border-top: 1px solid var(--gold);
-  border-bottom: 1px solid var(--gold); }
-.pull-label { margin: 0 0 2px; }
-.pull-note { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
-.pull-text, .pull-list { font-family: var(--serif); font-style: italic; font-size: 1.25rem;
-  line-height: 1.5; color: var(--navy); margin: 0; max-width: 60ch; }
-.pull-list { padding-left: 1.2em; }
-.pull-list li { margin: 0 0 .6em; }
-.pull-list li:last-child { margin-bottom: 0; }
-.snapshot { margin: 2.4rem 0 0; }
-.snapshot h2 { margin-top: 0; }
-.snapshot dl { margin: 0; }
-.snapshot .caption a { white-space: nowrap; }
-.return { color: var(--muted); font-size: 15px; margin: 3rem 0 0; }
-.return + .issue-nav, .return + section { margin-top: 1.2rem; }
-.icon { flex: none; color: var(--navy); }
-h2 .icon, h3 .icon { display: inline-block; vertical-align: -0.12em; margin-right: 10px; }
-h3 .icon { vertical-align: -0.18em; }
-.toc { margin: 2rem 0 0; padding: 14px 0 16px; border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline); }
-.toc-title { margin: 0 0 6px; }
+.takeaway { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--hairline); }
+.takeaway p { font-size: 17px; line-height: 1.6; }
+
+/* Term of the Day and Data Room */
+.term { background: var(--panel); padding: 22px 20px; border-top: 2px solid var(--gold); }
+.term h2 { border: 0; padding: 0; margin: 0; color: var(--navy); }
+.term-name { margin: 12px 0 0; font-family: var(--display); font-size: 32px; line-height: 1.1; }
+.term-def p { margin: 10px 0 0; font-size: 18px; line-height: 1.6; }
+.data-room .intro { margin: 0 0 4px; }
+.pair.back .pb { margin-top: 32px; }
+.term.solo, .data-room.solo { margin-top: 44px; }
+
+/* Jump list (phones and tablets), end of issue, notes, footer */
+.toc { padding: 12px 0 14px; border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline); font-family: var(--sans); }
+.toc-title { border: 0; padding: 0; margin: 0 0 4px; }
 .toc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap;
-  gap: 4px 24px; font-size: 16px; }
+  gap: 0 20px; font-size: 15px; }
 .toc li { margin: 0; }
-.skip { position: absolute; left: 8px; top: -60px; background: var(--navy); color: #FFFFFF;
-  padding: 10px 14px; z-index: 10; text-decoration: none; }
-.skip:focus { top: 8px; }
-.issue-nav { margin: 3rem 0 0; padding-top: 16px; border-top: 1px solid var(--hairline);
-  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
-  font-size: 16px; }
+.toc a, .issue-nav a, .issue-list a { display: inline-flex; align-items: center; min-height: 44px; }
+.return { margin: 48px 0 0; font-size: 14px; }
+.issue-nav { margin: 12px 0 0; padding-top: 8px; border-top: 1px solid var(--hairline);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 24px;
+  font-family: var(--sans); font-size: 15px; }
 .issue-nav .top { margin-left: auto; }
-main { overflow-wrap: break-word; }
-main img, main svg { max-width: 100%; }
-.term p:first-of-type strong { font-family: var(--serif); font-weight: 700; color: var(--navy);
-  font-size: 1.15rem; }
+.recent { margin-top: 32px; }
 .notes { background: var(--amber-bg); border: 1px solid var(--amber-line); color: var(--amber-ink);
-  margin: 24px 48px 0; padding: 14px 20px; font-size: 15px; }
-.notes h2 { font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--amber-ink);
-  border: 0; margin: 0 0 6px; padding: 0; }
+  margin: 0 0 24px; padding: 14px 20px; font-family: var(--sans); font-size: 15px; }
+.notes h2 { font-size: 13px; color: var(--amber-ink); border: 0; margin: 0 0 6px; padding: 0; }
 .notes ul { margin: 0; }
 .notes li { margin: 0 0 2px; overflow-wrap: anywhere; }
-.notes li::marker { color: var(--amber-ink); }
-footer { margin: 56px 48px 0; padding: 20px 0 36px; border-top: 1px solid var(--hairline);
-  color: var(--muted); font-size: 14px; line-height: 1.55; }
-footer p { margin: 0 0 4px; }
-@media (max-width: 600px) {
-  body { padding: 0; font-size: 17px; }
-  .sheet { box-shadow: none; }
-  .cover { padding: 34px 16px 24px; }
-  .cover h1 { font-size: 2.5rem; }
-  .tagline { font-size: 15px; }
-  main { padding: 0 16px; }
-  main > *:first-child { margin-top: 28px; }
-  .notes { margin: 16px 16px 0; padding: 12px 14px; }
-  footer { margin: 40px 16px 0; }
-  .brief, .term, .data-room { padding: 4px 16px 16px; }
-  h2 { font-size: 1.5rem; margin-top: 2.5rem; }
-  h3 { font-size: 1.1rem; }
-  .pull-text, .pull-list { font-size: 1.15rem; }
-  .hint { font-size: 14px; }
-  .row { gap: 12px; }
+footer { margin-top: 56px; border-top: 3px solid var(--ink); }
+footer .wrap { padding-top: 22px; padding-bottom: 40px; display: flex; flex-wrap: wrap;
+  justify-content: space-between; align-items: baseline; gap: 8px 24px; font-family: var(--sans);
+  font-size: 13px; line-height: 1.5; color: var(--muted); }
+footer p { margin: 0; }
+footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--ink); }
+
+/* Archive, About, Glossary, 404 */
+.page { max-width: 820px; margin: 0 auto; }
+.page h2 { margin-top: 40px; }
+.page h1 + h2, .page h1 + p + h2 { margin-top: 24px; }
+.issue-list { list-style: none; margin: 0; padding: 0; }
+.issue-list li { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--hairline); max-width: none; }
+.issue-list .when { font-family: var(--sans); font-size: 14px; }
+.issue-list .headline { display: block; padding-bottom: 8px; font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); }
+.gloss { margin: 0; padding: 22px 0; border-bottom: 1px solid var(--hairline); }
+.gloss .term-name { margin: 0; padding: 0; border: 0; font-family: var(--display);
+  font-size: 30px; font-weight: 400; line-height: 1.1; letter-spacing: 0; text-transform: none; }
+.gloss .term-def p { font-size: 17px; }
+.gloss-from { margin: 8px 0 0; font-family: var(--sans); font-size: 13px; color: var(--muted); }
+
+/* Desktop: the 12-column broadsheet grid */
+@media (min-width: 900px) {
+  .front { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .front .brief, .front .snapshot { order: 0; }
+  /* The lead is a flex column: its "Why it matters" panel sits at the bottom, so the
+     lead and The Brief end at about the same height. */
+  .lead { grid-column: span 8; margin-top: 0; padding-right: 32px; display: flex;
+    flex-direction: column; border-right: 1px solid var(--hairline); }
+  .lead > .why-panel { margin-top: auto; }
+  .lead > :has(+ .why-panel) { margin-bottom: 22px; }
+  .front .brief { grid-column: span 4; }
+  .front .brief li + li { margin-top: 14px; padding-top: 14px; }
+  .front .brief li + li::before { top: 14px; }
+  .front .snapshot { grid-column: 1 / -1; margin-top: 36px; }
+  .front.no-brief .lead { grid-column: 1 / -1; padding-right: 0; border-right: 0; }
+  .front.no-lead .brief { grid-column: 1 / -1; }
+  .front.no-lead .brief ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 32px; }
+  .front.no-lead .brief li + li { margin-top: 0; padding-top: 0; border-top: 0; }
+  .front.no-lead .brief li + li::before { top: 0; }
+  .stories { display: grid; }
+  .stories.c1 { grid-template-columns: minmax(0, 1fr); }
+  .stories.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stories.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .story, .story:first-child { padding: 0 24px; border-bottom: 0;
+    border-left: 1px solid var(--hairline); }
+  .c1 .story, .c2 .story:nth-child(2n+1), .c3 .story:nth-child(3n+1) { padding-left: 0;
+    border-left: 0; }
+  .c2 .story:nth-child(2n), .c3 .story:nth-child(3n), .story:last-child { padding-right: 0; }
+  .c2 .story:nth-child(n+3), .c3 .story:nth-child(n+4) { margin-top: 28px; padding-top: 24px;
+    border-top: 1px solid var(--hairline); }
+  .c3 .story:last-child:nth-child(3n+2) { grid-column: span 2; }
+  .coffee { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .coffee-head { grid-column: span 4; }
+  .coffee-note { margin-bottom: 0; }
+  .points { grid-column: span 8; gap: 24px; }
+  .points.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .points.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pair { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .pair > .pa { grid-column: span 7; padding-right: 32px; border-right: 1px solid var(--hairline); }
+  .pair > .pb { grid-column: span 5; }
+  .pair > :only-child { grid-column: 1 / -1; padding-right: 0; border-right: 0; }
+  .pair.back > .pa { padding-right: 0; border-right: 0; }
+  /* the Term panel fills its cell, so a taller Data Room never leaves a blank area */
+  .pair.back > .pa { display: flex; flex-direction: column; }
+  .pair.back > .pa > .term { flex: 1; }
+  .pair.back .pb { margin-top: 0; }
+  .term { padding: 26px 28px; }
+  .quick-hits ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; }
+  .quick-hits li, .quick-hits li:first-child { padding: 0 0 14px; border-bottom: 0; }
+  .wide .sec-body, .solo .sec-body { columns: 2; column-gap: 48px; column-rule: 1px solid var(--hairline); }
+  .wide .sec-body > *, .solo .sec-body > * { break-inside: avoid; }
+  .wide .sec-body h3, .solo .sec-body h3 { break-after: avoid; margin-top: 0; }
+  .num-cols { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
+  .num-main { grid-column: span 7; }
+  .num-side { grid-column: span 5; margin-top: 0; }
+  .num-cols > :only-child { grid-column: 1 / -1; }
+  .takeaway { columns: 2; column-gap: 48px; }
+  .takeaway p { break-inside: avoid; }
+  .toc { display: none; }
+  .issue-list li { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 4px 24px;
+    align-items: baseline; padding: 14px 0; }
+  .issue-list .headline { padding-bottom: 0; }
+}
+
+/* Phones */
+@media (max-width: 599px) {
+  .wrap { padding-left: 16px; padding-right: 16px; }
+  body { font-size: 16px; }
+  .utility { display: none; }
+  .ticker { font-size: 12px; padding: 9px 0 9px 16px; }
+  .ticker-track { animation-duration: calc(var(--n, 12) * 2.5s); }
+  .tk { padding-right: 22px; }
+  .tk-date { font-size: 12px; }
+  .masthead { padding-top: 22px; }
+  .dateline-m { display: block; margin: 0 auto 8px; max-width: none; font-family: var(--sans);
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .tagline { font-size: 10px; letter-spacing: .12em; margin-top: 8px; }
+  .tagline-long { display: none; }
+  .tagline-short { display: inline; }
+  .double-rule { margin-top: 16px; }
+  .site-nav { flex-wrap: nowrap; justify-content: space-between; gap: 0; padding: 0;
+    font-size: 12px; letter-spacing: .08em; }
+  .site-nav a { display: flex; align-items: center; min-height: 44px; padding: 0; }
+  main { padding-top: 22px; }
+  main h1 { font-size: 34px; }
+  main h2 { font-size: 12px; }
+  .display, main h2.display { font-size: 28px; }
+  .brief { background: var(--panel); padding: 16px; border-top: 2px solid var(--navy); }
+  .brief h2 { border: 0; padding: 0; margin-bottom: 10px; }
+  .brief li { font-size: 16px; padding-left: 24px; }
+  .brief li + li { margin-top: 12px; padding-top: 0; border-top: 0; }
+  .brief li + li::before { top: 0; }
+  .brief li::before { font-size: 22px; }
+  .snapshot { margin-top: 24px; }
+  .lead .hl { font-size: 30px; line-height: 1.1; }
+  .deck p { font-size: 17px; line-height: 1.5; margin-top: 10px; }
+  .why-panel { background: none; padding: 12px 0 0; margin-top: 14px;
+    border-top: 1px solid var(--hairline); }
+  .why-panel p { font-size: 16px; line-height: 1.55; }
+  .why-label { font-size: 12px; }
+  .sec, .coffee, .pair, .summary, .toc { margin-top: 28px; }
+  .story { padding: 14px 0; }
+  .story .hl { font-size: 21px; line-height: 1.2; }
+  .story p, .sec p, .takeaway p { font-size: 16px; line-height: 1.5; }
+  .coffee { padding: 20px 0; }
+  .coffee-note { margin: 6px 0 14px; }
+  .points { gap: 14px; }
+  .points li { font-size: 17px; }
+  .quick-hits li { font-size: 16px; line-height: 1.5; }
+  .term { padding: 18px 16px; }
+  .term-name { font-size: 26px; margin-top: 8px; }
+  .term-def p { font-size: 16px; line-height: 1.55; margin-top: 8px; }
+  .row { gap: 10px; padding: 10px 0; }
   /* Value over change, right-aligned, so long values never wrap awkwardly. */
-  dd { display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
-    max-width: 52vw; }
-  .val { white-space: normal; text-align: right; font-size: 1.04rem; }
-  .chg { margin-left: 0; min-width: 0; font-size: 15px; }
-  .toc a, .issue-nav a, .issue-list a { display: inline-flex; align-items: center;
-    min-height: 44px; }
-  .toc ul { gap: 0 18px; }
+  dd { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; max-width: 52vw; }
+  .val { white-space: normal; text-align: right; }
+  .chg { margin-left: 0; }
+  .issue-list .headline { font-size: 18px; }
+  footer { margin-top: 32px; }
+  footer .wrap { display: block; padding-top: 18px; padding-bottom: 28px; font-size: 12px; }
+  footer p { margin: 0 0 4px; }
+}
+@media (max-width: 359px) {
+  .site-nav { font-size: 11px; letter-spacing: .03em; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .ticker { overflow-x: auto; }
+  .ticker-track { animation: none; }
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 """
@@ -835,17 +1396,17 @@ PAGE = """<!doctype html>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
-<div class="sheet" id="top">
-{cover}{nav}
-{notes}
-<main id="content">
+{masthead}
+<main id="content" class="wrap">{notes}
 {body}{extra_body}
 </main>
 <footer>
-<p>{footer}</p>
+<div class="wrap">
+<p class="foot-name">CRE Blurb</p>
 <p>Written with AI from the linked sources. Every number is pulled automatically from public data. Edited by Robert.</p>
-</footer>
+<p>{footer}</p>
 </div>
+</footer>
 </body>
 </html>
 """

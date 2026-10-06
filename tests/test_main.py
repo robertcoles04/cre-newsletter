@@ -279,7 +279,7 @@ def test_dry_run_writes_html_preview(tmp_path, fakes):
     html_path = path.with_suffix(".html")
     assert code == 0 and html_path.exists()
     html = html_path.read_text(encoding="utf-8")
-    assert "Market Summary" in html and "4.20%" in html
+    assert "The Numbers" in html and "4.20%" in html
     # chart is embedded so the preview works when pasted, emailed or opened alone
     assert 'src="data:image/png;base64,' in html and FOOTER in html
 
@@ -298,7 +298,7 @@ def test_fallback_and_stub_write_html(tmp_path, fakes, monkeypatch):
     monkeypatch.setattr(main, "build_factsheet", lambda *a, **k: (_ for _ in ()).throw(KeyError("x")))
     code, path = run(tmp_path, force=True)
     html = path.with_suffix(".html").read_text(encoding="utf-8")
-    assert "Pipeline error" in html and "Market Summary" not in html
+    assert "Pipeline error" in html and 'id="numbers"' not in html
 
 
 def test_fallback_uses_friendly_labels():

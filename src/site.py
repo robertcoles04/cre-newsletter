@@ -14,7 +14,8 @@ from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 from src.publish import _valid_date, check, load_published, strip_banner
-from src.render_html import CHART_NAMES, DEFAULT_ALT, render_issue_html, render_page
+from src.render_html import (CHART_NAMES, DEFAULT_ALT, EDITION_NOTE, _md, prepare_md,
+                              render_issue_html, render_page, slug, split_term)
 
 SITE_URL = "https://creblurb.org/"
 SITE_NAME = "CRE Blurb"
@@ -25,33 +26,15 @@ DESC_MAX = 155
 CURRENT = ' aria-current="page"'  # marks the nav link for the page being shown
 REPO_ISSUES = "https://github.com/robertcoles04/cre-newsletter/issues"
 RETURN_LINE = "New issue every morning at"  # + the site link, at the end of every issue
-HOME_NOTE = "Free. New issue every weekday morning, lighter on weekends."
-HOME_NOTE_HTML = '<p class="site-note">' + HOME_NOTE + "</p>"
-# Favicon: a navy rounded square with a gold serif "CB" (Offering Memo palette, no files
-# to draw by hand; written to /favicon.svg at build time).
+HOME_NOTE = EDITION_NOTE  # shown in every page's masthead utility row
+# Favicon: a navy square with a gold serif "CB" (Broadsheet palette, no files to draw by
+# hand; written to /favicon.svg at build time).
 FAVICON_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
     '<rect width="64" height="64" rx="12" fill="#0E2A47"/>'
-    '<text x="32" y="43" text-anchor="middle" font-family="Libre Caslon Text, Georgia, '
-    'Times New Roman, serif" font-size="30" font-weight="700" fill="#B08D3C">CB</text>'
+    '<text x="32" y="43" text-anchor="middle" font-family="Libre Caslon Display, Georgia, '
+    'Times New Roman, serif" font-size="30" font-weight="700" fill="#A9853A">CB</text>'
     '</svg>\n')
-
-SITE_CSS = """<style>
-.site-nav { display: flex; flex-wrap: wrap; gap: 4px 32px; padding: 16px 48px;
-  border-bottom: 1px solid var(--hairline); font-size: 16px; line-height: 1.5; }
-.site-nav a { color: var(--navy); text-decoration: none; }
-.site-nav a:hover { text-decoration: underline; text-decoration-thickness: 1px; }
-.site-nav a[aria-current="page"] { font-weight: 600; text-decoration: underline;
-  text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 6px; }
-.site-note { margin: 0; padding: 10px 48px 0; color: var(--muted); font-size: 15px;
-  max-width: none; }
-.issue-list .headline { color: var(--ink); }
-@media (max-width: 600px) {
-  .site-note { padding: 8px 16px 0; }
-  .site-nav { padding: 0 16px; gap: 0 24px; }
-  .site-nav a { display: inline-flex; align-items: center; min-height: 44px; }
-}
-</style>"""
 
 # The disclaimer is not repeated here: every page's footer already carries it once.
 ABOUT = (
@@ -131,14 +114,19 @@ def headline(md: str, day: date) -> str:
     return describe(md, day)
 
 
-def _nav(p: str, current: str | None = None) -> str:
-    """Site nav. `current` (home, archive, about) gets aria-current="page"."""
-    p = _a(p)
-    links = [("home", "", "Home"), ("archive", "archive/", "Archive"),
-             ("about", "about/", "About")]
+def _nav(p: str, current: str | None = None, latest: str | None = None,
+         markets: str | None = None) -> str:
+    """Site nav: Today, Markets (The Numbers of the latest issue), Archive, Glossary,
+    About. `current` (home, archive, glossary, about) gets aria-current="page".
+    `markets` overrides the Markets link (the home page uses "#numbers")."""
+    if markets is None and latest:
+        markets = f"{p}issues/{latest}/#numbers"
+    links = [("home", p or "./", "Today"), ("markets", markets, "Markets"),
+             ("archive", f"{p}archive/", "Archive"), ("glossary", f"{p}glossary/", "Glossary"),
+             ("about", f"{p}about/", "About")]
     return ('<nav class="site-nav" aria-label="Site">' + "".join(
-        f'<a href="{p}{href}"{CURRENT if key == current else ""}>{text}</a>'
-        for key, href, text in links) + "</nav>")
+        f'<a href="{_a(href)}"{CURRENT if key == current else ""}>{text}</a>'
+        for key, href, text in links if href) + "</nav>")
 
 
 def png_size(path: Path) -> tuple[int, int] | None:
@@ -173,7 +161,7 @@ def _head(title: str, desc: str, url: str, og_type: str, image: str | None = Non
                      f'<meta property="og:image:height" content="{image_size[1]}">']
         if image_alt:
             tags.append(f'<meta property="og:image:alt" content="{_a(image_alt)}">')
-    return "\n" + "\n".join(tags) + "\n" + SITE_CSS
+    return "\n" + "\n".join(tags)
 
 
 def _write(path: Path, text: str) -> None:
@@ -226,7 +214,8 @@ def _charts(issues_dir: Path, d: str, factsheet: dict) -> dict:
 
 
 def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
-                extra_body: str = "", current: str | None = None) -> str:
+                extra_body: str = "", current: str | None = None,
+                latest: str | None = None) -> str:
     """`img_base` is where this page finds the issue's chart PNGs ("" next to the issue
     page, "issues/<date>/" from the home page), or None for no charts."""
     d, day = issue["date"], issue["day"]
@@ -248,7 +237,8 @@ def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                  image_size=png_size(og["file"]) if og else None)
     return render_issue_html(issue["md"], issue["factsheet"], [], None, charts=charts,
                              head_extra=head,
-                             nav=_nav(prefix, current) + (HOME_NOTE_HTML if current == "home" else ""),
+                             nav=_nav(prefix, current, latest or d,
+                                      "#numbers" if current == "home" else None),
                              extra_body=extra_body, title=title)
 
 
@@ -269,14 +259,58 @@ def issue_nav(issues: list[dict], idx: int, prefix: str) -> str:
 
 
 def _link_list(issues: list[dict], prefix: str, headlines: bool = False) -> str:
-    """Issue links by date; `headlines` adds each issue's top headline after the date."""
+    """Issue rows by date; `headlines` adds each issue's top headline (newspaper rows)."""
     def item(i: dict) -> str:
-        link = f'<a href="{_a(prefix)}issues/{i["date"]}/">{_label(i["day"])}</a>'
+        link = f'<a class="when" href="{_a(prefix)}issues/{i["date"]}/">{_label(i["day"])}</a>'
         if headlines:
             text = headline(i["md"], i["day"]).rstrip(".")
-            link += f'. <span class="headline">{escape(text)}</span>'
+            link += f'<span class="headline">{escape(text)}</span>'
         return f"<li>{link}</li>"
     return f'<ul class="issue-list">{"".join(item(i) for i in issues)}</ul>'
+
+
+def glossary_entries(issues: list[dict]) -> list[dict]:
+    """Every Term of the Day from published issues, alphabetical. A term that ran more
+    than once keeps its newest definition and lists every issue date (issues: newest first)."""
+    terms: dict[str, dict] = {}
+    for i in issues:
+        parts = _SECTION.split(i["md"].replace("\r\n", "\n"))
+        for heading, body in zip(parts[1::2], parts[2::2]):
+            if heading.strip() != "Term of the Day":
+                continue
+            name, definition = split_term(prepare_md(body))
+            if not name or not definition.strip():
+                continue
+            entry = terms.setdefault(name.casefold(), {"name": name, "md": definition,
+                                                        "issues": []})
+            entry["issues"].append(i)
+    return sorted(terms.values(), key=lambda e: e["name"].casefold())
+
+
+def _glossary(issues: list[dict], site_url: str) -> str:
+    entries = glossary_entries(issues)
+    body = ["<h1>Glossary</h1>",
+            "<p>Every Term of the Day from published issues, in alphabetical order.</p>"]
+    if not entries:
+        body.append("<p>No terms yet. The first one arrives with the first issue.</p>")
+    used: set[str] = set()
+    for e in entries:
+        sid = base = "term-" + slug(e["name"])
+        n = 2
+        while sid in used:
+            sid, n = f"{base}-{n}", n + 1
+        used.add(sid)
+        dates = ", ".join(f'<a href="../issues/{i["date"]}/">{_label(i["day"])}</a>'
+                          for i in e["issues"])
+        body.append(f'<article class="gloss" id="{sid}">'
+                    f'<h2 class="term-name">{escape(e["name"])}</h2>'
+                    f'<div class="term-def">{_md(e["md"])}</div>'
+                    f'<p class="gloss-from">From the issue of {dates}</p></article>')
+    head = _head(f"{SITE_NAME} | Glossary", "Every CRE term explained in CRE Blurb, A to Z.",
+                 f"{site_url}glossary/", "website", site_url=site_url)
+    return render_page(f"{SITE_NAME} | Glossary", "".join(body), head_extra=head,
+                       nav=_nav("../", "glossary", issues[0]["date"] if issues else None),
+                       factsheet=issues[0]["factsheet"] if issues else None)
 
 
 def return_line(site_url: str) -> str:
@@ -293,6 +327,7 @@ def sitemap_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
     """Home, archive, about and every issue page."""
     urls = [(site_url, issues[0]["date"] if issues else None),
             (f"{site_url}archive/", issues[0]["date"] if issues else None),
+            (f"{site_url}glossary/", issues[0]["date"] if issues else None),
             (f"{site_url}about/", None)]
     urls += [(f"{site_url}issues/{i['date']}/", i["date"]) for i in issues]
     rows = "".join(f"<url><loc>{xml_escape(u)}</loc>"
@@ -316,7 +351,8 @@ def _archive(issues: list[dict], site_url: str) -> str:
     head = _head(f"{SITE_NAME} | Archive", "Every published issue of CRE Blurb.",
                  f"{site_url}archive/", "website", site_url=site_url)
     return render_page(f"{SITE_NAME} | Archive", body, head_extra=head,
-                       nav=_nav("../", "archive"))
+                       nav=_nav("../", "archive", issues[0]["date"] if issues else None),
+                       factsheet=issues[0]["factsheet"] if issues else None)
 
 
 def feed_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
@@ -359,12 +395,12 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
             if c.get("sm"):
                 shutil.copyfile(c["sm"]["file"], dest / f"{name}-sm.png")
         _write(dest / "index.html", _issue_page(
-            i, "../../", "", site_url,
+            i, "../../", "", site_url, latest=issues[0]["date"],
             extra_body=return_line(site_url) + issue_nav(issues, idx, "../../")))
 
     if issues:
         newest = issues[0]
-        recent = (f"<section><h2>Recent issues</h2>"
+        recent = (f'<section class="recent"><h2>Recent issues</h2>'
                   f"{_link_list(issues[:RECENT], '')}</section>"
                   if len(issues) >= RECENT_MIN else "")
         home = _issue_page(newest, "", f"issues/{newest['date']}/", site_url,
@@ -376,20 +412,24 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
         home = render_page(SITE_NAME, "<p>The first issue of CRE Blurb is coming soon.</p>",
                            head_extra=_head(SITE_NAME, desc, site_url, "website",
                                             site_url=site_url),
-                           nav=_nav("", "home") + HOME_NOTE_HTML)
+                           nav=_nav("", "home"))
     _write(out / "index.html", home)
     _write(out / "feed.xml", feed_xml(issues, site_url))
     _write(out / "archive" / "index.html", _archive(issues, site_url))
+    latest = issues[0]["date"] if issues else None
+    latest_fs = issues[0]["factsheet"] if issues else None
+    _write(out / "glossary" / "index.html", _glossary(issues, site_url))
     _write(out / "about" / "index.html", render_page(
-        f"{SITE_NAME} | About", ABOUT, nav=_nav("../", "about"),
+        f"{SITE_NAME} | About", ABOUT, nav=_nav("../", "about", latest), factsheet=latest_fs,
         head_extra=_head(f"{SITE_NAME} | About", "What CRE Blurb is and how each issue is made.",
                          f"{site_url}about/", "website", site_url=site_url)))
     _write(out / "404.html", render_page(
         f"{SITE_NAME} | Page not found",
         "<h1>Page not found</h1><p>That page doesn't exist. Today's issue is on the home page.</p>"
-        f'<p><a href="{_a(site_url)}">Home</a> &middot; '
-        f'<a href="{_a(site_url)}archive/">Archive</a></p>',
-        nav=_nav(site_url),
+        f'<p><a href="{_a(site_url)}">Today</a> &middot; '
+        f'<a href="{_a(site_url)}archive/">Archive</a> &middot; '
+        f'<a href="{_a(site_url)}glossary/">Glossary</a></p>',
+        nav=_nav(site_url, None, latest), factsheet=latest_fs,
         head_extra=_head(f"{SITE_NAME} | Page not found", "Page not found.",
                          f"{site_url}404.html", "website", site_url=site_url)))
     _write(out / "favicon.svg", FAVICON_SVG)
