@@ -16,6 +16,7 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write  # to start publish.yml (auto-publish)
 
 # Never let the two cron triggers overlap.
 concurrency:
@@ -59,6 +60,7 @@ jobs:
           gh label create approved --color 0E8A16 || true
 
       - name: Run pipeline
+        id: pipeline
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
@@ -100,3 +102,15 @@ jobs:
             git pull --rebase origin "$REF"
             git push origin HEAD:"$REF"
           fi
+
+      # Auto-publish: ask publish.yml to publish this draft. It runs the same
+      # safety check as the approved label; if the check fails it comments on the
+      # Issue and leaves it open for a manual fix + `approved`. Adding the label
+      # here would not work: events made with GITHUB_TOKEN start no workflows,
+      # but workflow_dispatch is allowed. Runs only after issues/ is on main.
+      - name: Auto-publish the draft
+        if: steps.pipeline.outputs.issue != ''
+        env:
+          ISSUE: ${{ steps.pipeline.outputs.issue }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f issue="$ISSUE"

@@ -329,3 +329,27 @@ def test_story_lines_drop_non_http_urls():
         {"title": "Bad", "url": "javascript:alert(1)", "source": "F"},
         {"title": "Rel", "url": "/x", "source": "F"}])
     assert [l.split("]")[0] for l in lines] == ["- [Good", "- [Plain"]
+
+
+def test_delivery_writes_issue_number_step_output(tmp_path, fakes, monkeypatch):
+    out = tmp_path / "gh_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    code, _ = run(tmp_path, gh=lambda a: "https://github.com/o/r/issues/42\n", dry_run=False)
+    assert code == 0
+    assert out.read_text(encoding="utf-8").splitlines() == ["date=2026-10-06", "issue=42"]
+
+
+def test_dry_run_and_skips_write_no_step_output(tmp_path, fakes, monkeypatch):
+    out = tmp_path / "gh_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    code, _ = run(tmp_path)  # dry run: no GitHub Issue, so nothing to auto-publish
+    assert code == 0 and not out.exists()
+    code, _ = run(tmp_path, gh=lambda a: "https://github.com/o/r/issues/42\n", dry_run=False)
+    out.unlink()
+    code, _ = run(tmp_path, dry_run=False)  # already delivered: skipped, no dispatch
+    assert code == 0 and not out.exists()
+
+
+def test_step_output_noop_outside_actions(monkeypatch):
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    main._step_output(issue=1)  # must not raise

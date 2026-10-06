@@ -4,6 +4,20 @@ on:
   issues:
     types: [labeled]
   workflow_dispatch:
+    inputs:
+      issue:
+        description: "Draft Issue number to publish (same as adding the approved label). Leave empty to just rebuild the site."
+        type: string
+        required: false
+        default: ""
+  # Robert's corrections on github.com: rebuild only (no gate, nothing recorded).
+  # The site renders only dates in issues/published.json, so a pushed draft stays
+  # hidden. Pushes made with GITHUB_TOKEN (the bots) never start workflows.
+  push:
+    branches: [main]
+    paths:
+      - "issues/*.md"
+      - "issues/*.json"
 
 permissions:
   contents: write
@@ -13,27 +27,54 @@ permissions:
 
 jobs:
   # Step 1: check the draft and record the date in issues/published.json.
-  # Runs once per approved Issue; never cancelled, so no approval is dropped.
+  # Runs once per approved Issue (label) or auto-publish request (dispatch with
+  # `issue`, sent by daily.yml); never cancelled, so no approval is dropped.
   record:
     if: >-
-      github.event_name == 'issues' &&
-      github.event.label.name == 'approved' &&
-      startsWith(github.event.issue.title, 'Draft: CRE Blurb ')
+      (github.event_name == 'issues' &&
+       github.event.label.name == 'approved' &&
+       startsWith(github.event.issue.title, 'Draft: CRE Blurb ')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.issue != '')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
-      group: record-${{ github.event.issue.number }}
+      group: record-${{ github.event.issue.number || inputs.issue }}
       cancel-in-progress: false
     outputs:
       day: ${{ steps.day.outputs.day }}
+      issue: ${{ steps.day.outputs.issue }}
+      auto: ${{ steps.day.outputs.auto }}
     steps:
       - name: Read the date from the Issue title
         id: day
         env:
-          TITLE: ${{ github.event.issue.title }}
-          ISSUE: ${{ github.event.issue.number }}
+          EVENT: ${{ github.event_name }}
+          EVENT_TITLE: ${{ github.event.issue.title }}
+          EVENT_ISSUE: ${{ github.event.issue.number }}
+          INPUT_ISSUE: ${{ inputs.issue }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            # Auto-publish: behaves exactly like adding the approved label.
+            if ! [[ "$INPUT_ISSUE" =~ ^[0-9]+$ ]]; then
+              echo "::error::The issue input must be an Issue number."
+              exit 1
+            fi
+            ISSUE="$INPUT_ISSUE"
+            AUTO=true
+            STATE="$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+            if [ "$STATE" != "OPEN" ]; then
+              echo "::error::Issue #$ISSUE is not open; not publishing it."
+              exit 1
+            fi
+            TITLE="$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json title --jq .title)"
+          else
+            ISSUE="$EVENT_ISSUE"
+            AUTO=false
+            TITLE="$EVENT_TITLE"
+          fi
+          echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
+          echo "auto=$AUTO" >> "$GITHUB_OUTPUT"
           if [[ "$TITLE" =~ ^Draft:\ CRE\ Blurb\ ([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
             echo "day=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           else
@@ -65,9 +106,18 @@ jobs:
         if: failure() && steps.gate.outcome == 'failure'
         env:
           DAY: ${{ steps.day.outputs.day }}
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ steps.day.outputs.issue }}
+          AUTO: ${{ steps.day.outputs.auto }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$AUTO" = "true" ]; then
+            # Not published: leave the draft open for a manual fix + approval.
+            reasons="$(awk 'NR>1{printf "; "}{printf "%s", $0}' gate.txt)"
+            printf 'Not auto-published: %s. Fix issues/%s.md and add the `approved` label to publish.\n' \
+              "$reasons" "$DAY" > comment.md
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+            exit 0
+          fi
           {
             echo "Not published. Fix these in issues/$DAY.md, then add the \`approved\` label again:"
             echo
@@ -106,21 +156,30 @@ jobs:
       - name: Report a failure after the check passed
         if: failure() && steps.gate.outcome == 'success'
         env:
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ steps.day.outputs.issue }}
+          AUTO: ${{ steps.day.outputs.auto }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$AUTO" = "true" ]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "Auto-publishing failed after the check passed; add the approved label to retry. Run: $RUN_URL"
+            exit 0
+          fi
           gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
             --body "Publishing failed after the check passed; remove and re-add the approved label to retry. Run: $RUN_URL"
           gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label approved
 
   # Step 2: rebuild the whole site from main and deploy it. A newer deploy
   # replaces an older one; every recorded date is in main, so nothing is lost.
+  # Plain rebuilds (a pushed correction, a dispatch without `issue`) skip record.
   deploy:
     needs: record
     if: >-
       always() &&
-      (github.event_name == 'workflow_dispatch' || needs.record.result == 'success')
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.issue == '') ||
+       needs.record.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -153,13 +212,18 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Comment and close the Issue
-        if: github.event_name == 'issues'
+        if: needs.record.result == 'success'
         env:
           DAY: ${{ needs.record.outputs.day }}
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ needs.record.outputs.issue }}
+          AUTO: ${{ needs.record.outputs.auto }}
           GH_TOKEN: ${{ github.token }}
         # Site URL is hard-coded; keep it in sync with SITE_URL in src/site.py.
         run: |
-          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Published: https://creblurb.org/issues/$DAY/"
+          if [ "$AUTO" = "true" ]; then
+            msg="Published automatically: https://creblurb.org/issues/$DAY/"
+          else
+            msg="Published: https://creblurb.org/issues/$DAY/"
+          fi
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "$msg"
           gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY"

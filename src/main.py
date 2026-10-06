@@ -7,6 +7,7 @@ which deliver() prints as a banner at the top of the draft.
 import argparse
 import base64
 import html
+import os
 import re
 import sys
 import tempfile
@@ -38,6 +39,16 @@ CHART_DAYS = 45
 GATE_HOURS = range(5, 18)
 CHART_LINE = re.compile(r"^[ \t]*!\[Chart of the Day\]\([^)\n]*\)[ \t]*\n?", re.M)
 STRAY_BRACES = re.compile(r"\{\{.*?\}\}|\{\{|\}\}", re.S)
+
+
+def _step_output(**values) -> None:
+    """Hand values to later GitHub Actions steps (no-op outside Actions)."""
+    out = os.environ.get("GITHUB_OUTPUT")
+    if not out:
+        return
+    with open(out, "a", encoding="utf-8") as f:
+        for key, value in values.items():
+            f.write(f"{key}={value}\n")
 
 
 def _err(exc: Exception) -> str:
@@ -518,6 +529,12 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
             except Exception as exc:
                 print(f"delivery failed: {_err(exc)}", file=sys.stderr)
                 return 1
+            if not args.dry_run:
+                # daily.yml reads these to ask publish.yml to auto-publish this Issue.
+                row = conn.execute("SELECT gh_issue FROM issues WHERE date=?",
+                                   (run_date.isoformat(),)).fetchone()
+                if row is not None and row["gh_issue"] is not None:
+                    _step_output(date=run_date.isoformat(), issue=int(row["gh_issue"]))
     except Exception as exc:
         print(f"pipeline error before delivery: {_err(exc)}", file=sys.stderr)
         return 1

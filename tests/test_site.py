@@ -266,3 +266,41 @@ def test_describe_uses_the_brief_first_bullet():
     md = ("## The Brief\n\n- Office rents hit a record in Manhattan. [CO](https://x.com/1)\n"
           "- Two\n\n## The Numbers\n\n- x\n\n## Top Stories\n\nOther text.\n")
     assert site.describe(md, date(2026, 10, 5)) == "Office rents hit a record in Manhattan."
+
+
+def test_unpublished_draft_never_rendered(tmp_path):
+    """A pushed draft (md + json, not in published.json) stays off the site, so the
+    push-triggered rebuild in publish.yml cannot leak an unapproved issue."""
+    root = tmp_path / "repo"
+    _issue(root, "2026-10-05", MD_05)
+    _issue(root, "2026-10-06", MD_06)
+    _published(root, ["2026-10-05"])
+    out = tmp_path / "site"
+    assert site.build(root, out) == ["2026-10-05"]
+    assert not (out / "issues/2026-10-06").exists()
+    for page in out.rglob("*"):
+        if page.is_file() and page.suffix in (".html", ".xml"):
+            assert "2026-10-06" not in _read(page), page
+
+
+def test_skipped_date_raises_actions_warning(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    root = tmp_path / "repo"
+    _issue(root, "2026-10-05", MD_05)
+    _issue(root, "2026-10-06", MD_06 + "\n[CHECK] verify this\n")
+    _published(root, ["2026-10-05", "2026-10-06"])
+    site.build(root, tmp_path / "site")
+    printed = capsys.readouterr().out.splitlines()
+    assert any(l.startswith("warning: skipping 2026-10-06") for l in printed)
+    ann = [l for l in printed if l.startswith("::warning ")]
+    assert len(ann) == 1 and "2026-10-06" in ann[0] and "[CHECK]" in ann[0]
+
+
+def test_no_actions_annotation_locally(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    root = tmp_path / "repo"
+    _issue(root, "2026-10-06", MD_06 + "\n[CHECK] verify this\n")
+    _published(root, ["2026-10-06"])
+    site.build(root, tmp_path / "site")
+    printed = capsys.readouterr().out
+    assert "warning: skipping 2026-10-06" in printed and "::warning" not in printed
