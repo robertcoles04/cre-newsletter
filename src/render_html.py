@@ -1542,7 +1542,7 @@ PAGE = """<!doctype html>
 <footer>
 <div class="wrap">
 <p class="foot-name">CRE Blurb</p>
-<p>Written with AI from the linked sources. Every number is pulled automatically from public data. Reviewed by the editor.</p>
+<p>Every number is pulled automatically from public data. Reviewed by the editor.</p>
 <p>{footer}</p>
 {footer_links}
 </div>

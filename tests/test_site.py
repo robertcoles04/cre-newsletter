@@ -356,8 +356,8 @@ def test_footer_links_on_every_page(built):
         for folder in ("about",) + INFO:
             assert f'href="{base}{folder}/"' in page, (rel, folder)
         # the existing footer lines stay exactly as they are
-        assert ("Written with AI from the linked sources. Every number is pulled "
-                "automatically from public data. Reviewed by the editor.") in page, rel
+        assert ("Every number is pulled automatically from public data. "
+                "Reviewed by the editor.") in page, rel
         assert page.count("For informational purposes only. Not investment advice.") == 1, rel
 
 
