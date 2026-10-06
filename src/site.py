@@ -4,6 +4,7 @@ Usage: python -m src.site build [--root .] [--out site]
 """
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -36,7 +37,7 @@ FAVICON_SVG = (
     '</svg>\n')
 
 # The disclaimer is not repeated here: every page's footer already carries it once.
-CORRECTIONS_EMAIL = "robertcoles@icloud.com"
+CORRECTIONS_EMAIL = "robertjcoles@icloud.com"
 ABOUT = (
     "<h1>About CRE Blurb</h1>"
     "<p>CRE Blurb is a free daily briefing on commercial real estate for students and "
@@ -184,23 +185,32 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _warn(msg: str) -> None:
+    """A skipped date must never vanish quietly: log it, and on GitHub Actions also
+    raise a ::warning:: annotation so it shows on the run summary page."""
+    print(f"warning: {msg}")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        safe = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"::warning title=Issue left off the site::{safe}")
+
+
 def _load(root: Path) -> list[dict]:
     """Published issues that pass the gate, newest first; bad dates are skipped."""
     issues_dir = Path(root) / "issues"
     good = []
     for d in sorted(set(load_published(root)), reverse=True):
         if not isinstance(d, str) or not _valid_date(d):
-            print(f"warning: skipping {d!r}: not a valid YYYY-MM-DD date")
+            _warn(f"skipping {d!r}: not a valid YYYY-MM-DD date")
             continue
         md_path, json_path = issues_dir / f"{d}.md", issues_dir / f"{d}.json"
         missing = [p.name for p in (md_path, json_path) if not p.exists()]
         if missing:
-            print(f"warning: skipping {d}: missing {', '.join(missing)}")
+            _warn(f"skipping {d}: missing {', '.join(missing)}")
             continue
         md = strip_banner(md_path.read_bytes().decode("utf-8-sig"))
         reasons = check(md)
         if reasons:
-            print(f"warning: skipping {d}: blocked: {'; '.join(reasons)}")
+            _warn(f"skipping {d}: blocked: {'; '.join(reasons)}")
             continue
         factsheet = json.loads(json_path.read_bytes().decode("utf-8-sig"))
         good.append({"date": d, "day": date.fromisoformat(d), "md": md,
