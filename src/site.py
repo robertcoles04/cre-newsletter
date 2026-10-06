@@ -16,7 +16,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 from src.publish import _valid_date, check, load_published, strip_banner
-from src.render_html import (CHART_NAMES, DEFAULT_ALT, EDITION_NOTE, SITE_ROOT, _md,
+from src.render_html import (CHART_NAMES, EDITION_NOTE, SITE_ROOT, _md, default_alt,
                               prepare_md, render_issue_html, render_page, slug, split_term)
 
 SITE_URL = SITE_ROOT
@@ -349,7 +349,7 @@ def _charts(issues_dir: Path, d: str, factsheet: dict) -> dict:
         if not f.is_file() or (name != "chart" and name not in meta):
             continue
         m = meta.get(name) or {}
-        out[name] = {"file": f, "alt": m.get("alt") or DEFAULT_ALT.get(name, ""),
+        out[name] = {"file": f, "alt": m.get("alt") or default_alt(name, factsheet.get("values")),
                      "width": m.get("width"), "height": m.get("height")}
         small = issues_dir / "img" / f"{d}-{name}-sm.png"
         if isinstance(m.get("sm"), dict) and small.is_file():  # phone variant
@@ -360,7 +360,7 @@ def _charts(issues_dir: Path, d: str, factsheet: dict) -> dict:
 
 def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                 extra_body: str = "", current: str | None = None,
-                latest: str | None = None) -> str:
+                latest: str | None = None, today: bool = False) -> str:
     """`img_base` is where this page finds the issue's chart PNGs ("" next to the issue
     page, "issues/<date>/" from the home page), or None for no charts."""
     d, day = issue["date"], issue["day"]
@@ -382,7 +382,7 @@ def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                  image_size=png_size(og["file"]) if og else None)
     return render_issue_html(issue["md"], issue["factsheet"], [], None, charts=charts,
                              head_extra=head, base=prefix,
-                             nav=_nav(prefix, current, latest or d,
+                             nav=_nav(prefix, "home" if today else current, latest or d,
                                       "#numbers" if current == "home" else None),
                              extra_body=extra_body, title=title)
 
@@ -411,7 +411,7 @@ def _link_list(issues: list[dict], prefix: str, headlines: bool = False) -> str:
             text = headline(i["md"], i["day"]).rstrip(".")
             link += f'<span class="headline">{escape(text)}</span>'
         return f"<li>{link}</li>"
-    return f'<ul class="issue-list">{"".join(item(i) for i in issues)}</ul>'
+    return f'<ul class="issue-list" role="list">{"".join(item(i) for i in issues)}</ul>'
 
 
 def glossary_entries(issues: list[dict]) -> list[dict]:
@@ -549,8 +549,8 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
             shutil.copyfile(c["file"], dest / f"{name}.png")
             if c.get("sm"):
                 shutil.copyfile(c["sm"]["file"], dest / f"{name}-sm.png")
-        _write(dest / "index.html", _issue_page(
-            i, "../../", "", site_url, latest=issues[0]["date"],
+        _write(dest / "index.html", _issue_page(  # the latest issue is "Today"
+            i, "../../", "", site_url, latest=issues[0]["date"], today=idx == 0,
             extra_body=return_line(site_url) + issue_nav(issues, idx, "../../")))
 
     if issues:

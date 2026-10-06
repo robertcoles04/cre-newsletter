@@ -182,14 +182,14 @@ def test_talking_points_render_as_pull_list_and_old_line_still_works():
     assert '<section class="coffee" aria-label="Coffee chat talking points">' in html
     assert '<h2 class="display">Coffee chat talking points</h2>' in html
     assert "Talking points you can use in networking conversations" in html
-    assert '<ol class="points c2"><li>Point one 19.6%.' in html
+    assert '<ol class="points c2" role="list"><li>Point one 19.6%.' in html
     # No blank line after the label: still a list.
     tight = md.replace("points:**\n\n- Point one", "points:**\n- Point one")
-    assert '<ol class="points c2">' in render_issue_html(tight, None, [])
+    assert '<ol class="points c2" role="list">' in render_issue_html(tight, None, [])
     old = render_issue_html("## Top Stories\n\n**Coffee chat line:** A take. [A](" + URL_A
                             + ")\n\n" + FOOTER, None, [])
     assert '<h2 class="display">Coffee chat line</h2>' in old
-    assert '<ol class="points c1"><li>A take.' in old
+    assert '<ol class="points c1" role="list"><li>A take.' in old
 
 
 # ---------------------------------------------------------------- 5. small fixes
@@ -273,10 +273,10 @@ VALS = {"DGS10": "4.28%", "DGS10_CHG": "+4 bps", "SOFR": "4.30%", "SOFR_CHG": "-
 
 def test_snapshot_then_stories_then_full_summary():
     html = render_issue_html(MD, {"date": "2026-10-06", "day_type": "weekday", "values": VALS}, [])
-    # The front (lead story, The Brief, the Snapshot strip; phones reorder it with CSS),
-    # then the stories, The Numbers, Term of the Day and the Data Room.
+    # The front (The Brief, the Snapshot strip, the lead story; desktop places them by
+    # grid), then the stories, The Numbers, Term of the Day and the Data Room.
     order = [html.index(s) for s in (
-        'id="top-stories"', 'id="the-brief"', 'id="snapshot-h"', '<nav class="toc"',
+        'id="the-brief"', 'id="snapshot-h"', 'id="top-stories"', '<nav class="toc"',
         'id="debt-markets"', 'id="quick-hits"', 'id="summary-h"', "Rates were little changed",
         'id="term-h"', 'id="dataroom-h"')]
     assert order == sorted(order)

@@ -69,8 +69,10 @@ def test_summary_rows_render_from_values():
 
 def test_na_renders_muted_na_text():
     html = render()
-    assert 'title="Data unavailable today"' in html
-    assert "&mdash;" not in html and 'class="na"' in html and ">n/a<" in html
+    assert ('<span class="na">n/a<span class="sr-only"> (data unavailable today)</span>'
+            '</span>') in html
+    assert 'aria-label="Data unavailable today"' not in html
+    assert "&mdash;" not in html
 
 
 def test_reit_rows_show_name_and_property_type():
@@ -197,7 +199,7 @@ def test_coffee_chat_line_is_a_pull_quote():
     html = render(md=POLISH_MD)
     assert '<section class="coffee" aria-label="Coffee chat line">' in html
     assert '<h2 class="display">Coffee chat line</h2>' in html
-    assert ('<ol class="points c1"><li>Insurers are lending on apartments again. '
+    assert ('<ol class="points c1" role="list"><li>Insurers are lending on apartments again. '
             '<a href="https://news.site/a">source</a></li></ol>') in html
     assert "<strong>Coffee chat line:</strong>" not in html
 

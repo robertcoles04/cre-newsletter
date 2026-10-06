@@ -94,8 +94,10 @@ def test_ticker_markup_aria_and_three_copies():
     assert t.startswith('<div class="ticker" role="img" aria-label="Markets as of Oct 5 close: '
                         '10-Year 5.31% up 3 bps, 5-Year 5.06% unchanged,')
     assert 'class="ticker-track" aria-hidden="true"' in t
-    assert t.count('<span class="tk tk-date">OCT 5 CLOSE</span>') == 3
+    assert t.count('<span class="tk tk-date">OCT 5 CLOSE</span>') == 1
+    assert t.count('<span class="tk-copy tk tk-date">OCT 5 CLOSE</span>') == 2
     assert t.count("10-Yr <b>5.31%</b>") == 3
+    assert t.count('<span class="tk-copy tk">10-Yr <b>5.31%</b>') == 2  # loop copies
     assert 'style="--n: 13"' in t  # date tag + 12 items: duration scales with the count
     label = re.search(r'aria-label="([^"]*)"', t).group(1)
     assert label.count("5.31%") == 1  # every value once in words
@@ -117,7 +119,11 @@ def test_ticker_css_is_pure_css_with_reduced_motion():
     assert "animation-play-state: paused" in h
     assert "calc(var(--n, 12) * 4.6s)" in h and "calc(var(--n, 12) * 2.5s)" in h
     rm = h.split("@media (prefers-reduced-motion: reduce)")[1]
-    assert ".ticker { overflow-x: auto; }" in rm and ".ticker-track { animation: none; }" in rm
+    # Reduced motion: no scroll area (keyboard users could not reach it); the first copy
+    # wraps as plain rows and the loop copies are hidden.
+    assert ".ticker { overflow: visible; white-space: normal;" in rm
+    assert ".ticker-track { animation: none; flex-wrap: wrap;" in rm
+    assert ".tk-copy { display: none; }" in rm and "overflow-x: auto" not in rm
 
 
 # ----------------------------------------------------------------- masthead
@@ -145,14 +151,21 @@ def test_no_dashes_in_new_code_text():
 def test_lead_story_beside_the_brief_then_snapshot():
     h = html_()
     front = h.split('<div class="front">')[1]
-    assert front.index('<article class="lead"') < front.index('<section class="brief">') \
-        < front.index('<section class="snapshot"')
+    # DOM (focus) order = phone order: Brief, Snapshot, lead; desktop places them by grid.
+    assert front.index('<section class="brief">') < front.index('<section class="snapshot"') \
+        < front.index('<article class="lead"')
+    css = h[h.index("<style>"):h.index("</style>")]
+    assert "order: -2" not in css and "order: -1" not in css
+    assert ".front .lead { grid-column: 1 / span 8; grid-row: 1; }" in css
+    assert ".front .brief { grid-column: 9 / span 4; grid-row: 1; }" in css
+    assert ".front .snapshot { grid-column: 1 / -1; grid-row: 2;" in css
     lead = h.split('<article class="lead"')[1].split("</article>")[0]
     assert '<p class="kicker">Top Story</p>' in lead
     assert ('<h2 class="hl" id="lead-h"><a href="https://a.com/1">Rising rates are breaking '
             'CRE deals</a></h2>') in lead
     assert '<div class="deck"><p>Buyers cut offers while sellers refuse to budge.</p></div>' in lead
-    assert '<p class="source">Source: <a href="https://a.com/1">WSJ</a></p>' in lead
+    assert ('<p class="source">Source: <a href="https://a.com/1">WSJ<span class="sr-only">: '
+            'Rising rates are breaking CRE deals</span></a></p>') in lead
     assert ('<div class="why-panel"><p><strong class="why-label">Why it matters</strong> '
             'For a buyer using a loan') in lead
     assert "Top Story ·" not in h  # no invented kicker
@@ -179,7 +192,7 @@ def test_story_grid_columns_follow_the_count():
 def test_coffee_band_numbered_points():
     h = html_()
     band = h.split('<section class="coffee"')[1].split("</section>")[0]
-    assert '<ol class="points c3">' in band and band.count("<li>") == 3
+    assert '<ol class="points c3" role="list">' in band and band.count("<li>") == 3
     assert "**Coffee chat" not in h and "Coffee chat talking points:" not in h
 
 
@@ -326,6 +339,26 @@ def test_ticker_pause_control_markup_and_css():
     assert ".ticker:hover .ticker-track { animation-play-state: paused; }" in css
     assert ".tk-pause { min-height: 44px;" in css  # phones
     rm = css[css.index("@media (prefers-reduced-motion: reduce)"):]
-    assert ".ticker-track { animation: none; }" in rm
-    assert ".visually-hidden, .visually-hidden-but-focusable { position: absolute;" in css
+    assert ".ticker-track { animation: none;" in rm
+    assert ".sr-only, .visually-hidden-but-focusable { position: absolute;" in css
     assert ".tk-pause, #ticker-pause { display: none; }" in rm  # no motion, no control
+
+
+def test_wcag_gold_text_group_headings_lists_and_alt():
+    from src.render_html import default_alt
+    h = html_()
+    css = h[h.index("<style>"):h.index("</style>")]
+    assert "--gold-text: #806226;" in css
+    assert "color: var(--gold-text); }" in css.split(".brief li::before")[1].split("}")[0] + "}"
+    assert "color: var(--gold-text);" in css.split(".points li::before")[1].split("}")[0]
+    assert '<h3 class="group-name">Rates</h3>' in h and '<p class="group-name">' not in h
+    assert '<ol role="list">' in h.split('<section class="brief">')[1].split("</section>")[0]
+    assert '<ul role="list">' in h.split('<section class="sec quick-hits')[1].split("</section>")[0] \
+        if '<section class="sec quick-hits' in h else True
+    assert default_alt("chart", {"DGS10": "5.31%", "RATES_ASOF": "Oct 5"}) == (
+        "Line chart of the 10-Year Treasury yield over the last 45 days; latest 5.31% "
+        "as of Oct 5")
+    assert default_alt("chart", {}) == ("Line chart of the 10-Year Treasury yield over the "
+                                        "last 45 days")
+    assert default_alt("chart", {"DGS10": "5.31%", "DGS10_ASOF": "Oct 2",
+                                 "RATES_ASOF": "Oct 5"}).endswith("as of Oct 2")

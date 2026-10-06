@@ -12,8 +12,9 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - Ink (body text, headlines, rules): `#121417`
 - Navy (ticker band, links, kicker labels, direction marks, Why-it-matters panel rule): `#0E2A47`
 - Navy tint (neutral rate changes on the ticker): `#B9C8DA`
-- Gold (Brief numerals, active-nav underline, Term panel top rule, talking-point numbers;
-  never body text): `#A9853A`. On the navy ticker the date tag uses the lighter `#C9A85A`.
+- Gold (active-nav underline, Term panel top rule; rules and borders only): `#A9853A`.
+  Gold text (Brief numerals, talking-point numbers "01", "02"): `--gold-text: #806226`
+  (passes 4.5:1 on white and on the panel). On the navy ticker the date tag uses the lighter `#C9A85A`.
 - Hairline (dividers, column rules): `#DADDE1`
 - Muted (hints, captions, source lines, utility row): `#5B6470`; deck text `#3A424C`
 - Panel (Brief on phones, Why-it-matters, Term of the Day): `#F3F5F8`; selection `#CCD8E6`
@@ -65,15 +66,20 @@ Sample (illustrative data): `samples/preview-sample.html`.
   `animation-play-state: paused` and the label reads "Play". Keyboard focus shows a 2px
   white ring inside the label; phones give it a 44px tap target. It sits outside the
   aria-hidden track. Under `prefers-reduced-motion` there is no animation, the control is
-  hidden, and the band scrolls (`overflow-x: auto`). The track is `aria-hidden`; the band has `role="img"` and an
+  hidden, and the first copy of the items wraps as plain rows (`overflow: visible`,
+  `flex-wrap: wrap`); copies 2 and 3 carry class `tk-copy` and are hidden. No scroll
+  area, so nothing a keyboard cannot reach. The track is `aria-hidden`; the band has `role="img"` and an
   `aria-label` that reads every value once in words ("Markets as of Oct 5 close: 10-Year
   5.31% up 3 bps, ..."). Non-issue pages show the latest published issue's ticker and date.
-- **Name block:** centered "CRE Blurb", the tagline in tracked small caps ("The daily
+- **Name block:** centered "CRE Blurb" (on issue pages and the home page it is the
+  page's only `<h1 class="name">`, with the full date in an `.sr-only` span; other pages
+  keep a `<p>` and have their own h1; a "# " title in issue Markdown becomes h2), the tagline in tracked small caps ("The daily
   commercial real estate briefing for students and young professionals"; phones: "Daily
   CRE briefing for students"), then the thick-and-thin double rule (3px + 1px ink).
 - **Nav (site):** centered, Public Sans 13px 600 uppercase: Today, Markets (the latest
   issue's `#numbers`; on the home page just `#numbers`), Archive, Glossary, About.
-  `aria-current="page"` on the current one with a 2px gold underline. Phones: one row,
+  `aria-current="page"` on the current one with a 2px gold underline (Today is current on
+  the home page and on the latest issue's own page). Phones: one row,
   spaced edge to edge, every link 44px tall. A "Skip to content" link shows on focus.
 
 ## Issue page layout
@@ -85,7 +91,9 @@ site and the 5 AM preview.
    when the source link ends the story, and a "Why it matters" panel (navy top rule) that
    sits at the bottom of the column, so the lead and The Brief end at about the same
    height. Beside it (4 columns): The Brief, numbered 1 to 3 with gold Caslon numerals and
-   hairline dividers. Then the **Market Snapshot** as a full-width strip: three equal
+   hairline dividers. DOM (and focus) order is Brief, Snapshot, lead, the phone order;
+   from 900px the grid places them (lead `1 / span 8` row 1, Brief `9 / span 4` row 1,
+   Snapshot row 2), no CSS `order`. Then the **Market Snapshot** as a full-width strip: three equal
    cells (10-Year, SOFR, VNQ) split by vertical hairlines, each with label, big value,
    change and hint, a 2px label rule above and a 1px ink rule below, then "Rates as of
    Oct 5 close. Full market data" (links to `#numbers`). Phones: Brief (panel with a navy
@@ -125,7 +133,8 @@ site and the 5 AM preview.
   prices (VNQ, REIT movers, scoreboard chart): green up, red down. Rates, Federal Reserve
   and Data Room marks are navy (class `chg rate`). Color is never the only signal. A
   change that rounds to zero has no sign.
-- **n/a:** muted italic "n/a" with `title` / `aria-label` "Data unavailable today". When
+- **n/a:** muted italic "n/a" plus `.sr-only` " (data unavailable today)" (no title or
+  aria-label). When
   the next FOMC date is known the three Fed odds rows always show.
 - **Data Room:** slower-moving credit rows (high-yield spread, bank CRE loans and
   delinquency, Trepp CMBS delinquency). Rows dated within 7 days get a 13px uppercase
@@ -182,3 +191,9 @@ site and the 5 AM preview.
 - Phones (<600px): single column, 16px gutters, no horizontal scroll (images max-width
   100%, long words wrap, the ticker clips), nav / jump-list / issue links at least 44px.
 - Browser surfaces are themed: `::selection`, `:focus-visible`, underline offset.
+- Accessibility (WCAG 2.1 AA, checked with axe-core at 1280px, 375px and reduced motion:
+  0 violations): Market Summary group names are `<h3 class="group-name">`; list-style-none
+  lists (.brief ol, .points, .quick-hits ul, .toc ul, .issue-list) carry `role="list"`;
+  a chart with no recorded alt gets one from the fact sheet ("...; latest 5.31% as of
+  Oct 5", `render_html.default_alt`); each "Source:" link in Top Stories ends with an
+  `.sr-only` ": <headline>". `.sr-only` is the shared visually hidden utility.

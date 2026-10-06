@@ -80,7 +80,8 @@ def test_issue_page_clean(built):
         assert "Editor notes" not in page
         assert "Review before publishing" not in page
         assert "{{" not in page
-        assert ('<nav class="site-nav" aria-label="Site"><a href="../../">Today</a>'
+        today = ' aria-current="page"' if d == "2026-10-06" else ""  # latest = Today
+        assert (f'<nav class="site-nav" aria-label="Site"><a href="../../"{today}>Today</a>'
                 '<a href="../../issues/2026-10-06/#numbers">Markets</a>') in page
         assert 'property="og:type" content="article"' in page
 
@@ -395,3 +396,38 @@ def test_preview_keeps_google_fonts_and_absolute_footer_links():
     assert "fonts.googleapis.com/css2" in html and "@font-face" not in html
     assert 'href="https://creblurb.org/privacy/">Privacy</a>' in html
     assert "Robert" not in html
+
+
+# --- WCAG 2.1 AA audit fixes ---------------------------------------------------------------
+def test_issue_pages_have_masthead_h1_others_keep_p(built):
+    _, out, _ = built
+    for rel in ("index.html", "issues/2026-10-06/index.html"):
+        page = _read(out / rel)
+        assert ('<h1 class="name">CRE Blurb<span class="sr-only">: Tuesday, October 6, 2026'
+                '</span></h1>') in page, rel
+        assert page.count("<h1") == 1, rel
+    assert '<h1 class="name">CRE Blurb<span class="sr-only">: Monday, October 5, 2026' in \
+        _read(out / "issues/2026-10-05/index.html")
+    for rel in ("about/index.html", "privacy/index.html", "archive/index.html", "404.html"):
+        page = _read(out / rel)
+        assert '<p class="name">CRE Blurb</p>' in page and page.count("<h1") == 1, rel
+
+
+def test_today_is_current_on_the_latest_issue_only(built):
+    _, out, _ = built
+    assert '<a href="../../" aria-current="page">Today</a>' in \
+        _read(out / "issues/2026-10-06/index.html")
+    assert '<a href="../../">Today</a>' in _read(out / "issues/2026-10-05/index.html")
+    assert '<a href="./" aria-current="page">Today</a>' in _read(out / "index.html")
+
+
+def test_issue_lists_have_list_role(built):
+    _, out, _ = built
+    assert '<ul class="issue-list" role="list">' in _read(out / "archive/index.html")
+
+
+def test_old_chart_alt_comes_from_the_fact_sheet(built):
+    _, out, _ = built
+    page = _read(out / "issues/2026-10-05/index.html")
+    alt = "Line chart of the 10-Year Treasury yield over the last 45 days; latest 4.10%"
+    assert f'alt="{alt}"' in page and f'property="og:image:alt" content="{alt}"' in page

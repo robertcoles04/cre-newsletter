@@ -112,7 +112,7 @@ UP_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden
           'focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>')
 DOWN_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" '
             'focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>')
-GHOST = '<span class="na" title="Data unavailable today" aria-label="Data unavailable today">n/a</span>'
+GHOST = '<span class="na">n/a<span class="sr-only"> (data unavailable today)</span></span>'
 
 # The standalone 5 AM preview (issues/<date>.html, opened from a download or the repo)
 # keeps the Google Fonts link: only the editor sees it and it always loads. Site pages use
@@ -432,7 +432,10 @@ def ticker(values: dict | None) -> str:
     cells = [h for h, _ in items]
     if not _is_na(asof):
         cells.insert(0, f'<span class="tk tk-date">{_esc(asof.upper())} CLOSE</span>')
-    track = "".join(cells) * TICKER_COPIES
+    # Copies 2 and 3 only exist for the loop: under reduced motion CSS hides them
+    # (class tk-copy) and the first copy wraps as plain rows.
+    copy = "".join(re.sub(r'^<span class="', '<span class="tk-copy ', c, count=1) for c in cells)
+    track = "".join(cells) + copy * (TICKER_COPIES - 1)
     return (f'<div class="ticker" role="img" aria-label="{_esc(label)}" '
             f'style="--n: {len(cells)}"><div class="ticker-track" aria-hidden="true">'
             f'{track}</div></div>')
@@ -459,7 +462,7 @@ def ticker_band(values: dict | None) -> str:
             '<label for="ticker-pause" class="tk-pause">'
             f'<span class="tk-off">{PAUSE_SVG}Pause</span>'
             f'<span class="tk-on">{PLAY_SVG}Play</span>'
-            '<span class="visually-hidden"> markets ticker</span></label>'
+            '<span class="sr-only"> markets ticker</span></label>'
             f'{band}</div>')
 
 
@@ -475,6 +478,20 @@ CHART_CAPTIONS = {
 }
 CHART_NAMES = tuple(CHART_CAPTIONS)
 DEFAULT_ALT = {"chart": "Line chart of the 10-Year Treasury yield over the last 45 days"}
+
+
+def default_alt(name: str, values: dict | None) -> str:
+    """Alt text when a chart has no recorded alt (issues from before the JSON's "charts"):
+    the 10-Year chart says its latest value from the fact sheet, e.g. "...; latest 5.31%
+    as of Oct 5"."""
+    base = DEFAULT_ALT.get(name, "Chart")
+    values = values or {}
+    if name == "chart" and not _is_na(values.get("DGS10")):
+        asof = values.get("DGS10_ASOF")
+        asof = asof if not _is_na(asof) else values.get("RATES_ASOF")
+        return (f"{base}; latest {values['DGS10'].strip()}"
+                + (f" as of {asof.strip()}" if not _is_na(asof) else ""))
+    return base
 # Charts that follow a Market Summary group, in order.
 GROUP_CHARTS = {"Rates": ("curve", "mortgage"), "Federal Reserve": ("fed",),
                 "REITs": ("reits",)}
@@ -492,14 +509,14 @@ def as_charts(charts) -> dict:
     return dict(charts)
 
 
-def figure(name: str, charts: dict) -> str:
+def figure(name: str, charts: dict, values: dict | None = None) -> str:
     """<figure> for one chart, or "" when it is missing. Images are lazy; the first image
     on the page is made eager by render_issue_html."""
     c = charts.get(name) or {}
     if not c.get("src"):
         return ""
     w, h = c.get("width") or 800, c.get("height") or 400
-    alt = c.get("alt") or DEFAULT_ALT.get(name, "Chart")
+    alt = c.get("alt") or default_alt(name, values)
     img = (f'<img src="{_esc(c["src"])}" alt="{_esc(alt)}" width="{int(w)}" '
            f'height="{int(h)}" loading="lazy">')
     sm = c.get("sm") or {}
@@ -524,13 +541,14 @@ def market_summary(values: dict, charts, prose_html: str) -> str:
         col = side if title in SUMMARY_SIDE else main
         cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if has_row(k, ck, values)]
         if cells:
-            col.append(f'<div class="group"><p class="group-name">{_esc(title)}</p>'
+            col.append(f'<div class="group"><h3 class="group-name">{_esc(title)}</h3>'
                        f'<dl>{"".join(cells)}</dl></div>')
         if title == "Rates" and not _is_na(asof):
             col.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
         if title == "Rates":
-            col.append(figure("chart", charts))
-        figs = [f for f in (figure(n, charts) for n in GROUP_CHARTS.get(title, ())) if f]
+            col.append(figure("chart", charts, values))
+        figs = [f for f in (figure(n, charts, values) for n in GROUP_CHARTS.get(title, ()))
+                if f]
         if title == "Rates" and figs:  # yield curve + mortgage: 2-up when there is room
             col.append(f'<div class="chart-pair">{"".join(figs)}</div>')
         else:
@@ -648,7 +666,7 @@ def _date_text(d: date) -> str:
 
 
 def masthead(run_date: date | None, day_type: str | None, minutes: int | None = None,
-             values: dict | None = None, nav: str = "") -> str:
+             values: dict | None = None, nav: str = "", h1: bool = False) -> str:
     """Every page's masthead: the utility row (date, edition, the "Free..." note), the
     navy ticker, "CRE Blurb" with its tagline, the thick-and-thin rule and the nav.
     Phones swap the utility row for a one-line dateline above the name."""
@@ -664,10 +682,17 @@ def masthead(run_date: date | None, day_type: str | None, minutes: int | None = 
         f"<span>{EDITION_NOTE}</span>") if x)
     short = " · ".join(x for x in (_date_text(run_date) if run_date else "", edition or "") if x)
     dateline = f'<p class="dateline-m">{short}</p>' if short else ""
+    # Issue pages (and the home page) use the name as their h1, with the full date for
+    # screen readers; other pages keep a <p> and have their own h1.
+    if h1:
+        when_sr = f'<span class="sr-only">: {_date_text(run_date)}</span>' if run_date else ""
+        name = f'<h1 class="name">CRE Blurb{when_sr}</h1>'
+    else:
+        name = '<p class="name">CRE Blurb</p>'
     return ('<header class="site-head" id="top">'
             f'<div class="utility"><div class="wrap">{util}</div></div>'
             f'{ticker_band(values)}'
-            f'<div class="masthead wrap">{dateline}<p class="name">CRE Blurb</p>'
+            f'<div class="masthead wrap">{dateline}{name}'
             f'<p class="tagline"><span class="tagline-long">{TAGLINE}</span>'
             f'<span class="tagline-short">{TAGLINE_SHORT}</span></p>'
             '<div class="double-rule" role="presentation"></div>'
@@ -749,7 +774,7 @@ def jump_list(links: list[tuple[str, str]]) -> str:
         return ""
     items = "".join(f'<li><a href="#{_esc(sid)}">{_esc(text)}</a></li>' for sid, text in links)
     return ('<nav class="toc" aria-labelledby="toc-h"><p class="toc-title" id="toc-h">'
-            f'In this issue</p><ul>{items}</ul></nav>')
+            f'In this issue</p><ul role="list">{items}</ul></nav>')
 
 
 COFFEE = re.compile(r"<p><strong>Coffee chat line:</strong>\s*(.*?)</p>", re.S)
@@ -780,7 +805,7 @@ def coffee_band(label: str, note: str, items: list[str]) -> str:
     return (f'<section class="coffee" aria-label="{_esc(label)}">'
             f'<div class="coffee-head"><h2 class="display">{_esc(label)}</h2>'
             f'<p class="coffee-note">{_esc(note)}</p></div>'
-            f'<ol class="points c{min(len(items), 3)}">{lis}</ol></section>')
+            f'<ol class="points c{min(len(items), 3)}" role="list">{lis}</ol></section>')
 
 
 def _coffee_from_md(text: str) -> tuple[str, str]:
@@ -841,7 +866,9 @@ def style_section(section_html: str, heading: str) -> str:
     section_html = COFFEE_POINTS.sub(_talking_points, section_html)
     section_html = WHY.sub(f'<p class="why">{WHY_LEAD}', section_html)
     if heading == "The Brief":
-        section_html = section_html.replace("<ul>", "<ol>").replace("</ul>", "</ol>")
+        section_html = section_html.replace("<ul>", '<ol role="list">').replace("</ul>", "</ol>")
+    elif heading == "Quick Hits":  # list-style: none, so keep the list role explicit
+        section_html = section_html.replace("<ul>", '<ul role="list">')
     cls = SECTION_CLASS.get(heading, "sec wide")
     if cls.startswith("sec") and "</h2>" in section_html:
         head, _, body = section_html.partition("</h2>")
@@ -877,8 +904,9 @@ def _story(title_md: str, body: str, lead: bool = False) -> str:
     parts = WHY_MD.split(body, maxsplit=1)
     summary, why = parts[0].strip(), (parts[1].strip() if len(parts) > 1 else "")
     summary_html = _md(summary) if summary else ""
+    story_sr = f'<span class="sr-only">: {TAGS.sub("", hl)}</span>'
     src_html = (f'<p class="source">Source: <a href="{_esc(source[1])}">'
-                f'{_inline(source[0])}</a></p>' if source else "")
+                f'{_inline(source[0])}{story_sr}</a></p>' if source else "")
     if lead:
         why_html = (_md(_cap(why)).replace("<p>", '<p><strong class="why-label">Why it matters'
                                            "</strong> ", 1) if why else "")
@@ -993,7 +1021,9 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     pre, sections = _split(md)
     used = {"summary-h", "snapshot-h", "dataroom-h", "term-h", "notes-h", "toc-h", "numbers",
             "content", "top", "lead-h"}
-    head = [_decorate(_md(pre), used)] if pre.strip() else []
+    # The masthead name is the page's only h1, so a "# " title in the Markdown becomes h2.
+    pre_html = re.sub(r"<(/?)h1\b", r"<\1h2", _md(pre)) if pre.strip() else ""
+    head = [_decorate(pre_html, used)] if pre_html else []
     brief, terms, named, others = "", [], {}, []
     lead, more, coffee = "", "", ""
     numbers_prose = ""
@@ -1023,7 +1053,8 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     front = ""
     if lead or brief or snapshot:
         cls = "front" + ("" if lead else " no-lead") + ("" if brief else " no-brief")
-        front = f'<div class="{cls}">{lead}{brief}{snapshot}</div>'
+        # DOM (and focus) order matches the phone order; desktop places them by grid.
+        front = f'<div class="{cls}">{brief}{snapshot}{lead}</div>'
 
     story_part = [x for x in (more, coffee,
                               _pair(named.get("Debt Markets", ""), named.get("Market Watch", "")),
@@ -1051,7 +1082,7 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     fonts, faces, links = _shell(base, fonts_base)
     return PAGE.format(
         title=_esc(title), head_extra=_slot(head_extra), fonts=fonts, css=faces + CSS,
-        masthead=masthead(run_date, day_type, read_minutes(body_html), values, nav),
+        masthead=masthead(run_date, day_type, read_minutes(body_html), values, nav, h1=True),
         notes=_slot(_notes(problems)), body=body_html, extra_body=_slot(extra_body),
         footer=_esc(FOOTER), footer_links=links)
 
@@ -1075,6 +1106,7 @@ def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = 
 CSS = """
 :root {
   --paper: #FFFFFF; --ink: #121417; --navy: #0E2A47; --navy-tint: #B9C8DA; --gold: #A9853A;
+  --gold-text: #806226;
   --gold-on-navy: #C9A85A; --hairline: #DADDE1; --muted: #5B6470; --panel: #F3F5F8;
   --deck: #3A424C; --up: #1F7A4D; --down: #B23A3A; --up-on-navy: #9ED9B6;
   --down-on-navy: #F2A6A6; --select: #CCD8E6;
@@ -1117,7 +1149,7 @@ strong { font-weight: 700; }
   overflow: hidden; white-space: nowrap; }
 /* Pause/Play: a visually hidden but focusable checkbox, its label styled as a button at
    the band's right end. Checked = paused; the label then reads "Play". */
-.visually-hidden, .visually-hidden-but-focusable { position: absolute; width: 1px;
+.sr-only, .visually-hidden-but-focusable { position: absolute; width: 1px;
   height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0);
   clip-path: inset(50%); white-space: nowrap; }
 .tk-pause { order: 2; flex: none; display: inline-flex; align-items: center;
@@ -1187,8 +1219,6 @@ h2 + h3 { margin-top: 0; }
 
 /* Front: lead story beside The Brief, then the Market Snapshot strip */
 .front { display: flex; flex-direction: column; }
-.front .brief { order: -2; }
-.front .snapshot { order: -1; }
 .lead { margin-top: 28px; }
 .lead .hl { margin: 0; font-family: var(--serif); font-weight: 700; font-size: clamp(30px, 4vw, 44px);
   line-height: 1.08; letter-spacing: -.01em; text-transform: none; border: 0; padding: 0;
@@ -1207,7 +1237,7 @@ h2 + h3 { margin-top: 0; }
   font-size: 17px; line-height: 1.45; max-width: none; }
 .brief li + li { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
 .brief li::before { content: counter(brief); position: absolute; left: 0; top: 0;
-  font-family: var(--display); font-size: 26px; line-height: 1; color: var(--gold); }
+  font-family: var(--display); font-size: 26px; line-height: 1; color: var(--gold-text); }
 .brief li + li::before { top: 16px; }
 .brief p:last-child { margin-bottom: 0; }
 .snapshot { margin-top: 30px; }
@@ -1273,7 +1303,7 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
   font-style: italic; }
 .points li::before { content: "0" counter(pt); display: block; font-style: normal;
   font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .1em;
-  color: var(--gold); }
+  color: var(--gold-text); }
 .points a { font-style: normal; }
 
 /* Debt Markets, Market Watch, Quick Hits, other sections */
@@ -1359,17 +1389,17 @@ footer .foot-links .sep { color: var(--hairline); }
 /* Desktop: the 12-column broadsheet grid */
 @media (min-width: 900px) {
   .front { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 32px; }
-  .front .brief, .front .snapshot { order: 0; }
   /* The lead is a flex column: its "Why it matters" panel sits at the bottom, so the
      lead and The Brief end at about the same height. */
   .lead { grid-column: span 8; margin-top: 0; padding-right: 32px; display: flex;
     flex-direction: column; border-right: 1px solid var(--hairline); }
   .lead > .why-panel { margin-top: auto; }
   .lead > :has(+ .why-panel) { margin-bottom: 22px; }
-  .front .brief { grid-column: span 4; }
+  .front .lead { grid-column: 1 / span 8; grid-row: 1; }
+  .front .brief { grid-column: 9 / span 4; grid-row: 1; }
   .front .brief li + li { margin-top: 14px; padding-top: 14px; }
   .front .brief li + li::before { top: 14px; }
-  .front .snapshot { grid-column: 1 / -1; margin-top: 36px; }
+  .front .snapshot { grid-column: 1 / -1; grid-row: 2; margin-top: 36px; }
   .front.no-brief .lead { grid-column: 1 / -1; padding-right: 0; border-right: 0; }
   .front.no-lead .brief { grid-column: 1 / -1; }
   .front.no-lead .brief ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1486,8 +1516,10 @@ footer .foot-links .sep { color: var(--hairline); }
   .site-nav { font-size: 11px; letter-spacing: .03em; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ticker { overflow-x: auto; }
-  .ticker-track { animation: none; }
+  .ticker { overflow: visible; white-space: normal; padding-right: 24px; }
+  .ticker-track { animation: none; flex-wrap: wrap; row-gap: 4px; }
+  .tk { white-space: nowrap; }
+  .tk-copy { display: none; }
   .tk-pause, #ticker-pause { display: none; }
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
