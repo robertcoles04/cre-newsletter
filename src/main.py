@@ -26,7 +26,8 @@ from src.fill import fill
 from src.markets import HEADINGS, REGIONS
 from src.rates import collect_rates
 from src.render_html import SUMMARY_ROWS, has_row, render_issue_html, summary_label
-from src.store import connect, get_rates, save_items, save_quotes
+from src.store import (REPEAT_DAYS, connect, get_rates, record_used_stories, save_items,
+                       save_quotes)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 COLLECT_HOURS = 78  # store keeps everything; the fact sheet applies the day's lookback
@@ -376,6 +377,20 @@ def _stub_markdown(problems: list[str]) -> str:
     return "\n".join(lines + ["", FOOTER, ""])
 
 
+def _backfill_used_stories(conn, repo_root: Path, run_date: date) -> None:
+    """Record links from recent issues/*.md that the DB does not know yet (issues made
+    before used_stories existed, or edited on github.com), so they are never repeated."""
+    known = {r[0] for r in conn.execute("SELECT DISTINCT issue_date FROM used_stories")}
+    for path in sorted((Path(repo_root) / "issues").glob("????-??-??.md")):
+        try:
+            day = date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if day >= run_date or (run_date - day).days > REPEAT_DAYS or path.stem in known:
+            continue
+        record_used_stories(conn, day, path.read_text(encoding="utf-8-sig"))
+
+
 def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extras=None):
     """Returns (markdown, factsheet or None)."""
     extras = extras or {}
@@ -448,6 +463,10 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
         except Exception as exc:
             problems.append(f"classify: {_err(exc)}")
 
+        try:
+            _backfill_used_stories(conn, repo_root, run_date)
+        except Exception as exc:
+            problems.append(f"repeat check: {_err(exc)}")
         md, factsheet = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude,
                                     extras)
         md, snippet = _scrub(md)

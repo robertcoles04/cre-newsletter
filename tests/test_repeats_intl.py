@@ -80,3 +80,19 @@ def test_london_story_accepted():
 def test_new_mexico_is_not_international():
     r = row("u3", "New Mexico apartment sale", "")
     assert pick([r], set())["international"] is None
+
+
+def test_backfill_records_links_from_existing_issue_files(tmp_path):
+    from datetime import date
+    from src.main import _backfill_used_stories
+    from src.store import connect, used_story_keys
+    conn = connect(str(tmp_path / "t.db"))
+    issues = tmp_path / "issues"
+    issues.mkdir()
+    (issues / "2026-10-05.md").write_text("- Disney deal [TRD](https://therealdeal.com/disney)\n",
+                                          encoding="utf-8")
+    (issues / "2026-09-01.md").write_text("[Old](https://example.com/old)\n", encoding="utf-8")
+    _backfill_used_stories(conn, tmp_path, date(2026, 10, 7))
+    urls, _ = used_story_keys(conn, date(2026, 10, 7))
+    assert any("therealdeal.com/disney" in u for u in urls)
+    assert not any("example.com/old" in u for u in urls)  # outside the 14-day window
