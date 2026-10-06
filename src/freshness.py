@@ -45,6 +45,28 @@ def previous_business_day(d: date) -> date:
     return d
 
 
+# NYSE full-day closures, so the REIT quote check knows the day after a market holiday
+# expects the close from before it. Source: nyse.com holiday calendar (2026-2027).
+MARKET_HOLIDAYS = frozenset(date.fromisoformat(d) for d in (
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19",
+    "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31", "2027-06-18",
+    "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
+))
+
+
+def is_trading_day(d: date) -> bool:
+    return is_business_day(d) and d not in MARKET_HOLIDAYS
+
+
+def previous_trading_day(d: date) -> date:
+    """previous_business_day, also skipping NYSE holidays: the last close before d."""
+    d = previous_business_day(d)
+    while d in MARKET_HOLIDAYS:
+        d = previous_business_day(d)
+    return d
+
+
 def business_days_old(data_date: date, run_date: date) -> int:
     """Weekdays after data_date up to the run date's previous business day (0 = fresh)."""
     ref = previous_business_day(run_date)

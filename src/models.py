@@ -30,6 +30,7 @@ class FedOdds:
     meeting: str
     end_date: date
     outcomes: list[tuple[str, float]]  # List of (outcome_name, probability) tuples where probabilities are 0-1
+    as_of: date | None = None  # ET date the odds were read (the run time), for the chart caption
 
 
 @dataclass

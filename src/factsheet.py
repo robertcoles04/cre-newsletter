@@ -360,16 +360,23 @@ def _to_100(sums: dict[str, float]) -> dict[str, float]:
     return {k: n / 10 for k, n in floors.items()}
 
 
+def next_meeting(run_date: date) -> date | None:
+    """The next FOMC decision day on or after run_date (config/fomc.yaml), or None."""
+    return next((d for d in sorted(_load_yaml("config/fomc.yaml")) if d >= run_date), None)
+
+
 def _fed_values(odds: FedOdds | None, run_date: date) -> tuple[dict, list[str]]:
     """Fed values plus the names of any outcomes that fit none of cut/hold/hike."""
     # Meeting date comes from the FOMC calendar, independent of the odds feed.
-    nxt = next((d for d in sorted(_load_yaml("config/fomc.yaml")) if d >= run_date), None)
+    nxt = next_meeting(run_date)
     values = {"FED_MEETING": _day(nxt) if nxt else NA, "FED_TOP": NA,
               "FED_CUT": NA, "FED_HOLD": NA, "FED_HIKE": NA}
     unmapped: list[str] = []
     if odds is not None and odds.outcomes:
         label, prob = odds.outcomes[0]
         values["FED_TOP"] = f"{label} {prob * 100:.1f}%"
+        if odds.as_of:  # Fed chart caption: "Odds as of Oct 6"
+            values["FED_ASOF"] = _day(odds.as_of)
         sums: dict[str, float] = {}
         for label, prob in odds.outcomes:
             bucket = fed_bucket(label)
@@ -439,6 +446,8 @@ def _market_values(quotes: list[ReitQuote]) -> dict:
         values["REIT_UP"] = f"{best.ticker} {_pct(best.change_pct)}"
         if len(others) > 1:
             values["REIT_DOWN"] = f"{worst.ticker} {_pct(worst.change_pct)}"
+    if quotes:  # the trading day these closes are from (main keeps one day only)
+        values["REIT_ASOF"] = _day(max(q.date for q in quotes))
     return values
 
 

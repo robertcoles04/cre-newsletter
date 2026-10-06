@@ -70,8 +70,11 @@ def test_yield_curve_without_month_ago_still_draws(tmp_path):
 
 
 def test_alt_text_carries_the_values():
-    assert chart.reit_alt(MOVES) == ("Bar chart of today's move for 5 REITs, best to worst: "
-                                     "NNN +1.9%, EQIX +1.2%, VICI 0.0%, PLD -0.4%, UDR -1.2%.")
+    assert chart.reit_alt(MOVES) == ("Bar chart of the latest daily move for 5 REITs, best "
+                                     "to worst: NNN +1.9%, EQIX +1.2%, VICI 0.0%, PLD -0.4%, "
+                                     "UDR -1.2%.")
+    assert chart.reit_alt(MOVES, "Oct 5").startswith(
+        "Bar chart of moves for the Oct 5 close for 5 REITs, best to worst: NNN +1.9%")
     assert chart.curve_alt(CURVE, date(2026, 9, 4), date(2026, 10, 5)) == (
         "Line chart of Treasury yields by maturity. On Oct 5: 2Y 3.95%, 5Y 4.02%, 10Y 4.28%, "
         "30Y 4.81%. A month ago (Sep 4): 2Y 4.05%, 5Y 4.00%, 10Y 4.15%, 30Y 4.70%.")

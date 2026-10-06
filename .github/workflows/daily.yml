@@ -6,6 +6,15 @@ on:
     # The pipeline is idempotent (one file + one GitHub Issue per date).
     - cron: "7 9 * * *"
     - cron: "7 10 * * *"
+    # Backups at odd minutes (busy :00 slots are the ones GitHub delays or drops; runs
+    # have started 6 to 7 hours late). The 5 AM to 5:59 PM ET gate and the
+    # already-delivered check keep it to one issue a day; later runs just skip.
+    - cron: "13 9 * * *"
+    - cron: "43 9 * * *"
+    - cron: "13 10 * * *"
+    - cron: "43 10 * * *"
+    - cron: "13 11 * * *"
+    - cron: "43 11 * * *"
   workflow_dispatch:
     inputs:
       force:

@@ -85,6 +85,9 @@ HINTS = {
     "BANK_CRE_DQ": "Share of banks' commercial property loans that are behind on payments",
     "CMBS_DQ": "Share of commercial property loans in bonds that are behind on payments",
 }
+# REIT price rows: their hint names REIT_ASOF (the quotes' trading day) when it is not
+# RATES_ASOF's day, e.g. "A fund holding about 150 REITs (as of Oct 2)".
+REIT_PRICE_ROWS = ("VNQ", "REIT_UP", "REIT_DOWN")
 HINT_VALUE = re.compile(r"^\{(\w+)\}$")
 LABEL_ASOF = re.compile(r"\s*\(\{(\w+)\}\)")
 TICKER_MOVE = {"REIT_UP", "REIT_DOWN"}  # values like "NNN +1.9%": ticker, then a move
@@ -184,6 +187,9 @@ def hint_for(key: str, values: dict) -> str:
         v = values.get(m.group(1))
         hint = "" if _is_na(v) else v
     asof = values.get(f"{key}_ASOF") if key in ROW_ASOF else None
+    if key in REIT_PRICE_ROWS:  # REIT closes from another day than the rates
+        asof = values.get("REIT_ASOF")
+        asof = None if _is_na(asof) or asof == values.get("RATES_ASOF") else asof
     if not _is_na(asof):
         hint = f"{hint} (as of {asof})" if hint else f"As of {asof}"
     return hint
@@ -470,13 +476,27 @@ def ticker_band(values: dict | None) -> str:
 # line (file name kept from before the other charts existed).
 CHART_CAPTIONS = {
     "chart": "10-Year Treasury yield, last 45 days.",
-    "curve": ("Treasury yields by maturity, today vs. a month ago. "
+    "curve": ("Treasury yields by maturity, latest close vs. a month ago. "
               "Upward slope = longer loans cost more."),
     "mortgage": "30-year mortgage rate, last six months (Freddie Mac).",
     "fed": "What prediction markets expect at the next Fed meeting.",
     "reits": "Daily move for the REITs we track. Shows which property types had a good day.",
 }
 CHART_NAMES = tuple(CHART_CAPTIONS)
+
+
+def chart_caption(name: str, values: dict | None) -> str:
+    """CHART_CAPTIONS plus the chart's as-of from the fact sheet when known: the Fed bar
+    ends "Odds as of Oct 6." (FED_ASOF), the REIT scoreboard starts "Daily move, Oct 5
+    close." (REIT_ASOF)."""
+    text = CHART_CAPTIONS[name]
+    values = values or {}
+    if name == "fed" and not _is_na(values.get("FED_ASOF")):
+        text += f" Odds as of {values['FED_ASOF']}."
+    if name == "reits" and not _is_na(values.get("REIT_ASOF")):
+        text = (f"Daily move, {values['REIT_ASOF']} close, for the REITs we track. "
+                "Shows which property types had a good day.")
+    return text
 DEFAULT_ALT = {"chart": "Line chart of the 10-Year Treasury yield over the last 45 days"}
 
 
@@ -525,7 +545,7 @@ def figure(name: str, charts: dict, values: dict | None = None) -> str:
                f'width="{int(sm.get("width") or w)}" height="{int(sm.get("height") or h)}">'
                f'{img}</picture>')
     return (f'<figure class="chart chart-{name}">{img}'
-            f'<figcaption>{_esc(CHART_CAPTIONS[name])}</figcaption></figure>')
+            f'<figcaption>{_esc(chart_caption(name, values))}</figcaption></figure>')
 
 
 def market_summary(values: dict, charts, prose_html: str) -> str:

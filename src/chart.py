@@ -230,10 +230,12 @@ def reit_scoreboard(moves: list[dict] | None, out: Path, narrow: bool = False) -
             plt.close(fig)
 
 
-def reit_alt(moves: list[dict] | None) -> str:
+def reit_alt(moves: list[dict] | None, asof: str | None = None) -> str:
+    """`asof` is the quotes' trading day ("Oct 5"): "Moves for the Oct 5 close"."""
     rows = _moves(moves)
     listed = ", ".join(f"{m['ticker']} {_pct(m['chg_pct'])}" for m in rows)
-    return f"Bar chart of today's move for {len(rows)} REITs, best to worst: {listed}."
+    when = f"moves for the {asof} close" if asof else "the latest daily move"
+    return f"Bar chart of {when} for {len(rows)} REITs, best to worst: {listed}."
 
 
 # ---------------------------------------------------------------- Yield curve

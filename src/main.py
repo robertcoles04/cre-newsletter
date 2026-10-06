@@ -21,20 +21,21 @@ from src.chart import rate_chart
 from src.checks import FOOTER, check_issue, load_banned
 from src.collect import calendar, google_news, polymarket, reits, rss
 from src.config import ET, env, http_client, load_sources
-from src.factsheet import build_factsheet, day_type
+from src.factsheet import _day, build_factsheet, day_type, next_meeting
 from src.cleanup import tidy
 from src.fill import fill
 from src.markets import HEADINGS, REGIONS
 from src.rates import collect_rates
 from src.render_html import SUMMARY_ROWS, has_row, render_issue_html, summary_label
-from src.store import (REPEAT_DAYS, connect, get_rates, record_used_stories, save_items,
-                       save_quotes)
+from src.models import RatePoint
+from src.store import (REPEAT_DAYS, connect, get_quotes, get_rates, record_used_stories,
+                       save_items, save_quotes, save_rates)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 COLLECT_HOURS = 78  # store keeps everything; the fact sheet applies the day's lookback
 CHART_DAYS = 45
-# Cron fires at 09:07 and 10:07 UTC (5-6 AM ET), but GitHub often starts scheduled runs
-# hours late. Accept any start from 5 AM to 5:59 PM ET; the already-delivered check
+# Cron fires at 09:07 and 10:07 UTC (5-6 AM ET) plus backups at 09:13-11:43 UTC, but GitHub
+# often starts scheduled runs hours late. Accept any start from 5 AM to 5:59 PM ET; the already-delivered check
 # keeps it to one issue per day.
 GATE_HOURS = range(5, 18)
 CHART_LINE = re.compile(r"^[ \t]*!\[Chart of the Day\]\([^)\n]*\)[ \t]*\n?", re.M)
@@ -146,9 +147,69 @@ def _week_events(client, run_date: date, fred_key: str | None,
     return calendar.week_window([ev for evs in found for ev in evs], run_date)
 
 
-def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
+# The VNQ dividend yield is kept in the rates table under this name (dated with the
+# quotes' trading day) so a same-day rerun can reuse it without another API call.
+VNQ_YIELD_SERIES = "VNQ_YIELD"
+
+
+def _stored_quotes(conn, tickers: list[str], days: list[date]):
+    """(quotes, day) for the latest accepted trading day on which the DB already holds
+    quotes for most (more than half) of the tickers; ([], None) otherwise."""
+    stored = get_quotes(conn, min(days))
+    for day in days:  # latest first
+        on_day = {q.ticker: q for q in stored if q.date == day and q.ticker in tickers}
+        if len(on_day) * 2 > len(tickers):
+            return [on_day[t] for t in tickers if t in on_day], day
+    return [], None
+
+
+def _collect_reits(conn, sources: dict, run_date: date, client, problems: list[str],
+                   now: datetime | None):
+    """(quotes, vnq yield). Quotes must be dated the expected trading day (see
+    reits.accepted_days); an older one is reported as stale and dropped, never retried.
+    A --force or second run the same day reuses the stored quotes for that trading day
+    instead of spending the Alpha Vantage quota again."""
+    etf = sources.get("reit_etf")
+    tickers = ([etf] if etf else []) + list(sources.get("reit_tickers", []))
+    days = reits.accepted_days(run_date, now)
+    if tickers:
+        reused, day = _stored_quotes(conn, tickers, days)
+        if reused:
+            print(f"reits: reused stored quotes for {day.isoformat()}")
+            have = {q.ticker for q in reused}
+            missing = [t for t in tickers if t not in have]
+            if missing:
+                problems.append(f"reits: no stored quote for {', '.join(missing)}")
+            stored_yield = [p for p in get_rates(conn, VNQ_YIELD_SERIES, day) if p.date == day]
+            return reused, (stored_yield[-1].value if stored_yield else None)
+
+    av_key = env("ALPHA_VANTAGE_API_KEY", required=False)
+    if not av_key:
+        problems.append("reits: missing ALPHA_VANTAGE_API_KEY")
+        return [], None
+    quotes, vnq_yield = [], None
+    try:
+        fetched, failed = reits.fetch_quotes(tickers, av_key, client)
+        quotes, stale, day = reits.split_stale(fetched, days)
+        save_quotes(conn, quotes)
+        if failed:
+            problems.append(f"reits: failed {', '.join(failed)}")
+        problems.extend(f"reits: {q.ticker} quote is stale ({q.date.isoformat()})"
+                        for q in stale)
+        sleep(AV_SPACING_SECONDS)
+        vnq_yield = reits.fetch_etf_yield(etf, av_key, client)
+        if vnq_yield is not None and day is not None:
+            save_rates(conn, [RatePoint(VNQ_YIELD_SERIES, day, vnq_yield)])
+    except Exception as exc:
+        problems.append(f"reits: {_err(exc)}")
+    return quotes, vnq_yield
+
+
+def _collect(conn, sources: dict, run_date: date, client, problems: list[str],
+             now: datetime | None = None):
     """Run every collector. Returns (fed odds, reit quotes, vnq yield, extras), where
-    extras holds "cmbs" (Trepp values or None) and "week_events" (Sunday only)."""
+    extras holds "cmbs" (Trepp values or None) and "week_events" (Sunday only). `now` is
+    the run's start time (decides whether today's close counts and dates the Fed odds)."""
     anchor = datetime(run_date.year, run_date.month, run_date.day, 5, tzinfo=ET)
     since = anchor - timedelta(hours=COLLECT_HOURS)
     extras: dict = {"cmbs": None, "week_events": None}
@@ -194,30 +255,20 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str]):
     except Exception as exc:
         problems.append(f"fred: {_err(exc)}")
 
+    # Odds only from the market for the FOMC meeting the fact sheet names (fomc.yaml).
     odds = None
+    meeting = next_meeting(run_date)
     try:
-        odds = polymarket.fetch_fed_odds(client, run_date)
+        odds = polymarket.fetch_fed_odds(client, meeting)
         if odds is None:
-            problems.append("polymarket: no fed odds")
+            problems.append(f"polymarket: no market for {_day(meeting)}" if meeting
+                            else "polymarket: no upcoming meeting in config/fomc.yaml")
+        else:
+            odds.as_of = now.astimezone(ET).date() if now else run_date
     except Exception as exc:
         problems.append(f"polymarket: {_err(exc)}")
 
-    quotes, vnq_yield = [], None
-    av_key = env("ALPHA_VANTAGE_API_KEY", required=False)
-    if not av_key:
-        problems.append("reits: missing ALPHA_VANTAGE_API_KEY")
-    else:
-        try:
-            etf = sources["reit_etf"]
-            quotes, failed = reits.fetch_quotes(
-                [etf] + list(sources.get("reit_tickers", [])), av_key, client)
-            save_quotes(conn, quotes)
-            if failed:
-                problems.append(f"reits: failed {', '.join(failed)}")
-            sleep(AV_SPACING_SECONDS)
-            vnq_yield = reits.fetch_etf_yield(etf, av_key, client)
-        except Exception as exc:
-            problems.append(f"reits: {_err(exc)}")
+    quotes, vnq_yield = _collect_reits(conn, sources, run_date, client, problems, now)
     return odds, quotes, vnq_yield, extras
 
 
@@ -320,7 +371,9 @@ def _make_extra_charts(conn, run_date: date, factsheet: dict | None, tmp: Path,
         path = charts_mod.reit_scoreboard(moves, tmp / "reits.png")
         if path is None:
             return None
-        return _meta(path, charts_mod.reit_alt(moves), charts_mod.reit_figsize(moves),
+        asof = values.get("REIT_ASOF")
+        asof = asof if asof and asof != "n/a" else None
+        return _meta(path, charts_mod.reit_alt(moves, asof), charts_mod.reit_figsize(moves),
                      charts_mod.reit_scoreboard(moves, tmp / "reits-sm.png", narrow=True),
                      charts_mod.reit_figsize(moves, narrow=True))
 
@@ -484,7 +537,8 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
                 print(f"already delivered {run_date.isoformat()}; skipping")
                 return 0
         sources = load_sources()
-        odds, quotes, vnq_yield, extras = _collect(conn, sources, run_date, client, problems)
+        odds, quotes, vnq_yield, extras = _collect(conn, sources, run_date, client, problems,
+                                                   now=now)
 
         try:
             classify.classify(conn, run=claude)

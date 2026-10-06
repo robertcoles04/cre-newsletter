@@ -1,10 +1,14 @@
 """Alpha Vantage REIT quote and ETF yield collector."""
 
 import time
-from datetime import date
+from collections import Counter
+from datetime import date, datetime
+from datetime import time as clock
 
 import httpx
 
+from src.config import ET
+from src.freshness import is_trading_day, previous_trading_day
 from src.models import ReitQuote
 
 API_URL = "https://www.alphavantage.co/query"
@@ -13,6 +17,7 @@ CALL_SPACING_SECONDS = 13
 # A burst failure is a per-minute limit: wait a full minute, then retry once.
 RETRY_WAIT_SECONDS = 60
 MAX_RETRIES = 3
+MARKET_CLOSE = clock(16, 30)  # ET; after this the run date's own close counts as fresh
 
 
 def _is_limit_or_error(data: dict) -> bool:
@@ -83,3 +88,29 @@ def fetch_etf_yield(etf: str, api_key: str, client: httpx.Client) -> float | Non
         return float(data["dividend_yield"])
     except Exception:
         return None
+
+
+def accepted_days(run_date: date, now: datetime | None = None) -> list[date]:
+    """Trading days a quote may be dated, latest first: the run date's previous trading
+    day, plus the run date itself when it is a trading day and the run started after
+    4:30 PM ET (the close is in)."""
+    days = [previous_trading_day(run_date)]
+    if now is not None and is_trading_day(run_date):
+        close = datetime.combine(run_date, MARKET_CLOSE, tzinfo=ET)
+        if now.astimezone(ET) >= close:
+            days.insert(0, run_date)
+    return days
+
+
+def split_stale(quotes: list[ReitQuote], days: list[date]
+                ) -> tuple[list[ReitQuote], list[ReitQuote], date | None]:
+    """(fresh, stale, trading day). Fresh quotes all share ONE accepted trading day (the
+    one most quotes have, ties to the later day), so the scoreboard never mixes closes;
+    every other quote is stale. Alpha Vantage keeps returning an old "latest trading day"
+    for some tickers (AVB stuck on Aug 17 with a 0.0% move): that is a data problem, not
+    a rate limit, so callers report it and never retry."""
+    counts = Counter(q.date for q in quotes if q.date in days)
+    if not counts:
+        return [], list(quotes), None
+    day = max(counts, key=lambda d: (counts[d], d))
+    return ([q for q in quotes if q.date == day], [q for q in quotes if q.date != day], day)
