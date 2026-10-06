@@ -10,7 +10,7 @@
       "width": 800
     },
     "curve": {
-      "alt": "Line chart of Treasury yields by maturity. Today: 2Y 4.83%, 5Y 5.06%, 10Y 5.31%, 30Y 5.63%. A month ago (Sep 4): 2Y 4.39%, 5Y 4.54%, 10Y 4.78%, 30Y 5.27%.",
+      "alt": "Line chart of Treasury yields by maturity. On Oct 5: 2Y 4.84%, 5Y 5.06%, 10Y 5.31%, 30Y 5.66%. A month ago (Sep 4): 2Y 4.37%, 5Y 4.54%, 10Y 4.78%, 30Y 5.24%.",
       "height": 260,
       "width": 360
     },
@@ -29,10 +29,10 @@
       "width": 360
     },
     "reits": {
-      "alt": "Bar chart of today's move for 11 REITs, best to worst: UDR +1.7%, MAA +1.0%, DLR +0.7%, AVB +0.0%, STAG +0.0%, EQIX -0.2%, ADC -0.5%, VICI -0.5%, PLD -0.6%, O -0.7%, NNN -1.4%.",
-      "height": 424,
+      "alt": "Bar chart of moves for the Oct 5 close for 10 REITs, best to worst: UDR +1.7%, MAA +1.0%, DLR +0.7%, STAG 0.0%, EQIX -0.2%, ADC -0.5%, VICI -0.5%, PLD -0.6%, O -0.7%, NNN -1.4%.",
+      "height": 390,
       "sm": {
-        "height": 424,
+        "height": 390,
         "width": 400
       },
       "width": 800
@@ -78,6 +78,7 @@
     "MOVER_DOWN_NOTE": "No company-specific news today; it may have moved with other net-lease retail REITs.",
     "MOVER_UP_NOTE": "No company-specific news today; it may have moved with other apartment REITs.",
     "RATES_ASOF": "Oct 5",
+    "REIT_ASOF": "Oct 5",
     "REIT_DOWN": "NNN -1.4%",
     "REIT_DOWN_NAME": "NNN REIT (NNN)",
     "REIT_DOWN_TYPE": "Owns single-tenant retail like convenience stores",
