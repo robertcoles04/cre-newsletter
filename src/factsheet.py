@@ -17,7 +17,7 @@ from src.config import ET, display_source, load_sources
 from src.markets import pick as pick_markets
 from src.models import FedOdds, ReitQuote
 from src.rates import fmt_bps, latest_with_change, lookback_days
-from src.store import get_quotes, get_rates, recent_items
+from src.store import drop_used, get_quotes, get_rates, recent_items, used_story_keys
 
 NA = "n/a"
 CALENDAR_DOWN = "Calendar unavailable today."
@@ -486,8 +486,11 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         values["SPREAD_10Y"] = (NA if dgs10 is None
                                 else fmt_bps(round((vnq_yield * 100 - dgs10) * 100)))
 
+    # Stories already in an issue from the last 14 days are never offered again.
+    used_urls, used_titles = used_story_keys(conn, run_date)
     window = drop_stale_recaps(
-        _by_rank(recent_items(conn, anchor - timedelta(hours=lookback))), anchor)
+        _by_rank(drop_used(recent_items(conn, anchor - timedelta(hours=lookback)),
+                           used_urls, used_titles)), anchor)
     news = [r for r in window if r["section"] in ("top", "deal")]
     top, rest = pick_top(news, TOP_COUNT.get(dtype, 0))
     quick = rest[:QUICK_HITS_COUNT] if dtype in ("weekday", "friday") else []

@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from src.publish import load_published
+from src.store import record_used_stories
 
 
 def run_gh(args: list[str]) -> str:
@@ -89,6 +90,7 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
              source_problems=excluded.source_problems, term=excluded.term""",
         (key, day_type, text, json.dumps(problems), term))
     conn.commit()
+    record_used_stories(conn, run_date, md, factsheet)
 
     if not dry_run:
         row = conn.execute("SELECT gh_issue FROM issues WHERE date=?", (key,)).fetchone()

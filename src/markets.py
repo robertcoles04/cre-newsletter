@@ -30,12 +30,14 @@ KEYWORDS = {
         r"Portland, Ore\.?", "Portland, Oregon",
         "California", "Oregon"),
     "international": _words(
-        "London", "U\\.K\\.", "UK", "Britain", "British", "Europe", "European", "Germany",
-        "Berlin", "Paris", "France", "Ireland", "Dublin", "Spain", "Madrid", "Netherlands",
-        "Amsterdam", "Asia", "Asia-Pacific", "APAC", "Tokyo", "Japan", "China",
-        "Hong Kong", "Singapore", "Australia", "Sydney", "Melbourne", "India", "Mumbai",
-        "Canada", "Canadian", "Toronto", "Vancouver", "Montreal", "Dubai", "UAE", "Saudi",
-        "Riyadh", "Middle East", "Mexico"),
+        "London", r"U\.K\.", "UK", "Britain", "British", "Europe", "European", "EU",
+        "Germany", "Frankfurt", "Berlin", "Paris", "France", "Ireland", "Dublin", "Spain",
+        "Madrid", "Netherlands", "Amsterdam", "Italy", "Milan", "Switzerland", "Zurich",
+        "Asia", "Asia-Pacific", "APAC", "Tokyo", "Japan", "China", "Shanghai", "Beijing",
+        "Hong Kong", "Singapore", "Seoul", "South Korea", "Australia", "Sydney",
+        "Melbourne", "India", "Mumbai", "Canada", "Canadian", "Toronto", "Vancouver",
+        "Montreal", "Dubai", "UAE", "Saudi", "Riyadh", "Middle East", r"(?<!New )Mexico",
+        "Mexico City", "Latin America", "Brazil", "Sao Paulo", "São Paulo"),
 }
 
 
@@ -53,6 +55,22 @@ def region_of(title: str, summary: str = "", tag: str | None = None) -> str | No
     return tag if tag in REGIONS else None
 
 
+_DOMAIN_OUTLET = re.compile(r"[\w-]+\.(?:com|net|org|co|io)(?:\s+[A-Z][\w.]*)?")
+_SUFFIX_OUTLET = re.compile(r"\s+[-|–—]\s+[^-|–—]+$")
+
+
+def _strip_outlet(text: str) -> str:
+    """Drop outlet names ("Investing.com Canada", " - The Real Deal") before place matching."""
+    return _SUFFIX_OUTLET.sub("", _DOMAIN_OUTLET.sub(" ", text or ""))
+
+
+def names_foreign_place(title: str, summary: str = "") -> bool:
+    """True when the title or summary itself names a non-US place. The outlet name does
+    not count ("Investing.com Canada" is a source, not a place in the story)."""
+    pat = KEYWORDS["international"]
+    return bool(pat.search(_strip_outlet(title)) or pat.search(_strip_outlet(summary)))
+
+
 def pick(rows: list, taken_urls: set[str]) -> dict:
     """{region: row or None}. `rows` must already be in rank order; a story already used
     elsewhere in the issue (taken_urls) or for another region is skipped."""
@@ -64,6 +82,9 @@ def pick(rows: list, taken_urls: set[str]) -> dict:
         keys = row.keys() if hasattr(row, "keys") else row
         region = region_of(row["title"], row["summary"] or "",
                            row["region"] if "region" in keys else None)
+        if region == "international" and not names_foreign_place(
+                row["title"], row["summary"] or ""):
+            region = None  # the regional query tag alone is not enough
         if region and out[region] is None:
             out[region] = row
             used.add(row["url"])

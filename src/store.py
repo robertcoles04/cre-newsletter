@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS issues (
     date TEXT PRIMARY KEY, day_type TEXT, status TEXT, markdown TEXT,
     source_problems TEXT, term TEXT, gh_issue INTEGER
 );
+CREATE TABLE IF NOT EXISTS used_stories (
+    issue_date TEXT, canonical_url TEXT, title_key TEXT
+);
+CREATE INDEX IF NOT EXISTS used_stories_date ON used_stories(issue_date);
 """
 
 
@@ -73,6 +77,56 @@ def canonical_url(url: str) -> str:
 def normalize_title(title: str) -> str:
     title = re.sub(r"\s+-\s+[^-]+$", "", title.strip())
     return re.sub(r"\s+", " ", title).lower()
+
+
+def title_key(title: str) -> str:
+    """Loose title for cross-day repeat matching: outlet suffix (" - The Real Deal",
+    " | Bisnow") removed, lowercase, punctuation dropped."""
+    t = re.sub(r"\s+[-|–—]\s+[^-|–—]+$", "", (title or "").strip())
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", t.lower())).strip()
+
+
+REPEAT_DAYS = 14
+_MD_LINK = re.compile(r"\]\((https?://[^)\s]+)\)")
+
+
+def record_used_stories(conn: sqlite3.Connection, run_date: date, md: str,
+                        factsheet: dict | None = None) -> None:
+    """Remember every story linked in an issue (its URL and, when the factsheet knows
+    it, its title) so later issues do not reuse it."""
+    key = run_date.isoformat()
+    urls = {canonical_url(u) for u in _MD_LINK.findall(md or "")}
+    titles: dict[str, str] = {}
+    if factsheet:
+        stories = []
+        for k in ("top", "quick_hits", "debt", "ai"):
+            stories += factsheet.get(k) or []
+        stories += [s for s in (factsheet.get("markets") or {}).values() if s]
+        stories += [s for s in (factsheet.get("mover_news") or {}).values() if s]
+        for st in stories:
+            canon = canonical_url(st["url"])
+            if canon in urls:
+                titles[canon] = title_key(st["title"])
+    conn.execute("DELETE FROM used_stories WHERE issue_date = ?", (key,))
+    conn.executemany(
+        "INSERT INTO used_stories(issue_date, canonical_url, title_key) VALUES (?,?,?)",
+        [(key, u, titles.get(u)) for u in sorted(urls)])
+    conn.commit()
+
+
+def used_story_keys(conn: sqlite3.Connection, run_date: date,
+                    days: int = REPEAT_DAYS) -> tuple[set[str], set[str]]:
+    """(canonical URLs, title keys) used in issues dated within `days` before run_date."""
+    rows = conn.execute(
+        "SELECT canonical_url, title_key FROM used_stories"
+        " WHERE issue_date >= ? AND issue_date < ?",
+        ((run_date - timedelta(days=days)).isoformat(), run_date.isoformat())).fetchall()
+    return ({r[0] for r in rows if r[0]}, {r[1] for r in rows if r[1]})
+
+
+def drop_used(rows: list, urls: set[str], titles: set[str]) -> list:
+    return [r for r in rows
+            if canonical_url(r["url"]) not in urls and title_key(r["title"]) not in titles]
 
 
 def _utc(dt: datetime) -> datetime:
