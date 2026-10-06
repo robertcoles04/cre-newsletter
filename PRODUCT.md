@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Text, Public Sans) with system fallbacks; no JavaScript. An issue goes live when Robert adds the `approved` label to its draft GitHub Issue. Nothing is emailed yet.
+A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Display, Source Serif 4, Public Sans) with system fallbacks; no JavaScript. An issue goes live when Robert adds the `approved` label to its draft GitHub Issue. Nothing is emailed yet.
 
 ## Users
 
@@ -24,7 +24,7 @@ Rates-and-debt first, with a daily "learn the market" term, and every number pul
 
 ## Capabilities and Constraints
 
-- Page order: The Brief (3 linked bullets, every day), a 3-row Market Snapshot (10-Year, SOFR, VNQ), then the stories: Debt Markets (+ Distress Watch, always a story not already in Debt Markets), Top Stories (+ 2 or 3 Coffee chat talking points), Market Watch, Quick Hits (up to 6), AI in Real Estate (or AI Infrastructure); then the full Market Summary (rates, Fed odds, REITs, charts, "What it means"), Term of the Day and the Data Room. Friday adds Deals of the Week; Saturday Week in Review / Market Spotlight / AI Weekly; Sunday REIT Weekly / Week Ahead / Careers Corner (same Brief, Snapshot, stories, Summary order).
+- Page layout (Broadsheet, see DESIGN.md): masthead with a code-filled markets ticker; the lead Top Story beside The Brief (3 linked bullets, every day), a 3-cell Market Snapshot strip (10-Year, SOFR, VNQ), then the rest of Top Stories, the Coffee chat talking points, Debt Markets (+ Distress Watch, always a story not already in Debt Markets) beside Market Watch, Quick Hits (up to 6), AI in Real Estate (or AI Infrastructure); then The Numbers (full Market Summary: rates, Fed odds, REITs, charts, "What it means"), Term of the Day beside the Data Room. Friday adds Deals of the Week; Saturday Week in Review / Market Spotlight / AI Weekly; Sunday REIT Weekly / Week Ahead / Careers Corner (full width after Quick Hits). The site also has a Glossary of every Term of the Day.
 - A story appears at most twice per issue: its Brief line plus one full treatment.
 - Numbers may be "n/a" when a source fails; the design must make that look intentional, not broken.
 - Footer on every issue: "For informational purposes only. Not investment advice."
