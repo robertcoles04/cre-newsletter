@@ -1,9 +1,9 @@
 # cre-newsletter
 
-CRE Blurb: daily commercial real estate (CRE) newsletter published as a GitHub Pages website (approved via an `approved` label on the draft Issue). A scheduled Python pipeline collects news + data, Claude drafts the issue, Robert (the owner, the user) reviews and publishes. Full original spec: `BRIEF.md`. Design spec: `docs/superpowers/specs/2026-10-04-cre-newsletter-design.md`.
+CRE Blurb: daily commercial real estate (CRE) newsletter published as a GitHub Pages website (auto-published when the draft passes the publish gate, else approved via an `approved` label on the draft Issue). A scheduled Python pipeline collects news + data, Claude drafts the issue, it goes live automatically if it passes the gate, and Robert (the owner, the user) reviews after publication. Full original spec: `BRIEF.md`. Design spec: `docs/superpowers/specs/2026-10-04-cre-newsletter-design.md`.
 
 ## Status
-Phase 1 is merged (pending secrets + first scheduled run). Website publishing is built (GitHub Pages; approve a draft Issue by adding the `approved` label, workflow `.github/workflows/publish.yml`), pending going public + enabling Pages. Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery). Workflow: `.github/workflows/daily.yml` (cron 09:00 + 10:00 UTC, DB kept on the `data` branch).
+Phase 1 is merged (pending secrets + first scheduled run). Website publishing is built (GitHub Pages, workflow `.github/workflows/publish.yml`), pending going public + enabling Pages. Auto-publish (2026-10-06): after daily.yml commits issues/ it runs `gh workflow run publish.yml -f issue=<N>` (Issue number from the pipeline's `issue` step output); a dispatch with `issue` behaves like the `approved` label (gate, record, deploy, comment "Published automatically", close). Gate failure comments "Not auto-published: <reasons>" and leaves the Issue open for the manual label. A push to main touching `issues/*.md` or `issues/*.json` only rebuilds + deploys (no gate, no recording); site.py skips failing dates with a `::warning::`. Bot pushes use GITHUB_TOKEN, which starts no workflows (why the label cannot be added by the bot). Phase 1 = MVP (feeds + FRED + Polymarket + REIT strip -> SQLite -> Claude draft -> GitHub Issue delivery). Workflow: `.github/workflows/daily.yml` (cron 09:00 + 10:00 UTC, DB kept on the `data` branch).
 
 ## Commands
 - Setup: `python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt`; copy `.env.example` to `.env`.
@@ -32,7 +32,7 @@ Phase 1 is merged (pending secrets + first scheduled run). Website publishing is
 - Broadsheet redesign (2026-10-06): newspaper look from an approved mockup (DESIGN.md). Libre Caslon Display / Source Serif 4 / Public Sans, white paper + ink, navy CSS ticker code-filled from fact-sheet values (no JS, reduced-motion safe), masthead on every page with nav Today / Markets / Archive / Glossary / About, 12-col grid on desktop (lead story + Brief, Snapshot strip, story grid, Coffee chat band, paired sections that stack when unbalanced, The Numbers at `#numbers`, Term + Data Room). New `/glossary/` page built from published issues' Term of the Day.
 
 ## Guardrails (non-negotiable)
-- The 5 AM pipeline saves drafts only. Only the label-triggered publish workflow puts an approved issue on the website; nothing is emailed.
+- The daily run auto-publishes issues that pass the publish gate; failing drafts wait for the approved label. Only publish.yml puts an issue on the website (after the gate); nothing is emailed.
 - Rates, bps changes, REIT prices: inserted by code from APIs, never written by the model.
 - Deal numbers must appear in source text, else blank or `[CHECK]`.
 - Summarize in our own words, link every claim, max one short quote per source.

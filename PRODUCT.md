@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Display, Source Serif 4, Public Sans) with system fallbacks; no JavaScript. An issue goes live when Robert adds the `approved` label to its draft GitHub Issue. Nothing is emailed yet.
+A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Display, Source Serif 4, Public Sans) with system fallbacks; no JavaScript. An issue goes live automatically when its draft passes the publish safety check; a draft that fails waits until Robert fixes it and adds the `approved` label. Nothing is emailed yet.
 
 ## Users
 
@@ -16,7 +16,7 @@ Commercial real estate readers from students to analysts, brokers and investors.
 
 ## Product Purpose
 
-CRE Blurb is a free daily commercial real estate briefing published on its website, creblurb.org (weekdays detailed, weekends lighter). A pipeline drafts each issue; the owner (Robert, a college student) reviews and publishes. Success: readers trust the numbers and come back daily; audience first, sponsors later.
+CRE Blurb is a free daily commercial real estate briefing published on its website, creblurb.org (weekdays detailed, weekends lighter). A pipeline drafts each issue; it publishes automatically when it passes the safety check, and the owner (Robert, a college student) reviews it after publication and corrects anything wrong. Success: readers trust the numbers and come back daily; audience first, sponsors later.
 
 ## Positioning
 

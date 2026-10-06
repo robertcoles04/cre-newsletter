@@ -1,6 +1,6 @@
 # CRE Blurb
 
-A daily commercial real estate (CRE) briefing published as a website on GitHub Pages. Every morning a program gathers rates, debt news, deals, REIT moves and top stories, and Claude writes a draft. I review it and approve it by adding the `approved` label to its GitHub Issue. The 5 AM pipeline only ever saves a draft; it never publishes anything or emails subscribers. Publishing to the website is a separate step that I trigger myself (see Publishing below).
+A daily commercial real estate (CRE) briefing published as a website on GitHub Pages. Every morning a program gathers rates, debt news, deals, REIT moves and top stories, and Claude writes a draft. If the draft passes the automatic safety check it goes live on the website right away; I review it afterwards and fix anything I find. A draft that fails the check waits until I fix it and add the `approved` label to its GitHub Issue. Nothing is emailed to subscribers (see Publishing below).
 
 The original idea is in [`BRIEF.md`](BRIEF.md); the design is in `docs/superpowers/specs/`.
 
@@ -54,16 +54,23 @@ After that it runs on its own every morning. The database lives on a `data` bran
 - A GitHub Issue titled `Draft: CRE Blurb <date>` with the `draft` label; GitHub emails it to me.
 
 ## If the draft has a "Review before publishing" banner
-The automatic checks found something suspicious (for example a number the model typed itself, or a missing source link). Nothing is wrong with the pipeline; it is asking for a human look. Read the banner, check the flagged lines against the linked sources, fix or delete them. You do not need to delete the banner; it is removed automatically when you publish (see Publishing below).
+The automatic checks found something suspicious (for example a number the model typed itself, or a missing source link). Nothing is wrong with the pipeline; it is asking for a human look. Read the banner, check the flagged lines against the linked sources, fix or delete them. You do not need to delete the banner; it is removed automatically when you publish (see Publishing below). These notes do not block the automatic publish, so if a draft has a banner, check the flagged lines on the live issue and correct them there.
 
 ## Publishing
 The website is at https://creblurb.org/ (GitHub Pages, custom domain bought at Porkbun; the old github.io address redirects).
 
-1. Open the `Draft: CRE Blurb <date>` Issue and read the draft. To change it, edit `issues/<date>.md` on github.com (the pencil icon) and save.
+Issues publish automatically around 5 to 6 AM ET when they pass the safety check; otherwise they wait as a draft for the `approved` label. To fix a published issue, edit issues/<date>.md on GitHub and commit; the site rebuilds in about 2 minutes.
+
+How the automatic publish works: after the daily run saves the draft and opens its `Draft: CRE Blurb <date>` Issue, it starts the "Publish CRE Blurb" workflow for that Issue. That runs the same safety check as the `approved` label. If it passes, the issue goes live, and GitHub comments "Published automatically: <link>" on the Issue and closes it. If it fails, GitHub comments "Not auto-published: <reasons>" and leaves the Issue open. These are AI-written issues going live without a human read first, so read each one afterwards. (GitHub's scheduled runs can start late, sometimes by 30+ minutes, so "5 to 6 AM" is approximate.)
+
+To publish a draft that was not auto-published:
+1. Open the `Draft: CRE Blurb <date>` Issue and read the comment. Fix `issues/<date>.md` on github.com (the pencil icon) and save.
 2. Add the `approved` label to the Issue.
 3. About 2 minutes later the issue is live. GitHub comments on the Issue with the link and closes it.
 
-What blocks a publish: any leftover `[CHECK]` or `{{` in the text, the "Claude unavailable: fact sheet only" heading, raw HTML tags (like `<b>` or `<script>`), or a link or image whose address is not `http://`, `https://`, `mailto:`, a `#` anchor or a relative path (so `javascript:` and `data:` links are refused, even when disguised with HTML codes like `&#106;`). `<https://...>` links are fine. The "Review before publishing" banner is removed automatically. If a check fails, GitHub comments on the Issue with what to fix and removes the `approved` label. Fix the file, then add `approved` again.
+Corrections: saving any `issues/*.md` or `issues/*.json` file on `main` (for example from github.com) rebuilds and redeploys the site. This only rebuilds; it never publishes a new date, because the site shows only the dates listed in `issues/published.json`. If an edit makes a published issue fail the safety check, the rebuild leaves that issue off the site and shows a warning on the workflow run.
+
+What blocks a publish: any leftover `[CHECK]` or `{{` in the text, the "Claude unavailable: fact sheet only" heading, raw HTML tags (like `<b>` or `<script>`), or a link or image whose address is not `http://`, `https://`, `mailto:`, a `#` anchor or a relative path (so `javascript:` and `data:` links are refused, even when disguised with HTML codes like `&#106;`). `<https://...>` links are fine. The "Review before publishing" banner is removed automatically. If a check fails on an approval, GitHub comments on the Issue with what to fix and removes the `approved` label. Fix the file, then add `approved` again.
 
 The Market Summary numbers on the website come from `issues/<date>.json`, not from the `.md` file. To correct a number, edit the `.json` file.
 
