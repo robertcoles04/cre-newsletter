@@ -1,8 +1,6 @@
 # Term of the Day rotation, in order.
 - term: NNN lease
   hint: 'Triple-net lease: tenant pays property taxes, insurance and maintenance on top of base rent.'
-- term: Absolute NNN
-  hint: Lease where the tenant also covers structural and roof costs; landlord has almost no responsibilities.
 - term: CAM
   hint: 'Common area maintenance: tenants'' share of costs for shared spaces like lobbies, parking and landscaping.'
 - term: Cap rate
@@ -59,3 +57,5 @@
   hint: Owner sells a property and leases it back, freeing up capital but keeping occupancy.
 - term: Loss-to-lease
   hint: Gap between in-place rents and current market rents; potential upside on renewals.
+- term: Absolute NNN
+  hint: Lease where the tenant also covers structural and roof costs; landlord has almost no responsibilities.
