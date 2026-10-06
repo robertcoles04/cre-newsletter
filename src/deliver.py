@@ -62,6 +62,8 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
     if factsheet is not None:
         data = {"date": factsheet["date"], "day_type": factsheet["day_type"],
                 "values": factsheet["values"]}
+        if factsheet.get("as_of_dates") is not None:
+            data["as_of_dates"] = factsheet["as_of_dates"]
         if charts:
             data["charts"] = {}
             for name, c in charts.items():

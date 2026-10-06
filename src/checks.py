@@ -7,7 +7,10 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from datetime import date
+
 from src.cleanup import empty_headings
+from src.freshness import core_stale, stale_series
 
 ROOT = Path(__file__).resolve().parent.parent
 FOOTER = "For informational purposes only. Not investment advice."
@@ -367,6 +370,23 @@ def _check_curve(factsheet: dict) -> list[dict]:
              "detail": f"10Y-2Y change {c:+d} bps vs 10Y {a:+d} minus 2Y {b:+d}"}]
 
 
+def _check_stale(factsheet: dict) -> list[dict]:
+    """A series whose latest observation is older than its cadence allows (see
+    src/freshness.py). Core rates (10Y, SOFR) missing entirely are also flagged."""
+    asof = factsheet.get("as_of_dates")
+    if asof is None:
+        return []  # fact sheet built before this check existed
+    try:
+        run = date.fromisoformat(str(factsheet.get("date")))
+    except ValueError:
+        return []
+    problems = [{"kind": "stale_data", "detail": f"{name} last updated {d}"}
+                for name, d in stale_series(asof, run)]
+    problems += [{"kind": "stale_data", "detail": r}
+                 for r in core_stale(asof, run) if r.endswith("has no data")]
+    return problems
+
+
 def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     problems: list[dict] = []
     sections = _sections(md)
@@ -409,6 +429,7 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     problems += _check_coffee(md, factsheet)
     problems += _check_big_movers(sections, factsheet)
     problems += _check_curve(factsheet)
+    problems += _check_stale(factsheet)
 
     if (factsheet.get("day_type") == "sunday" and "WEEK_AHEAD" in factsheet.get("values", {})
             and "WEEK_AHEAD" not in PLACEHOLDER.findall(md)):

@@ -561,6 +561,39 @@ def _reit_week(conn: sqlite3.Connection, run_date: date,
     return values, names
 
 
+def as_of_dates(conn: sqlite3.Connection, run_date: date, values: dict,
+                quotes: list[ReitQuote]) -> dict:
+    """{key: "YYYY-MM-DD"} of each series' latest observation (see src/freshness.py).
+    Uses the KEY_DATE values when the fact sheet already has them; otherwise reads the
+    stored series. Series with no data are left out."""
+    out = {}
+
+    def latest(sid: str) -> date | None:
+        pts = get_rates(conn, sid, run_date - timedelta(days=lookback_days(sid)))
+        return max(p.date for p in pts) if pts else None
+
+    ids = {"HY_OAS": "BAMLH0A0HYM2", "BANK_CRE_LOANS": "CREACBW027SBOG",
+           "BANK_CRE_DQ": "DRCRELEXFACBS"}
+    for key in ("DGS10", "DGS5", "DGS2", "DGS30", "SOFR", "HY_OAS", "MORTGAGE30US",
+                "BANK_CRE_LOANS", "BANK_CRE_DQ"):
+        d = values.get(f"{key}_DATE") or latest(ids.get(key, key))
+        if d:
+            out[key] = d.isoformat() if isinstance(d, date) else str(d)
+    # Fed funds: the target range (DFEDTARU) when present, else the effective rate (DFF).
+    d = latest(FED_TARGET[1]) or latest("DFF")
+    if d:
+        out["DFF"] = d.isoformat()
+    vnq = [q.date for q in quotes if q.ticker == VNQ_TICKER]
+    reits = [q.date for q in quotes if q.ticker != VNQ_TICKER]
+    if vnq:
+        out["VNQ"] = max(vnq).isoformat()
+    if reits:
+        out["REIT"] = max(reits).isoformat()
+    if values.get("CMBS_DQ_DATE"):
+        out["CMBS_DQ"] = str(values["CMBS_DQ_DATE"])[:10]
+    return out
+
+
 def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | None,
                     quotes: list[ReitQuote], problems: list[str],
                     vnq_yield: float | None, *, cmbs: dict | None = None,
@@ -604,6 +637,8 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         "day_type": dtype,
         "problems": list(problems),
         "values": values,
+        # Latest observation date per series; checks + the publish gate read it.
+        "as_of_dates": as_of_dates(conn, run_date, values, quotes),
         # 10Y move size, so "What it means" is scaled to the move (see the template).
         "move_size": move_size(dgs10_chg),
         # Rates rows that moved >= 15 bps (names only): "What it means" must acknowledge them.

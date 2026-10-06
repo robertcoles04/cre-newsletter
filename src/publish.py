@@ -11,6 +11,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from src.freshness import core_stale
+
 BANNER = "> **Review before publishing:**"
 FALLBACK_PREFIX = "# Claude unavailable"
 BOM = "\ufeff"
@@ -123,10 +125,27 @@ def gate(root: Path, day: str) -> list[str]:
         reasons += check(strip_banner(md))
     else:
         reasons.append(f"issues/{day}.md not found")
-    if not (issues / f"{day}.json").exists():
+    json_path = issues / f"{day}.json"
+    if not json_path.exists():
         reasons.append(f"issues/{day}.json not found "
                        "(drafts from before 2026-10-05 cannot be published)")
+    else:
+        reasons += _stale_reasons(json_path, day)
     return reasons
+
+
+def _stale_reasons(json_path: Path, day: str) -> list[str]:
+    """Hard stop: refuse when 10-Year or SOFR data is missing or over 5 business days old.
+    A json without `as_of_dates` (issues made before this check) is never refused."""
+    try:
+        data = json.loads(json_path.read_bytes().decode("utf-8-sig"))
+    except ValueError:
+        return [f"issues/{day}.json is not valid JSON"]
+    asof = data.get("as_of_dates") if isinstance(data, dict) else None
+    if not isinstance(asof, dict):
+        return []
+    stale = core_stale(asof, date.fromisoformat(day))
+    return [f"core rates are stale: {'; '.join(stale)}"] if stale else []
 
 
 def _valid_date(arg: str) -> bool:
