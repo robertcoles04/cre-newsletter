@@ -24,7 +24,6 @@ RECENT_MIN = 3  # the home page's "Recent issues" list shows once there are this
 FEED_ITEMS = 20
 DESC_MAX = 155
 CURRENT = ' aria-current="page"'  # marks the nav link for the page being shown
-REPO_ISSUES = "https://github.com/robertcoles04/cre-newsletter/issues"
 RETURN_LINE = "New issue every morning at"  # + the site link, at the end of every issue
 HOME_NOTE = EDITION_NOTE  # shown in every page's masthead utility row
 # Favicon: a navy square with a gold serif "CB" (Broadsheet palette, no files to draw by
@@ -37,20 +36,36 @@ FAVICON_SVG = (
     '</svg>\n')
 
 # The disclaimer is not repeated here: every page's footer already carries it once.
+CORRECTIONS_EMAIL = "robertcoles@icloud.com"
 ABOUT = (
     "<h1>About CRE Blurb</h1>"
-    "<p>CRE Blurb is a free daily commercial real estate briefing built for "
-    "students and young professionals in the industry, providing fresh market data "
-    "and news about the daily moves in commercial real estate.</p>"
-    "<h2>How each issue is made</h2>"
-    "<p>Each morning, a script gathers the latest commercial real estate news and public "
-    "market data. Claude, an AI model, drafts the issue in plain English from those linked "
-    "sources. Every number (rates, prices, odds) is filled in automatically from public "
-    "data and is never typed by the AI. Robert reviews every issue before anything is "
-    "published.</p>"
+    "<p>CRE Blurb is a free daily briefing on commercial real estate for students and "
+    "early-career professionals. Each issue covers what moved in rates, debt markets, "
+    "deals and REITs, with plain-English context and one industry term to learn, all in "
+    "about five minutes.</p>"
+    "<h2>About the editor</h2>"
+    "<p>CRE Blurb is published by Robert Coles, a student working to build a career in "
+    "commercial real estate. Like a lot of people trying to break into the industry, "
+    "Robert found that the best market coverage is written for people who already work "
+    "in it: dense, full of jargon and often behind a paywall. CRE Blurb is the briefing "
+    "he wanted when he started, the kind that explains not just what happened but why it "
+    "matters.</p>"
+    "<p>The goal is simple: help students and young professionals follow the market every "
+    "day, learn the language of the business and walk into interviews, coffee chats and "
+    "their first jobs ready to talk about what is actually happening in commercial real "
+    "estate.</p>"
+    "<h2>Our standards</h2>"
+    "<ul>"
+    "<li><strong>Sourced.</strong> Every story links to the original reporting.</li>"
+    "<li><strong>Data-driven.</strong> Rates, prices and market odds are pulled "
+    "automatically from public sources and checked before each issue goes out.</li>"
+    "<li><strong>Reviewed.</strong> Robert reads every issue and fixes errors as soon as they are found.</li>"
+    "</ul>"
     "<h2>Corrections</h2>"
-    f'<p>Spot an error? Open an issue at <a href="{REPO_ISSUES}">'
-    "github.com/robertcoles04/cre-newsletter/issues</a> and we'll fix it.</p>"
+    "<p>Accuracy matters to us. If you spot an error, email "
+    f'<a href="mailto:{CORRECTIONS_EMAIL}">{CORRECTIONS_EMAIL}</a> with the issue date and '
+    "what needs fixing. We review every report, correct confirmed errors promptly and note "
+    "significant corrections at the end of the affected issue.</p>"
 )
 
 _SECTION = re.compile(r"^## +(.+?)\s*$", re.M)

@@ -134,12 +134,12 @@ def test_archive_and_about(built):
     assert "<h2>October 2026</h2>" in archive
     assert 'href="../issues/2026-10-06/"' in archive
     about = _read(out / "about/index.html")
-    assert "students and young professionals" in about and "built for" in about
+    assert "students and early-career professionals" in about and "Robert Coles" in about
     assert "tailored towards" not in about
     assert about.count("For informational purposes only. Not investment advice.") == 1
-    assert "How each issue is made" in about and "never typed by the AI" in about
+    assert "Our standards" in about and "AI" not in about
     assert "Corrections" in about
-    assert 'href="https://github.com/robertcoles04/cre-newsletter/issues"' in about
+    assert 'href="mailto:robertcoles@icloud.com"' in about
     assert "Data sources" not in about
 
 
