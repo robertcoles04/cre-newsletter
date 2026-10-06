@@ -508,6 +508,7 @@ def _pull_quote(m: re.Match) -> str:
     """The Coffee chat line as a pull quote: a small label over serif italic text."""
     return ('<aside class="pull" aria-label="Coffee chat line">'
             '<p class="pull-label">Coffee chat line</p>'
+            '<p class="pull-note">A one-line take you can use in networking conversations</p>'
             f'<p class="pull-text">{m.group(1).strip()}</p></aside>')
 
 
@@ -701,7 +702,8 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
 .brief li:last-child, .brief p:last-child, .term p:last-child { margin-bottom: 0; }
 .pull { margin: 2.2rem 0; padding: 18px 0 20px; border-top: 1px solid var(--gold);
   border-bottom: 1px solid var(--gold); }
-.pull-label { margin: 0 0 8px; }
+.pull-label { margin: 0 0 2px; }
+.pull-note { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
 .pull-text { font-family: var(--serif); font-style: italic; font-size: 1.25rem;
   line-height: 1.5; color: var(--navy); margin: 0; max-width: 60ch; }
 .icon { flex: none; color: var(--navy); }
