@@ -394,6 +394,9 @@ def read_minutes(md: str) -> int:
     return max(1, round(words / WORDS_PER_MINUTE))
 
 
+TAGLINE = "The daily commercial real estate briefing for students and young professionals."
+
+
 def _cover(run_date: date | None, day_type: str | None, minutes: int | None = None) -> str:
     bits = []
     if run_date:
@@ -404,7 +407,7 @@ def _cover(run_date: date | None, day_type: str | None, minutes: int | None = No
     if minutes:
         bits.append(f'<span>{minutes} min read</span>')
     line = '<span class="sep" aria-hidden="true"></span>'.join(bits)
-    return (f'<header class="cover"><h1>CRE Blurb</h1>'
+    return (f'<header class="cover"><h1>CRE Blurb</h1><p class="tagline">{TAGLINE}</p>'
             f'{f"<p class=dateline>{line}</p>" if line else ""}</header>'
             '<div class="cover-rule" role="presentation"></div>')
 
@@ -493,6 +496,50 @@ def jump_list(body_html: str) -> str:
             f'In this issue</p><ul>{"".join(links)}</ul></nav>')
 
 
+COFFEE = re.compile(r"<p><strong>Coffee chat line:</strong>\s*(.*?)</p>", re.S)
+WHY_LEAD = "<strong>Why it matters:</strong>"
+WHY = re.compile(r"<p>" + re.escape(WHY_LEAD))
+LIST = re.compile(r"<ul>\s*(.*?)\s*</ul>", re.S)
+LIST_ITEM = re.compile(r"<li>(.*?)</li>", re.S)
+INNER_P = re.compile(r"^\s*<p>(.*)</p>\s*$", re.S)
+
+
+def _pull_quote(m: re.Match) -> str:
+    """The Coffee chat line as a pull quote: a small label over serif italic text."""
+    return ('<aside class="pull" aria-label="Coffee chat line">'
+            '<p class="pull-label">Coffee chat line</p>'
+            f'<p class="pull-text">{m.group(1).strip()}</p></aside>')
+
+
+def _list_to_paragraphs(m: re.Match) -> str:
+    """Market Watch reads like Top Stories: a bullet (often a lone link) becomes a paragraph."""
+    items = LIST_ITEM.findall(m.group(1))
+    if not items or "<ul>" in m.group(1) or "<ol>" in m.group(1):
+        return m.group(0)
+    out = []
+    for item in items:
+        inner = INNER_P.match(item)
+        text = inner.group(1).strip() if inner else item.strip()
+        # "summary [source](url) Why it matters: ..." in one bullet: two paragraphs.
+        head, sep, tail = text.partition(WHY_LEAD)
+        if sep and head.strip():
+            out += [f"<p>{head.strip()}</p>", f"<p>{WHY_LEAD}{tail}</p>"]
+        else:
+            out.append(f"<p>{text}</p>")
+    return "\n".join(out)
+
+
+def style_section(section_html: str, heading: str) -> str:
+    """Section-level touches: the Coffee chat pull quote, muted "Why it matters:" lead-ins,
+    Market Watch bullets as paragraphs, and The Brief as a highlighted panel."""
+    if heading == "Market Watch":
+        section_html = LIST.sub(_list_to_paragraphs, section_html)
+    section_html = COFFEE.sub(_pull_quote, section_html)
+    section_html = WHY.sub(f'<p class="why">{WHY_LEAD}', section_html)
+    cls = ' class="brief"' if heading == "The Brief" else ""
+    return f"<section{cls}>{section_html}</section>"
+
+
 def _first_eager(body_html: str) -> str:
     """Only the first image on the page loads right away; the rest stay lazy."""
     return body_html.replace(' loading="lazy"', "", 1)
@@ -534,9 +581,8 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
                 body.append(room)
                 room = ""
         else:
-            body.append("<section>" + _decorate(_md(f"## {heading}{text}"), used,
-                                                icons_h3=heading == "Market Watch")
-                        + "</section>")
+            body.append(style_section(_decorate(_md(f"## {heading}{text}"), used,
+                                                icons_h3=heading == "Market Watch"), heading))
             if heading == "The Brief" and brief_at is None:
                 brief_at = len(body)
     if not summary_done:  # weekend issues have no Numbers section: lead with the summary
@@ -578,118 +624,137 @@ CSS = """
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans);
-  font-size: 17px; line-height: 1.6; padding: 32px 16px 48px; }
+  font-size: 18px; line-height: 1.65; padding: 40px 16px 56px; }
 ::selection { background: var(--navy-select); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
-.sheet { max-width: 760px; margin: 0 auto; background: var(--sheet);
+.sheet { max-width: 860px; margin: 0 auto; background: var(--sheet);
   box-shadow: 0 1px 2px rgba(14, 42, 71, .06), 0 8px 24px rgba(14, 42, 71, .07); }
-.cover { background: var(--navy); color: #FFFFFF; padding: 44px 40px 28px; }
+.cover { background: var(--navy); color: #FFFFFF; padding: 56px 48px 32px; }
 .cover-rule { height: 3px; background: var(--gold); }
-.cover h1 { font-family: var(--serif); font-weight: 400; font-size: 3rem; line-height: 1.05;
+.cover h1 { font-family: var(--serif); font-weight: 400; font-size: 3.4rem; line-height: 1.05;
   letter-spacing: -0.01em; margin: 0; }
-.dateline { margin: 14px 0 0; color: var(--navy-tint); font-size: 15px;
+.tagline { margin: 12px 0 0; color: var(--navy-tint); font-size: 17px; line-height: 1.45;
+  max-width: 46ch; }
+.dateline { margin: 18px 0 0; color: var(--navy-tint); font-size: 15px;
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .dateline .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--navy-tint); }
-main { padding: 8px 40px 8px; }
-main > *:first-child { margin-top: 32px; }
+main { padding: 8px 48px 8px; }
+main > *:first-child { margin-top: 40px; }
 p, li { max-width: 70ch; }
-p { margin: 0 0 1em; }
-h2 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; line-height: 1.2;
-  color: var(--navy); margin: 2.4rem 0 1rem; padding-bottom: .45rem;
+p { margin: 0 0 1.05em; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; line-height: 1.2;
+  color: var(--navy); margin: 3rem 0 1.2rem; padding-bottom: .5rem;
   border-bottom: 1px solid var(--gold); text-wrap: balance; }
-main h1 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; color: var(--navy);
+main h1 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; color: var(--navy);
   margin: 2rem 0 1rem; }
-h3 { font-family: var(--sans); font-weight: 700; font-size: 1.06rem; line-height: 1.35;
-  margin: 1.8rem 0 .4rem; text-wrap: balance; }
-h2 + h3 { margin-top: 1.2rem; }
+h3 { font-family: var(--sans); font-weight: 700; font-size: 1.18rem; line-height: 1.35;
+  color: var(--ink); margin: 2.1rem 0 .5rem; text-wrap: balance; }
+h2 + h3 { margin-top: 1.4rem; }
 a { color: var(--navy); text-decoration: underline; text-decoration-thickness: 1px;
   text-underline-offset: 3px; text-decoration-color: rgba(14, 42, 71, .45); }
 a:hover { text-decoration-color: var(--navy); text-decoration-thickness: 2px; }
-ul, ol { padding-left: 1.2em; margin: 0 0 1em; }
-li { margin: 0 0 .45em; }
+ul, ol { padding-left: 1.2em; margin: 0 0 1.05em; }
+li { margin: 0 0 .55em; }
 li::marker { color: var(--gold); }
 strong { font-weight: 700; }
-.summary dl { margin: 0; }
-.group + .group { margin-top: 18px; }
-.group-name { font-weight: 600; font-size: 14px; color: var(--navy); margin: 0 0 2px; }
-.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px;
-  align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
-.row:first-child { border-top: 1px solid var(--hairline); }
+.why strong { color: var(--muted); font-weight: 600; }
+.group-name, .toc-title, .pull-label { font-size: 13px; font-weight: 600; line-height: 1.4;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--navy); }
+.summary dl, .data-room dl { margin: 0; }
+.group + .group { margin-top: 32px; }
+.group-name { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--gold); max-width: none; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px;
+  align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+.data-room .row:first-child { border-top: 1px solid var(--hairline); }
 dt { color: var(--ink); }
-.hint { display: block; color: var(--muted); font-size: 14px; line-height: 1.35;
-  margin-top: 2px; }
+.hint { display: block; color: var(--muted); font-size: 14.5px; line-height: 1.4;
+  margin-top: 3px; }
 dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap; }
-.val { font-weight: 600; }
-.chg { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;
-  font-size: 15px; min-width: 5.6em; justify-content: flex-end; }
+.val { font-weight: 600; font-size: 1.08rem; }
+.chg { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px;
+  font-size: 16px; min-width: 5.6em; justify-content: flex-end; }
 .chg.up { color: var(--up); }
 .chg.down { color: var(--down); }
 .chg.unch { color: var(--muted); }
 .tri { flex: none; }
 .na { color: var(--muted); font-style: italic; cursor: help; }
-.caption { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
-.data-room dl { margin: 0; }
+.caption { color: var(--muted); font-size: 15px; margin: 14px 0 0; }
 .data-room .intro { color: var(--muted); font-size: 15px; }
-.tag { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em;
+.tag { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em;
   text-transform: uppercase; margin-left: 4px; }
-.takeaway { margin-top: 18px; }
-.chart { margin: 24px 0 0; min-width: 0; }
+.takeaway { margin-top: 24px; }
+.chart { margin: 32px 0 0; min-width: 0; }
 .chart picture { display: block; }
-.chart img { display: block; width: 100%; max-width: 100%; height: auto;
-  border: 1px solid var(--hairline); }
-.chart figcaption { color: var(--muted); font-size: 14px; line-height: 1.45; margin-top: 8px; }
+.chart img { display: block; width: 100%; max-width: 100%; height: auto; }
+.chart figcaption { color: var(--muted); font-size: 15px; line-height: 1.45; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--hairline); }
 .chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 0 24px; }
-.chart + .group, .chart-pair + .group { margin-top: 28px; }
-.term, .data-room { background: var(--navy-wash); padding: 4px 24px 12px; margin: 2.8rem 0 0; }
-.term h2, .data-room h2 { margin-top: 1.2rem; }
+  gap: 0 28px; }
+.chart + .group, .chart-pair + .group { margin-top: 36px; }
+.brief, .term, .data-room { background: var(--navy-wash); padding: 6px 32px 22px; }
+.brief { margin: 2.4rem 0 0; }
+.term, .data-room { margin: 3rem 0 0; }
+.brief h2, .term h2, .data-room h2 { margin-top: 1.3rem; }
+.brief ul { margin-bottom: 0; }
+.brief li { margin-bottom: .75em; }
+.brief li:last-child, .brief p:last-child, .term p:last-child { margin-bottom: 0; }
+.pull { margin: 2.2rem 0; padding: 18px 0 20px; border-top: 1px solid var(--gold);
+  border-bottom: 1px solid var(--gold); }
+.pull-label { margin: 0 0 8px; }
+.pull-text { font-family: var(--serif); font-style: italic; font-size: 1.25rem;
+  line-height: 1.5; color: var(--navy); margin: 0; max-width: 60ch; }
 .icon { flex: none; color: var(--navy); }
-h2 .icon, h3 .icon { display: inline-block; vertical-align: -0.12em; margin-right: 8px; }
+h2 .icon, h3 .icon { display: inline-block; vertical-align: -0.12em; margin-right: 10px; }
 h3 .icon { vertical-align: -0.18em; }
-.toc { margin: 1.6rem 0 0; padding: 12px 0; border-top: 1px solid var(--hairline);
+.toc { margin: 2rem 0 0; padding: 14px 0 16px; border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline); }
-.toc-title { font-weight: 600; font-size: 14px; color: var(--navy); margin: 0 0 4px; }
+.toc-title { margin: 0 0 6px; }
 .toc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap;
-  gap: 2px 20px; font-size: 15px; }
+  gap: 4px 24px; font-size: 16px; }
 .toc li { margin: 0; }
 .skip { position: absolute; left: 8px; top: -60px; background: var(--navy); color: #FFFFFF;
   padding: 10px 14px; z-index: 10; text-decoration: none; }
 .skip:focus { top: 8px; }
-.issue-nav { margin: 2.8rem 0 0; padding-top: 14px; border-top: 1px solid var(--hairline);
+.issue-nav { margin: 3rem 0 0; padding-top: 16px; border-top: 1px solid var(--hairline);
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
-  font-size: 15px; }
+  font-size: 16px; }
 .issue-nav .top { margin-left: auto; }
 main { overflow-wrap: break-word; }
 main img, main svg { max-width: 100%; }
 .term p:first-of-type strong { font-family: var(--serif); font-weight: 700; color: var(--navy);
-  font-size: 1.12rem; }
+  font-size: 1.15rem; }
 .notes { background: var(--amber-bg); border: 1px solid var(--amber-line); color: var(--amber-ink);
-  margin: 24px 40px 0; padding: 14px 20px; font-size: 15px; }
+  margin: 24px 48px 0; padding: 14px 20px; font-size: 15px; }
 .notes h2 { font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--amber-ink);
   border: 0; margin: 0 0 6px; padding: 0; }
 .notes ul { margin: 0; }
 .notes li { margin: 0 0 2px; overflow-wrap: anywhere; }
 .notes li::marker { color: var(--amber-ink); }
-footer { margin: 40px 40px 0; padding: 18px 0 32px; border-top: 1px solid var(--hairline);
-  color: var(--muted); font-size: 13px; line-height: 1.5; }
+footer { margin: 56px 48px 0; padding: 20px 0 36px; border-top: 1px solid var(--hairline);
+  color: var(--muted); font-size: 14px; line-height: 1.55; }
 footer p { margin: 0 0 4px; }
 @media (max-width: 600px) {
-  body { padding: 0; font-size: 16px; }
+  body { padding: 0; font-size: 17px; }
   .sheet { box-shadow: none; }
-  .cover { padding: 32px 16px 22px; }
-  .cover h1 { font-size: 2.4rem; }
+  .cover { padding: 34px 16px 24px; }
+  .cover h1 { font-size: 2.5rem; }
+  .tagline { font-size: 15px; }
   main { padding: 0 16px; }
+  main > *:first-child { margin-top: 28px; }
   .notes { margin: 16px 16px 0; padding: 12px 14px; }
-  footer { margin: 32px 16px 0; }
-  .term, .data-room { padding: 2px 16px 10px; }
-  h2 { font-size: 1.4rem; }
+  footer { margin: 40px 16px 0; }
+  .brief, .term, .data-room { padding: 4px 16px 16px; }
+  h2 { font-size: 1.5rem; margin-top: 2.5rem; }
+  h3 { font-size: 1.1rem; }
+  .pull-text { font-size: 1.15rem; }
+  .hint { font-size: 14px; }
   .row { gap: 12px; }
   /* Value over change, right-aligned, so long values never wrap awkwardly. */
   dd { display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
     max-width: 52vw; }
-  .val { white-space: normal; text-align: right; }
-  .chg { margin-left: 0; min-width: 0; font-size: 14px; }
+  .val { white-space: normal; text-align: right; font-size: 1.04rem; }
+  .chg { margin-left: 0; min-width: 0; font-size: 15px; }
   .toc a, .issue-nav a, .issue-list a { display: inline-flex; align-items: center;
     min-height: 44px; }
   .toc ul { gap: 0 18px; }

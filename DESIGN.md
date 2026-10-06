@@ -6,11 +6,13 @@ Sample (illustrative data): `samples/preview-sample.html`.
 
 ## Palette (role: value)
 - Ground (page behind the sheet): `#EEF0F2`
-- Sheet: `#FFFFFF`, max-width 760px (text keeps a 70ch measure), centered, soft offset shadow
+- Sheet: `#FFFFFF`, max-width 860px with 48px side padding (paragraphs keep a 70ch
+  measure; tables and charts use the full ~764px width), centered, soft offset shadow
 - Navy (cover band, headings, links): `#0E2A47`
 - Navy tint (cover date line, never gray): `#B9C8DA`
-- Navy wash (Term panel background): `#F2F5F9`; selection: `#CCD8E6`
-- Gold (cover rule, h2 rule, list markers; never text): `#B08D3C`
+- Navy wash (Brief, Term and Data Room panel background): `#F2F5F9`; selection: `#CCD8E6`
+- Gold (cover rule, h2 rule, group-label rule, pull-quote rules, list markers; never
+  text): `#B08D3C`
 - Ink (body text): `#1B2430`; muted (captions, footer): `#56616F`
 - Hairline (table rows, footer rule): `#D9DDE3`
 - Up `#1F7A4D`, down `#B23A3A`, unch = muted, n/a = muted italic
@@ -19,19 +21,27 @@ Sample (illustrative data): `samples/preview-sample.html`.
 ## Type
 - Display: "Libre Caslon Text", fallback Georgia, serif (title, h2, term name)
 - Body: "Public Sans", fallback -apple-system, Segoe UI, Helvetica, Arial, sans-serif
-- Body 17px (16px on phones), line-height 1.6, measure at most 70ch
+- Body 18px (17px on phones), line-height 1.65, measure at most 70ch
+- Scale: h2 1.9rem (1.5rem on phones), h3 1.18rem (1.1rem), cover title 3.4rem (2.5rem),
+  Market Summary values 1.08rem semi-bold, site nav and jump list 16px, hints 14.5px
+  (14px on phones), captions and figcaptions 15px, footer 14px
+- Label style (group names, "In this issue", "Coffee chat line"): 13px, semi-bold,
+  uppercase, letter-spacing .06em, navy
 - Numbers use `font-variant-numeric: tabular-nums`
 
 ## Components
-- **Cover band:** full-width navy, "CRE Blurb" in serif, white. Date line
+- **Cover band:** full-width navy, "CRE Blurb" in serif, white, with the tagline "The
+  daily commercial real estate briefing for students and young professionals." under it
+  in navy tint (every page). Date line
   ("Monday, October 5, 2026 • Daily Edition • 4 min read"; Saturday and Sunday say
   "Weekend Edition"; read time = words / 230, rounded, min 1) in navy tint. A 3px gold rule element closes it.
 - **Market Summary:** OM "Investment Summary" table built by code from
   `factsheet["values"]`, never model text. Groups Rates / Federal Reserve / REITs
   (Rates include the 2Y, the 10Y-2Y curve and the 30-year mortgage; Fed Funds shows
   the target range "3.75% to 4.00%"). A Rates row whose latest date differs from
-  RATES_ASOF adds "(as of Oct 2)" to its hint. Rows are label | value + change with
-  hairline dividers.
+  RATES_ASOF adds "(as of Oct 2)" to its hint. Each group name is in the label style
+  over a 1px gold rule; rows are label | value + change with 12px padding and hairline
+  dividers.
   Rows whose key is missing are skipped; a row with only a change (CMBS delinquency
   when Trepp states no rate) shows just the change. Caption: "Rates as of
   {RATES_ASOF} close." right under the Rates group (no sources line). Replaces the
@@ -41,7 +51,10 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - **Charts:** made by our own code (`src/chart.py`, matplotlib), never photos or
   images from the web. Palette tokens only: navy line, gold dot on the latest value,
   navy tint for comparison lines, up/down green/red bars, ink labels, muted ticks,
-  hairline grid. Public Sans with Segoe UI / Helvetica / Arial / DejaVu fallbacks,
+  hairline grid, no border around the image (a hairline sits above the figcaption).
+  On-chart text is sized by figure width (`chart.text_sizes`): full-width charts 11 pt
+  ticks / 12 pt values (about 14.5px at the ~764px desktop width), the 2-up pair 10.5 /
+  11 pt, phone variants 10.5 / 11 pt (about 12.5px at ~350px). Public Sans with Segoe UI / Helvetica / Arial / DejaVu fallbacks,
   white background, no titles, legend boxes or 3D (the caption names the chart; a
   short line swatch + word is the only key). Saved at 2x. Five charts, each optional
   (too little data skips it; an error skips it with an editor note):
@@ -69,11 +82,22 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - **No dashes:** no em or en dashes anywhere on the site. Code text uses commas or
   hyphens; model prose is told not to use them and `no_dashes()` replaces any that
   slip through at render time ("a — b" becomes "a, b").
-- **Section heading (h2):** serif, navy, more space above than below, 1px gold rule.
+- **Section heading (h2):** serif, navy, 3rem above and 1.2rem below, 1px gold rule.
 - **Story link:** navy, 1px underline, 3px underline-offset. Links are the only
   colored text besides the change marks.
-- **Term panel / Data Room panel:** navy-wash blocks, term in serif. No colored side
-  border. Muted hints stay AA on the wash (about 5.8:1).
+- **The Brief / Term panel / Data Room panel:** one panel family: navy-wash blocks with
+  32px side padding (16px on phones), serif h2 with its gold rule, term in serif. No
+  colored side border. Muted hints stay AA on the wash (about 5.8:1). Brief bullets keep
+  the 18px body size with extra space between them.
+- **Coffee chat line:** the rendered `**Coffee chat line:**` paragraph becomes a pull
+  quote (`render_html.style_section`): the label "Coffee chat line" in the label style,
+  then the sentence in serif italic 1.25rem navy, between 1px gold rules top and bottom.
+- **"Why it matters:"** paragraphs get class `why`: the bold lead-in is muted, the
+  sentence stays ink.
+- **Market Watch:** each region (icon h3) reads like Top Stories: a short paragraph with
+  its source link, then a "Why it matters:" line. The renderer turns any bullet in this
+  section into a paragraph (a lone link bullet from the fallback issue, or a bullet that
+  holds both the summary and "Why it matters:", which is split in two).
 - **Icons:** small line icons authored in code as inline SVG (`ICON_PATHS` in
   `render_html.py`): 18px, 1.5px stroke, navy (currentColor), `aria-hidden="true"`,
   inline before the heading text. Sun (Sun Belt), waves (West Coast), globe
@@ -82,7 +106,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - **In this issue:** after The Brief, a plain list of links to every later h2
   (markdown h2s get slug ids like `top-stories`), between hairlines. Only shown with 3
   or more links. No JavaScript.
-- **Navigation (site):** Home / Archive / About / RSS; the current page gets
+- **Navigation (site):** 16px, 16px vertical padding, Home / Archive / About / RSS; the current page gets
   `aria-current="page"` and a 2px gold underline. Issue pages end with "Previous issue"
   / "Next issue" links (when they exist) and "Back to top". A "Skip to content" link
   appears on keyboard focus. On phones, nav, jump-list and issue-list links are at
@@ -93,7 +117,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
   only when `problems` is non-empty.
 - **Footer:** the exact FOOTER text (once per page) plus "Written with AI from the
   linked sources. Every number is pulled automatically from public data. Edited by
-  Robert.", small and muted.
+  Robert.", 14px and muted.
 
 ## Rules
 - No JavaScript. Self-contained except the Google Fonts link and the chart image.
@@ -103,7 +127,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - Light theme only. No animation; `prefers-reduced-motion` turns off any that a
   browser adds.
 - HTML comments and stray `{{ }}` are stripped.
-- Phones (<600px): sheet goes full width, 16px gutters, body 16px, no horizontal
+- Phones (<600px): sheet goes full width, 16px gutters, body 17px, no horizontal
   scroll (images max-width 100%, long words wrap). Market Summary values stack over
   their change, right-aligned.
 - Browser surfaces are themed: `::selection`, `:focus-visible`, underline offset.

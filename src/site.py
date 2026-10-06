@@ -26,14 +26,14 @@ CURRENT = ' aria-current="page"'  # marks the nav link for the page being shown
 REPO_ISSUES = "https://github.com/robertcoles04/cre-newsletter/issues"
 
 SITE_CSS = """<style>
-.site-nav { display: flex; flex-wrap: wrap; gap: 4px 24px; padding: 12px 40px;
-  border-bottom: 1px solid var(--hairline); font-size: 14px; }
+.site-nav { display: flex; flex-wrap: wrap; gap: 4px 32px; padding: 16px 48px;
+  border-bottom: 1px solid var(--hairline); font-size: 16px; line-height: 1.5; }
 .site-nav a { color: var(--navy); text-decoration: none; }
 .site-nav a:hover { text-decoration: underline; text-decoration-thickness: 1px; }
 .site-nav a[aria-current="page"] { font-weight: 600; text-decoration: underline;
   text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 @media (max-width: 600px) {
-  .site-nav { padding: 0 16px; gap: 0 22px; }
+  .site-nav { padding: 0 16px; gap: 0 24px; }
   .site-nav a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 </style>"""

@@ -153,3 +153,74 @@ def test_render_page_has_shell_no_notes():
     out = render_page("About | CRE Blurb", "<p>Hi</p>", nav="<nav>N</nav>")
     assert "<title>About | CRE Blurb</title>" in out and "<p>Hi</p>" in out
     assert "Editor notes" not in out and "<h1>CRE Blurb</h1>" in out
+
+
+POLISH_MD = f"""## The Brief
+
+- Lenders are back for apartments. [Bisnow](https://www.bisnow.com/a)
+
+## Top Stories
+
+### Big deal closes
+
+Two sentences here. [source](https://news.site/a)
+
+**Why it matters:** Owners can refinance. [source](https://news.site/a)
+
+**Coffee chat line:** Insurers are lending on apartments again. [source](https://news.site/a)
+
+## Market Watch
+
+### Sun Belt
+
+- [Phoenix park approved](https://news.site/b) (Phoenix Business Journal)
+
+### West Coast
+
+- SF leasing picked up. [source](https://news.site/c) **Why it matters:** Owners can refinance.
+
+{FOOTER}
+"""
+
+
+def test_cover_tagline_and_brief_panel():
+    html = render(md=POLISH_MD)
+    assert ('<p class="tagline">The daily commercial real estate briefing for students '
+            'and young professionals.</p>') in html
+    assert '<section class="brief"><h2 id="the-brief">The Brief</h2>' in html
+
+
+def test_coffee_chat_line_is_a_pull_quote():
+    html = render(md=POLISH_MD)
+    assert '<aside class="pull" aria-label="Coffee chat line">' in html
+    assert '<p class="pull-label">Coffee chat line</p>' in html
+    assert ('<p class="pull-text">Insurers are lending on apartments again. '
+            '<a href="https://news.site/a">source</a></p>') in html
+    assert "<strong>Coffee chat line:</strong>" not in html
+
+
+def test_why_it_matters_gets_lead_in_class():
+    html = render(md=POLISH_MD)
+    assert '<p class="why"><strong>Why it matters:</strong> Owners can refinance.' in html
+
+
+def test_market_watch_bullets_become_paragraphs():
+    html = render(md=POLISH_MD)
+    mw = html[html.index('id="market-watch"'):html.index("</section>", html.index('id="market-watch"'))]
+    assert "<li>" not in mw and "<ul>" not in mw
+    assert '<p><a href="https://news.site/b">Phoenix park approved</a> (Phoenix Business Journal)</p>' in mw
+    assert '<p>SF leasing picked up. <a href="https://news.site/c">source</a></p>' in mw
+    assert '<p class="why"><strong>Why it matters:</strong> Owners can refinance.</p>' in mw
+    assert 'class="icon"' in mw  # region icons kept
+
+
+def test_brief_bullets_stay_bullets():
+    html = render(md=POLISH_MD)
+    assert "<li>Lenders are back for apartments." in html
+
+
+def test_reading_sizes_in_css():
+    html = render()
+    assert "font-size: 18px; line-height: 1.65" in html
+    assert ".sheet { max-width: 860px;" in html
+    assert "main { padding: 8px 48px 8px; }" in html

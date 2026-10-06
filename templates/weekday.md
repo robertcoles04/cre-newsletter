@@ -38,7 +38,7 @@
 
 ## Market Watch
 
-<!-- One story per region from the fact sheet's `markets`: `sun_belt` under "### Sun Belt", `west_coast` under "### West Coast", `international` under "### International". For each: 2 or 3 sentences in our own words with its [source](url) link, then one sentence on why it matters for real estate, in plain English for a smart college student new to CRE: define any term once, say who gains or loses and why it matters. Simple words, but never babyish or patronizing (no 'fancy', no 'big companies like to'). A number may appear only if the story's title or summary states it. No em dashes. If a region is null, delete its ### subhead. If all three are null, delete this whole section, heading included. About 200 words total. -->
+<!-- One story per region from the fact sheet's `markets`: `sun_belt` under "### Sun Belt", `west_coast` under "### West Coast", `international` under "### International". For each: a short paragraph (2 or 3 sentences in our own words, not a bullet and not a bare link) that ends with its [source](url) link, then a separate line starting "**Why it matters:**" with one sentence on why it matters for real estate, in plain English for a smart college student new to CRE: define any term once, say who gains or loses and why it matters. Simple words, but never babyish or patronizing (no 'fancy', no 'big companies like to'). A number may appear only if the story's title or summary states it. No em dashes. If a region is null, delete its ### subhead. If all three are null, delete this whole section, heading included. About 200 words total. -->
 
 ### Sun Belt
 

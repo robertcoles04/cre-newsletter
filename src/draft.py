@@ -88,8 +88,9 @@ Rules:
   it is null use its note placeholder ({{{{MOVER_UP_NOTE}}}} / {{{{MOVER_DOWN_NOTE}}}}) and
   do not guess a reason.
 - Market Watch: under each "### " region subhead, retell that region's story from
-  `markets` in 2 or 3 sentences in our own words with its [source](url) link, then one
-  plain-English sentence on why it matters (same style as Quick Hits). Delete the subhead
+  `markets` as a short paragraph (2 or 3 sentences in our own words, never a bullet or a
+  bare link) ending with its [source](url) link, then a separate line starting
+  "**Why it matters:**" with one plain-English sentence (same layout as Top Stories). Delete the subhead
   of a region that is null, and the whole section if all are null.
 - Respect the word budgets:
 {_budget_lines()}

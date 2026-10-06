@@ -41,7 +41,7 @@ STYLE = {
     "font.family": "sans-serif",
     "font.sans-serif": ["Public Sans", "Segoe UI", "Helvetica Neue", "Helvetica", "Arial",
                         "Liberation Sans", "DejaVu Sans"],
-    "font.size": 11,
+    "font.size": 12,
     "text.color": INK,
     "axes.edgecolor": HAIRLINE,
     "axes.labelcolor": MUTED,
@@ -64,6 +64,20 @@ NARROW_WIDTH = 4.0
 RATE_NARROW = (NARROW_WIDTH, 2.8)
 FED_NARROW = (NARROW_WIDTH, 1.5)
 NARROW = ("chart", "fed", "reits")  # charts that have a phone variant
+# On-chart text sizes in points, by figure width. A full-width chart (8 in = 800 logical px)
+# shows at about 764px on desktop, so 11 pt reads as about 14.5px; the 2-up pair (3.6 in)
+# shows at about 370px; the phone variants (4 in) at about 345 to 360px, where 10.5 pt reads
+# as about 12.5 to 13px.
+WIDE_TEXT = {"tick": 11, "value": 12}
+PAIR_TEXT = {"tick": 10.5, "value": 11}
+NARROW_TEXT = {"tick": 10.5, "value": 11}
+
+
+def text_sizes(figsize: tuple[float, float]) -> dict:
+    """Tick and value-label sizes for a figure: full width, the 2-up pair or a phone chart."""
+    if figsize[0] >= 6:
+        return WIDE_TEXT
+    return PAIR_TEXT if figsize[0] <= PAIR_FIGSIZE[0] else NARROW_TEXT
 
 
 def _day(d: date) -> str:
@@ -79,11 +93,11 @@ def size_px(figsize: tuple[float, float]) -> tuple[int, int]:
     return round(figsize[0] * BASE_DPI), round(figsize[1] * BASE_DPI)
 
 
-def _clean(ax, grid_axis: str = "y") -> None:
+def _clean(ax, grid_axis: str = "y", labelsize: float = 10) -> None:
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
     ax.spines["bottom"].set_color(HAIRLINE)
-    ax.tick_params(length=0, labelsize=10, pad=6)
+    ax.tick_params(length=0, labelsize=labelsize, pad=6)
     if grid_axis:
         ax.grid(axis=grid_axis, color=HAIRLINE, linewidth=0.8)
     ax.set_axisbelow(True)
@@ -110,6 +124,7 @@ def _line(points: list[RatePoint], out: Path, title: str, figsize) -> Path:
     """Navy line, gold dot and bold label on the latest value."""
     with plt.rc_context(STYLE):
         fig, ax = plt.subplots(figsize=figsize, dpi=BASE_DPI)
+        sizes = text_sizes(figsize)
         try:
             xs, ys = [p.date for p in points], [p.value for p in points]
             decimals = 1
@@ -120,7 +135,7 @@ def _line(points: list[RatePoint], out: Path, title: str, figsize) -> Path:
                 ax.annotate(f"{ys[-1]:.2f}%", (xs[-1], ys[-1]),
                             xytext=(0, -12 if falling else 10), textcoords="offset points",
                             ha="right", va="top" if falling else "bottom", color=INK,
-                            fontsize=10, fontweight="bold",
+                            fontsize=sizes["value"], fontweight="bold",
                             bbox={"boxstyle": "square,pad=0.15", "fc": WHITE, "ec": "none"})
                 lo, hi = min(ys), max(ys)
                 pad = max((hi - lo) * 0.25, 0.05)
@@ -128,7 +143,7 @@ def _line(points: list[RatePoint], out: Path, title: str, figsize) -> Path:
                 ax.margins(x=0.02)
                 _date_axis(ax)
                 decimals = 2 if hi - lo < 0.3 else 1
-            _clean(ax)
+            _clean(ax, labelsize=sizes["tick"])
             _pct_axis(ax, decimals)
             fig.tight_layout()
             return _save(fig, out, title)
@@ -186,6 +201,7 @@ def reit_scoreboard(moves: list[dict] | None, out: Path, narrow: bool = False) -
         return None
     with plt.rc_context(STYLE):
         fig, ax = plt.subplots(figsize=reit_figsize(rows, narrow), dpi=BASE_DPI)
+        sizes = NARROW_TEXT if narrow else WIDE_TEXT
         try:
             ys = list(range(len(rows)))[::-1]  # best at the top
             vals = [m["chg_pct"] for m in rows]
@@ -198,10 +214,11 @@ def reit_scoreboard(moves: list[dict] | None, out: Path, narrow: bool = False) -
             for y, v in zip(ys, vals):
                 ax.annotate(_pct(v), (v, y), xytext=(5 if v >= 0 else -5, 0),
                             textcoords="offset points", va="center",
-                            ha="left" if v >= 0 else "right", fontsize=10, color=INK)
+                            ha="left" if v >= 0 else "right", fontsize=sizes["tick"],
+                            color=INK)
             ax.axvline(0, color=MUTED, linewidth=0.9)
             _clean(ax, grid_axis="")
-            ax.tick_params(axis="y", labelsize=10.5, labelcolor=INK)
+            ax.tick_params(axis="y", labelsize=sizes["value"], labelcolor=INK)
             ax.spines["bottom"].set_visible(False)
             ax.set_xticks([])
             ax.set_ylim(-0.6, len(rows) - 0.4)
@@ -248,7 +265,7 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
                 below = x in ago_at and ago_at[x] > v  # label on the side away from the old line
                 # White backing keeps the label readable where it crosses a line.
                 ax.annotate(f"{v:.2f}%", (x, v), xytext=(0, -17 if below else 10),
-                            textcoords="offset points", ha="center", fontsize=9.5,
+                            textcoords="offset points", ha="center", fontsize=PAIR_TEXT["value"] - 0.5,
                             color=INK, fontweight="bold", zorder=4,
                             bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
             # Key above the plot: a short line swatch + word for each series, no legend box.
@@ -259,7 +276,7 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
                 ax.plot([x0, x0 + 0.06], [1.1, 1.1], transform=ax.transAxes, color=line,
                         linewidth=2.2, clip_on=False, solid_capstyle="round")
                 ax.text(x0 + 0.08, 1.1, word, transform=ax.transAxes, color=ink,
-                        fontsize=9.5, va="center")
+                        fontsize=PAIR_TEXT["tick"], va="center")
                 x0 += 0.36  # room for the swatch and "Today" at this figure width
             ax.set_xticks(xs, [r[0] for r in rows])
             every = now + [a[1] for a in ago]
@@ -267,7 +284,7 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
             pad = max((hi - lo) * 0.35, 0.12)
             ax.set_ylim(lo - pad, hi + pad)
             ax.set_xlim(-0.35, len(rows) - 0.65)
-            _clean(ax)
+            _clean(ax, labelsize=PAIR_TEXT["tick"])
             _pct_axis(ax)
             fig.tight_layout()
             return _save(fig, out, "Treasury yield curve")
@@ -316,6 +333,7 @@ def fed_odds_bar(odds: dict, out: Path, narrow: bool = False) -> Path | None:
     with plt.rc_context(STYLE):
         size = FED_NARROW if narrow else FED_FIGSIZE
         fig, ax = plt.subplots(figsize=size, dpi=BASE_DPI)
+        fs = NARROW_TEXT["value"] if narrow else WIDE_TEXT["value"]
         try:
             left = 0.0
             for label, pct, fill, ink in parts:
@@ -324,7 +342,7 @@ def fed_odds_bar(odds: dict, out: Path, narrow: bool = False) -> Path | None:
                         edgecolor=WHITE, linewidth=1.5)
                 if width / 100 * size[0] >= 1.15:  # inside label only if it fits (inches)
                     ax.text(left + width / 2, 0, f"{label} {pct:.1f}%", ha="center",
-                            va="center", fontsize=10.5, color=ink, fontweight="bold")
+                            va="center", fontsize=fs, color=ink, fontweight="bold")
                 left += width
             n = len(parts)
             for i, (label, pct, fill, _) in enumerate(parts):
@@ -332,8 +350,7 @@ def fed_odds_bar(odds: dict, out: Path, narrow: bool = False) -> Path | None:
                 ax.scatter([x], [-0.82], marker="s", s=70, color=fill,
                            edgecolors=HAIRLINE, linewidths=0.6, clip_on=False)
                 ax.text(x + (4 if narrow else 2), -0.82, f"{label} {pct:.1f}%", va="center",
-                        ha="left",
-                        fontsize=10.5, color=INK)
+                        ha="left", fontsize=fs, color=INK)
             ax.set_xlim(0, 100)
             ax.set_ylim(-1.15, 0.45)
             ax.axis("off")

@@ -415,3 +415,10 @@ def test_picture_source_for_phones_and_site_copies_it(tmp_path):
     day = tmp_path / "site" / "issues" / "2026-10-05"
     assert (day / "fed-sm.png").read_bytes() == PNG + b"small"
     assert 'srcset="fed-sm.png"' in _read(day / "index.html")
+
+
+def test_text_sizes_by_chart_width():
+    assert chart.text_sizes(chart.RATE_FIGSIZE) == chart.WIDE_TEXT
+    assert chart.text_sizes(chart.PAIR_FIGSIZE) == chart.PAIR_TEXT
+    assert chart.text_sizes(chart.RATE_NARROW) == chart.NARROW_TEXT
+    assert chart.WIDE_TEXT["tick"] >= 11  # about 14.5px at the ~764px desktop width
