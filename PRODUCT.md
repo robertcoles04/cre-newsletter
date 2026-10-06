@@ -8,15 +8,15 @@ web
 
 ## Stack
 
-Static HTML preview rendered by Python from each issue's Markdown + fact-sheet values (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Text, Public Sans) with system fallbacks; no JavaScript. Substack applies its own theme on paste.
+A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Text, Public Sans) with system fallbacks; no JavaScript. An issue goes live when Robert adds the `approved` label to its draft GitHub Issue. Nothing is emailed yet.
 
 ## Users
 
-Commercial real estate readers from students to analysts, brokers and investors. They read it in the morning, on a phone in their inbox or at a desk, equally. Job: in about five minutes, know what moved in rates, debt, deals, REITs and news, and learn one market term.
+Commercial real estate readers from students to analysts, brokers and investors. They read it in the morning, on a phone or at a desk, equally. Job: in about five minutes, know what moved in rates, debt, deals, REITs and news, and learn one market term.
 
 ## Product Purpose
 
-CRE Blurb is a free daily commercial real estate briefing on Substack (weekdays detailed, weekends lighter). A pipeline drafts each issue; the owner (Robert, a college student) reviews and publishes. Success: readers trust the numbers and come back daily; audience first, sponsors later.
+CRE Blurb is a free daily commercial real estate briefing published on its website, creblurb.org (weekdays detailed, weekends lighter). A pipeline drafts each issue; the owner (Robert, a college student) reviews and publishes. Success: readers trust the numbers and come back daily; audience first, sponsors later.
 
 ## Positioning
 
@@ -24,7 +24,8 @@ Rates-and-debt first, with a daily "learn the market" term, and every number pul
 
 ## Capabilities and Constraints
 
-- Sections: The Brief (3 linked bullets, every day), The Numbers (rates, Fed odds, REIT strip, chart), Debt Markets (+ Distress Watch), Top Stories (+ Coffee chat line), Market Watch, Quick Hits (up to 6), AI in Real Estate (or AI Infrastructure), Term of the Day, then the Data Room; Friday Deals of the Week; Saturday Week in Review / Market Spotlight / AI Weekly; Sunday REIT Weekly / Week Ahead / Careers Corner.
+- Page order: The Brief (3 linked bullets, every day), a 3-row Market Snapshot (10-Year, SOFR, VNQ), then the stories: Debt Markets (+ Distress Watch, always a story not already in Debt Markets), Top Stories (+ 2 or 3 Coffee chat talking points), Market Watch, Quick Hits (up to 6), AI in Real Estate (or AI Infrastructure); then the full Market Summary (rates, Fed odds, REITs, charts, "What it means"), Term of the Day and the Data Room. Friday adds Deals of the Week; Saturday Week in Review / Market Spotlight / AI Weekly; Sunday REIT Weekly / Week Ahead / Careers Corner (same Brief, Snapshot, stories, Summary order).
+- A story appears at most twice per issue: its Brief line plus one full treatment.
 - Numbers may be "n/a" when a source fails; the design must make that look intentional, not broken.
 - Footer on every issue: "For informational purposes only. Not investment advice."
 
