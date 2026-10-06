@@ -31,7 +31,10 @@ from src.store import connect, get_rates, save_items, save_quotes
 REPO_ROOT = Path(__file__).resolve().parent.parent
 COLLECT_HOURS = 78  # store keeps everything; the fact sheet applies the day's lookback
 CHART_DAYS = 45
-GATE_HOURS = (5, 6)  # cron fires at 09:07 and 10:07 UTC: 5-6 AM ET in either DST state
+# Cron fires at 09:07 and 10:07 UTC (5-6 AM ET), but GitHub often starts scheduled runs
+# hours late. Accept any start from 5 AM to 5:59 PM ET; the already-delivered check
+# keeps it to one issue per day.
+GATE_HOURS = range(5, 18)
 CHART_LINE = re.compile(r"^[ \t]*!\[Chart of the Day\]\([^)\n]*\)[ \t]*\n?", re.M)
 STRAY_BRACES = re.compile(r"\{\{.*?\}\}|\{\{|\}\}", re.S)
 

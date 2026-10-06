@@ -79,9 +79,10 @@ def run(tmp_path, claude=good_claude, now=NOW_5AM, gh=lambda a: "x/1", **kw):
     return code, tmp_path / "issues" / f"{D.isoformat()}.md"
 
 
-def test_gate_skips_outside_5am(tmp_path, fakes):
-    code, path = run(tmp_path, now=datetime(2026, 10, 6, 9, 0, tzinfo=ET))
-    assert code == 0 and not path.exists()
+def test_gate_skips_before_5am_and_after_5pm(tmp_path, fakes):
+    for hour in (4, 18):
+        code, path = run(tmp_path, now=datetime(2026, 10, 6, hour, 0, tzinfo=ET))
+        assert code == 0 and not path.exists()
 
 
 def test_gate_bypassed_by_force_and_date(tmp_path, fakes):
@@ -89,12 +90,12 @@ def test_gate_bypassed_by_force_and_date(tmp_path, fakes):
     assert code == 0 and path.exists()
 
 
-def test_gate_runs_at_hour_6_and_skips_at_7(tmp_path, fakes):
-    code, path = run(tmp_path, now=datetime(2026, 10, 6, 6, 7, tzinfo=ET))
-    assert code == 0 and path.exists()
-    path.unlink()
-    code, path = run(tmp_path, now=datetime(2026, 10, 6, 7, 7, tzinfo=ET))
-    assert code == 0 and not path.exists()
+def test_gate_runs_when_github_starts_the_cron_late(tmp_path, fakes):
+    # GitHub often starts scheduled runs hours late; a 9 AM or 5 PM start still drafts.
+    for hour in (9, 17):
+        code, path = run(tmp_path, now=datetime(2026, 10, 6, hour, 7, tzinfo=ET))
+        assert code == 0 and path.exists()
+        path.unlink()
 
 
 def test_already_delivered_date_skips_without_collecting(tmp_path, fakes, monkeypatch, capsys):
