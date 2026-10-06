@@ -4,6 +4,7 @@ check_issue returns a list of {kind, detail} problems; an empty list means clean
 """
 
 import re
+from collections import Counter
 from pathlib import Path
 
 from src.cleanup import empty_headings
@@ -16,7 +17,7 @@ MAX_EM_DASHES = 0  # owner style: none (render_html.no_dashes also strips them f
 MAX_SENTENCE_WORDS = 30
 BUDGET_SLACK = 1.3
 BUDGETS = {
-    "The Brief": 60, "The Numbers": 100, "Debt Markets": 200, "Top Stories": 500,
+    "The Brief": 60, "The Numbers": 100, "Debt Markets": 200, "Top Stories": 550,
     "Quick Hits": 220, "AI in Real Estate": 80, "AI Infrastructure": 80,
     "Term of the Day": 50, "Week in Review": 200, "AI in Real Estate Weekly": 150,
     "REIT Weekly": 200, "Week Ahead": 120, "Market Watch": 200, "Market Spotlight": 150,
@@ -32,9 +33,10 @@ STORY_KEYS = ("top", "quick_hits", "debt", "ai", "week_top", "ai_week")
 
 
 def all_stories(factsheet: dict) -> list[dict]:
-    """Every story the issue may cite: the STORY_KEYS lists plus Market Watch picks."""
+    """Every story the issue may cite: the STORY_KEYS lists plus Market Watch picks, mover
+    stories and the Distress Watch pick."""
     stories = [s for key in STORY_KEYS for s in factsheet.get(key) or []]
-    extra = list((factsheet.get("markets") or {}).values())
+    extra = list((factsheet.get("markets") or {}).values()) + [factsheet.get("distress")]
     extra += list((factsheet.get("mover_news") or {}).values())
     return stories + [s for s in extra if s]
 
@@ -236,6 +238,135 @@ def _check_contradictions(sections, factsheet) -> list[dict]:
     return problems
 
 
+# ---------------------------------------------------------------- issue structure checks
+
+LINK_URL = re.compile(r"\]\((https?://[^)\s]+)\)")
+DISTRESS_LEAD = "**Distress Watch:**"
+REPEAT_MAX = 2  # a story may appear in The Brief plus one full treatment
+
+
+def _check_repeats(sections) -> list[dict]:
+    """Editor note when one story URL is linked in 3+ places, or in both Debt Markets and
+    its Distress Watch line."""
+    counts: Counter = Counter()
+    debt, distress = set(), set()
+    for name, body in sections:
+        for line in COMMENT.sub(" ", body).splitlines():
+            urls = LINK_URL.findall(line)
+            counts.update(urls)
+            if name == "Debt Markets":
+                (distress if line.strip().startswith(DISTRESS_LEAD) else debt).update(urls)
+    problems = [{"kind": "repeat_in_issue", "detail": f"linked {n} times: {url}"}
+                for url, n in counts.items() if n > REPEAT_MAX]
+    problems += [{"kind": "repeat_in_issue",
+                  "detail": f"Debt Markets and Distress Watch cite the same story: {url}"}
+                 for url in sorted(debt & distress)]
+    return problems
+
+
+COFFEE_LABEL = "**Coffee chat talking points:**"
+COFFEE_MIN, COFFEE_MAX = 2, 3
+# Clichés banned from the talking points (prompt + check).
+CLICHES = ("smart money", "worst is behind", "time will tell", "only time", "game changer",
+           "game-changer")
+ANY_NUMBER = re.compile(r"\$?\d[\d,]*(?:\.\d+)?")
+
+
+def coffee_points(md: str) -> list[str] | None:
+    """The talking-point bullets under COFFEE_LABEL, or None when the label is absent."""
+    lines = md.splitlines()
+    at = next((i for i, ln in enumerate(lines) if ln.strip().startswith(COFFEE_LABEL)), None)
+    if at is None:
+        return None
+    points: list[str] = []
+    for ln in lines[at + 1:]:
+        s = ln.strip()
+        if LIST_ITEM.match(s):
+            points.append(LIST_ITEM.sub("", s))
+        elif not s:
+            if points:
+                break
+        elif s.startswith("#") or not points:
+            break
+        else:
+            points[-1] += " " + s  # a wrapped bullet
+    return points
+
+
+def _check_coffee(md: str, factsheet: dict) -> list[dict]:
+    """Talking points: 2 or 3 bullets, each with a link and one number found in a story,
+    and no clichés."""
+    points = coffee_points(md)
+    if points is None:
+        return []
+    problems = []
+    if not COFFEE_MIN <= len(points) <= COFFEE_MAX:
+        problems.append({"kind": "coffee_chat",
+                         "detail": f"{len(points)} talking points (want {COFFEE_MIN} to {COFFEE_MAX})"})
+    corpus = _story_corpus(factsheet)
+    for p in points:
+        snippet = " ".join(_plain(p).split()[:8])
+        if not LINK_URL.search(p):
+            problems.append({"kind": "coffee_chat", "detail": f"no source link: {snippet}..."})
+        nums = ANY_NUMBER.findall(_number_text(p))
+        if not nums:
+            problems.append({"kind": "coffee_chat", "detail": f"no number: {snippet}..."})
+        for n in nums:
+            if not NUMBER.fullmatch(n) and not re.search(
+                    r"(?<![\d.])" + re.escape(n.lower()) + r"(?!\d|[.,]\d)", corpus):
+                problems.append({"kind": "unsourced_number",
+                                 "detail": f"Coffee chat talking points: {n}"})
+        low = p.lower()
+        for c in CLICHES:
+            if c in low:
+                problems.append({"kind": "coffee_chat", "detail": f"cliche {c!r}: {snippet}..."})
+    return problems
+
+
+# "What it means" must not call rates calm when a rates row moved >= 15 bps.
+CALM_WORDS = re.compile(r"\b(?:barely|little[- ]changed|hardly|unchanged|flat|steady|"
+                        r"did(?:n't| not) move|stood still)\b", re.I)
+# How "What it means" may name each big mover (fact sheet `big_movers` labels).
+MOVER_WORDS = {"10-Year Treasury": r"10-year|10Y|ten-year", "5-Year Treasury": r"5-year|5Y|five-year",
+               "2-Year Treasury": r"2-year|2Y|two-year", "10Y-2Y curve": r"curve",
+               "SOFR": r"SOFR", "Fed Funds": r"fed funds|federal funds",
+               "30-Year Mortgage": r"mortgage"}
+
+
+def _check_big_movers(sections, factsheet) -> list[dict]:
+    movers = factsheet.get("big_movers") or []
+    if not movers:
+        return []
+    body = dict(sections).get("The Numbers", "")
+    line = next((ln for ln in body.splitlines() if "What it means" in ln), "")
+    text = _plain(line)
+    missed = [m for m in movers
+              if not re.search(MOVER_WORDS.get(m, re.escape(m)), text, re.I)]
+    if CALM_WORDS.search(text) and missed:
+        return [{"kind": "big_move_ignored",
+                 "detail": f"What it means calls rates calm but {', '.join(missed)} moved 15+ bps"}]
+    return []
+
+
+def _bps(raw) -> int | None:
+    m = re.match(r"\s*([+-]?\d+)\s*bps", str(raw or ""))
+    return int(m.group(1)) if m else None
+
+
+def _check_curve(factsheet: dict) -> list[dict]:
+    """The 10Y-2Y curve change should equal the 10Y change minus the 2Y change (within
+    1 bp of rounding) when all three are from the same date."""
+    v = factsheet.get("values") or {}
+    dates = {v.get(f"{k}_DATE") for k in ("DGS10", "DGS2", "T10Y2Y")}
+    if len(dates) != 1 or None in dates:
+        return []
+    c, a, b = _bps(v.get("T10Y2Y_CHG")), _bps(v.get("DGS10_CHG")), _bps(v.get("DGS2_CHG"))
+    if None in (a, b, c) or abs(c - (a - b)) <= 1:
+        return []
+    return [{"kind": "curve_mismatch",
+             "detail": f"10Y-2Y change {c:+d} bps vs 10Y {a:+d} minus 2Y {b:+d}"}]
+
+
 def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
     problems: list[dict] = []
     sections = _sections(md)
@@ -274,6 +405,10 @@ def check_issue(md: str, factsheet: dict, banned: list[str]) -> list[dict]:
 
     problems += _check_numbers(sections, factsheet)
     problems += _check_contradictions(sections, factsheet)
+    problems += _check_repeats(sections)
+    problems += _check_coffee(md, factsheet)
+    problems += _check_big_movers(sections, factsheet)
+    problems += _check_curve(factsheet)
 
     if (factsheet.get("day_type") == "sunday" and "WEEK_AHEAD" in factsheet.get("values", {})
             and "WEEK_AHEAD" not in PLACEHOLDER.findall(md)):

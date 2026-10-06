@@ -59,7 +59,7 @@ def collect_rates(conn: sqlite3.Connection, series: list[str], api_key: str | No
                   client: httpx.Client, today: date) -> list[SourceResult]:
     """Fetch each series from FRED (45 days, longer for weekly/quarterly series).
 
-    DGS10/DGS5 also consult Treasury.gov (once per run): FRED posts a business day
+    DGS10/DGS5/DGS2/DGS30 also consult Treasury.gov (once per run): FRED posts a business day
     late, so any Treasury point newer than FRED's latest is saved too. If FRED fails,
     Treasury is the fallback. Returns one SourceResult per series (name = series id).
     """

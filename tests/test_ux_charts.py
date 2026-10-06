@@ -71,9 +71,9 @@ def test_yield_curve_without_month_ago_still_draws(tmp_path):
 
 def test_alt_text_carries_the_values():
     assert chart.reit_alt(MOVES) == ("Bar chart of today's move for 5 REITs, best to worst: "
-                                     "NNN +1.9%, EQIX +1.2%, VICI +0.0%, PLD -0.4%, UDR -1.2%.")
-    assert chart.curve_alt(CURVE, date(2026, 9, 4)) == (
-        "Line chart of Treasury yields by maturity. Today: 2Y 3.95%, 5Y 4.02%, 10Y 4.28%, "
+                                     "NNN +1.9%, EQIX +1.2%, VICI 0.0%, PLD -0.4%, UDR -1.2%.")
+    assert chart.curve_alt(CURVE, date(2026, 9, 4), date(2026, 10, 5)) == (
+        "Line chart of Treasury yields by maturity. On Oct 5: 2Y 3.95%, 5Y 4.02%, 10Y 4.28%, "
         "30Y 4.81%. A month ago (Sep 4): 2Y 4.05%, 5Y 4.00%, 10Y 4.15%, 30Y 4.70%.")
     assert chart.fed_alt(ODDS, "Oct 28") == ("Stacked bar of prediction-market odds for the "
                                              "Oct 28 Fed meeting: cut 15.0%, hold 82.5%, "
@@ -112,10 +112,51 @@ def test_curve_points_today_vs_a_month_ago(tmp_path):
     start = D - timedelta(days=40)
     for sid, base in (("DGS2", 3.9), ("DGS5", 4.0), ("DGS10", 4.2), ("DGS30", 4.7)):
         _rates(conn, sid, start, [base + i * 0.01 for i in range(41)])
-    rows, ago_date = main.curve_points(conn, D)
+    rows, ago_date, now_date = main.curve_points(conn, D)
     assert [r[0] for r in rows] == ["2Y", "5Y", "10Y", "30Y"]
     assert rows[2][1] == pytest.approx(4.6) and rows[2][2] == pytest.approx(4.3)
-    assert ago_date == D - timedelta(days=30)
+    assert ago_date == D - timedelta(days=30) and now_date == D
+
+
+def test_curve_points_use_the_latest_common_date(tmp_path):
+    """The 10Y has one more day than the 2Y: every maturity is read on the 2Y's last day,
+    never today's 10Y next to yesterday's 2Y."""
+    conn = connect(str(tmp_path / "t.db"))
+    start = D - timedelta(days=40)
+    for sid, base, n in (("DGS2", 3.9, 40), ("DGS5", 4.0, 41), ("DGS10", 4.2, 41)):
+        _rates(conn, sid, start, [base + i * 0.01 for i in range(n)])
+    rows, _, now_date = main.curve_points(conn, D)
+    assert now_date == D - timedelta(days=1)
+    assert [r[0] for r in rows] == ["2Y", "5Y", "10Y", "30Y"]
+    assert rows[2][1] == pytest.approx(4.59)  # the 10Y on the common day, not D
+    assert chart.curve_alt(rows, None, now_date).startswith(
+        f"Line chart of Treasury yields by maturity. On {now_date:%b} {now_date.day}: 2Y")
+
+
+def test_curve_points_label_a_maturity_on_another_day(tmp_path):
+    """No shared date at all: each maturity keeps its own latest and an older one is
+    labeled with its date."""
+    conn = connect(str(tmp_path / "t.db"))
+    _rates(conn, "DGS10", D - timedelta(days=10), [4.2, 4.3], step=10)
+    _rates(conn, "DGS2", D - timedelta(days=5), [3.9])
+    _rates(conn, "DGS5", D - timedelta(days=3), [4.0])
+    rows, _, now_date = main.curve_points(conn, D)
+    assert now_date == D
+    labels = [r[0] for r in rows]
+    assert labels[2] == "10Y" and labels[0].startswith("2Y (") and labels[1].startswith("5Y (")
+
+
+def test_yield_curve_key_names_the_date(tmp_path, monkeypatch):
+    words = []
+    real = chart.plt.Axes.text
+
+    def spy(self, x, y, s, *a, **k):
+        words.append(s)
+        return real(self, x, y, s, *a, **k)
+
+    monkeypatch.setattr(chart.plt.Axes, "text", spy)
+    assert is_png(chart.yield_curve(CURVE, tmp_path / "c.png", date(2026, 10, 5)))
+    assert "Oct 5" in words and "Today" not in words
 
 
 def _factsheet(values=None, moves=MOVES):
@@ -261,14 +302,15 @@ def test_heading_icons_are_authored_svgs():
     assert 'width="18" height="18"' in html
 
 
-def test_jump_list_after_the_brief_links_to_section_ids():
+def test_jump_list_after_the_snapshot_links_to_section_ids():
     html = page()
     toc = html.split('<nav class="toc"')[1].split("</nav>")[0]
-    assert html.index('id="the-brief"') < html.index('<nav class="toc"') < html.index(
-        'id="summary-h"')
+    assert (html.index('id="the-brief"') < html.index('id="snapshot-h"')
+            < html.index('<nav class="toc"') < html.index('id="top-stories"')
+            < html.index('id="summary-h"'))
     links = re.findall(r'href="#([^"]+)">([^<]+)<', toc)
-    assert links == [("summary-h", "Market Summary"), ("top-stories", "Top Stories"),
-                     ("market-watch", "Market Watch"), ("term-h", "Term of the Day"),
+    assert links == [("top-stories", "Top Stories"), ("market-watch", "Market Watch"),
+                     ("summary-h", "Market Summary"), ("term-h", "Term of the Day"),
                      ("dataroom-h", "Data Room")]
     for anchor, _ in links:
         assert f'id="{anchor}"' in html

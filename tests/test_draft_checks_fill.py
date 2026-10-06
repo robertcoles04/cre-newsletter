@@ -281,8 +281,8 @@ def test_templates_structure():
         assert names <= KNOWN, (day, names - KNOWN)
         if day in ("weekday", "friday"):
             assert "![Chart of the Day](img/{{DATE}}-chart.png)" in text
-            assert "**Coffee chat line:**" in text
-            assert text.index("**Coffee chat line:**") < text.index("## Market Watch")
+            assert "**Coffee chat talking points:**" in text
+            assert text.index("**Coffee chat talking points:**") < text.index("## Market Watch")
             assert "Best: {{REIT_UP}}. Worst: {{REIT_DOWN}}." in text
             assert "{{SPREAD_10Y}} vs. the 10Y" in text and "Up to 6 items" in text
             assert {"DGS10", "DGS10_CHG", "SOFR", "FED_TOP", "VNQ"} <= names

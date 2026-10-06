@@ -24,6 +24,17 @@ FEED_ITEMS = 20
 DESC_MAX = 155
 CURRENT = ' aria-current="page"'  # marks the nav link for the page being shown
 REPO_ISSUES = "https://github.com/robertcoles04/cre-newsletter/issues"
+RETURN_LINE = "New issue every morning at"  # + the site link, at the end of every issue
+HOME_NOTE = "Free. New issue every weekday morning, lighter on weekends."
+HOME_NOTE_HTML = '<p class="site-note">' + HOME_NOTE + "</p>"
+# Favicon: a navy rounded square with a gold serif "CB" (Offering Memo palette, no files
+# to draw by hand; written to /favicon.svg at build time).
+FAVICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+    '<rect width="64" height="64" rx="12" fill="#0E2A47"/>'
+    '<text x="32" y="43" text-anchor="middle" font-family="Libre Caslon Text, Georgia, '
+    'Times New Roman, serif" font-size="30" font-weight="700" fill="#B08D3C">CB</text>'
+    '</svg>\n')
 
 SITE_CSS = """<style>
 .site-nav { display: flex; flex-wrap: wrap; gap: 4px 32px; padding: 16px 48px;
@@ -32,7 +43,11 @@ SITE_CSS = """<style>
 .site-nav a:hover { text-decoration: underline; text-decoration-thickness: 1px; }
 .site-nav a[aria-current="page"] { font-weight: 600; text-decoration: underline;
   text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.site-note { margin: 0; padding: 10px 48px 0; color: var(--muted); font-size: 15px;
+  max-width: none; }
+.issue-list .headline { color: var(--ink); }
 @media (max-width: 600px) {
+  .site-note { padding: 8px 16px 0; }
   .site-nav { padding: 0 16px; gap: 0 24px; }
   .site-nav a { display: inline-flex; align-items: center; min-height: 44px; }
 }
@@ -98,6 +113,24 @@ def describe(md: str, day: date) -> str:
     return f"Daily commercial real estate briefing for {day:%B} {day.day}, {day.year}."
 
 
+_H3 = re.compile(r"^### +(.+?)\s*$", re.M)
+
+
+def headline(md: str, day: date) -> str:
+    """The issue's top headline for the archive: the first "### " heading under Top
+    Stories, else the describe() sentence."""
+    md = md.replace("\r\n", "\n")
+    parts = _SECTION.split(md)
+    for heading, body in zip(parts[1::2], parts[2::2]):
+        if heading == "Top Stories":
+            m = _H3.search(body)
+            if m:
+                text = re.sub(r"\*+", "", _LINK.sub(r"\1", m.group(1))).strip()
+                if text:
+                    return text
+    return describe(md, day)
+
+
 def _nav(p: str, current: str | None = None) -> str:
     """Site nav. `current` (home, archive, about) gets aria-current="page"."""
     p = _a(p)
@@ -124,6 +157,7 @@ def _head(title: str, desc: str, url: str, og_type: str, image: str | None = Non
           image_size: tuple[int, int] | None = None) -> str:
     tags = [f'<meta name="description" content="{_a(desc)}">',
             f'<link rel="canonical" href="{_a(url)}">',
+            f'<link rel="icon" type="image/svg+xml" href="{_a(site_url)}favicon.svg">',
             f'<link rel="alternate" type="application/rss+xml" title="{_a(SITE_NAME)}" '
             f'href="{_a(site_url)}feed.xml">',
             f'<meta property="og:title" content="{_a(title)}">',
@@ -213,7 +247,8 @@ def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                  image_alt=og["alt"] if og else None,
                  image_size=png_size(og["file"]) if og else None)
     return render_issue_html(issue["md"], issue["factsheet"], [], None, charts=charts,
-                             head_extra=head, nav=_nav(prefix, current),
+                             head_extra=head,
+                             nav=_nav(prefix, current) + (HOME_NOTE_HTML if current == "home" else ""),
                              extra_body=extra_body, title=title)
 
 
@@ -233,10 +268,38 @@ def issue_nav(issues: list[dict], idx: int, prefix: str) -> str:
     return f'<nav class="issue-nav" aria-label="Issues">{"".join(links)}</nav>'
 
 
-def _link_list(issues: list[dict], prefix: str) -> str:
-    items = "".join(f'<li><a href="{_a(prefix)}issues/{i["date"]}/">{_label(i["day"])}</a></li>'
-                    for i in issues)
-    return f'<ul class="issue-list">{items}</ul>'
+def _link_list(issues: list[dict], prefix: str, headlines: bool = False) -> str:
+    """Issue links by date; `headlines` adds each issue's top headline after the date."""
+    def item(i: dict) -> str:
+        link = f'<a href="{_a(prefix)}issues/{i["date"]}/">{_label(i["day"])}</a>'
+        if headlines:
+            text = headline(i["md"], i["day"]).rstrip(".")
+            link += f'. <span class="headline">{escape(text)}</span>'
+        return f"<li>{link}</li>"
+    return f'<ul class="issue-list">{"".join(item(i) for i in issues)}</ul>'
+
+
+def return_line(site_url: str) -> str:
+    """The quiet "come back tomorrow" line at the end of every issue."""
+    host = re.sub(r"^https?://", "", site_url).rstrip("/")
+    return f'<p class="return">{RETURN_LINE} <a href="{_a(site_url)}">{escape(host)}</a>.</p>'
+
+
+def robots_txt(site_url: str = SITE_URL) -> str:
+    return f"User-agent: *\nAllow: /\n\nSitemap: {site_url}sitemap.xml\n"
+
+
+def sitemap_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
+    """Home, archive, about and every issue page."""
+    urls = [(site_url, issues[0]["date"] if issues else None),
+            (f"{site_url}archive/", issues[0]["date"] if issues else None),
+            (f"{site_url}about/", None)]
+    urls += [(f"{site_url}issues/{i['date']}/", i["date"]) for i in issues]
+    rows = "".join(f"<url><loc>{xml_escape(u)}</loc>"
+                   + (f"<lastmod>{d}</lastmod>" if d else "") + "</url>" for u, d in urls)
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + rows + "</urlset>\n")
 
 
 
@@ -248,7 +311,8 @@ def _archive(issues: list[dict], site_url: str) -> str:
         for i in issues:
             months.setdefault(f"{i['day']:%B} {i['day'].year}", []).append(i)
         body = "<h1>Archive</h1>" + "".join(
-            f"<h2>{m}</h2>{_link_list(items, '../')}" for m, items in months.items())
+            f"<h2>{m}</h2>{_link_list(items, '../', headlines=True)}"
+            for m, items in months.items())
     head = _head(f"{SITE_NAME} | Archive", "Every published issue of CRE Blurb.",
                  f"{site_url}archive/", "website", site_url=site_url)
     return render_page(f"{SITE_NAME} | Archive", body, head_extra=head,
@@ -295,7 +359,8 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
             if c.get("sm"):
                 shutil.copyfile(c["sm"]["file"], dest / f"{name}-sm.png")
         _write(dest / "index.html", _issue_page(
-            i, "../../", "", site_url, extra_body=issue_nav(issues, idx, "../../")))
+            i, "../../", "", site_url,
+            extra_body=return_line(site_url) + issue_nav(issues, idx, "../../")))
 
     if issues:
         newest = issues[0]
@@ -303,14 +368,15 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
                   f"{_link_list(issues[:RECENT], '')}</section>"
                   if len(issues) >= RECENT_MIN else "")
         home = _issue_page(newest, "", f"issues/{newest['date']}/", site_url,
-                           extra_body=recent + issue_nav(issues, 0, ""), current="home")
+                           extra_body=return_line(site_url) + recent + issue_nav(issues, 0, ""),
+                           current="home")
     else:
         print("no dates published yet: building the placeholder home page")
         desc = "A free daily commercial real estate briefing."
         home = render_page(SITE_NAME, "<p>The first issue of CRE Blurb is coming soon.</p>",
                            head_extra=_head(SITE_NAME, desc, site_url, "website",
                                             site_url=site_url),
-                           nav=_nav("", "home"))
+                           nav=_nav("", "home") + HOME_NOTE_HTML)
     _write(out / "index.html", home)
     _write(out / "feed.xml", feed_xml(issues, site_url))
     _write(out / "archive" / "index.html", _archive(issues, site_url))
@@ -320,12 +386,15 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
                          f"{site_url}about/", "website", site_url=site_url)))
     _write(out / "404.html", render_page(
         f"{SITE_NAME} | Page not found",
-        f"<h1>Page not found</h1><p>Page not found. Today's issue is on the home page.</p>"
+        "<h1>Page not found</h1><p>That page doesn't exist. Today's issue is on the home page.</p>"
         f'<p><a href="{_a(site_url)}">Home</a> &middot; '
         f'<a href="{_a(site_url)}archive/">Archive</a></p>',
         nav=_nav(site_url),
         head_extra=_head(f"{SITE_NAME} | Page not found", "Page not found.",
                          f"{site_url}404.html", "website", site_url=site_url)))
+    _write(out / "favicon.svg", FAVICON_SVG)
+    _write(out / "robots.txt", robots_txt(site_url))
+    _write(out / "sitemap.xml", sitemap_xml(issues, site_url))
     return [i["date"] for i in issues]
 
 

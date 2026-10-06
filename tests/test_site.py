@@ -254,8 +254,9 @@ def test_feed_caps_at_20_items_and_escapes():
 def test_404_copy(built):
     _, out, _ = built
     page = _read(out / "404.html")
-    assert "Page not found. Today&#x27;s issue is on the home page." in page or \
-        "Page not found. Today's issue is on the home page." in page
+    assert "<p>That page doesn't exist. Today's issue is on the home page.</p>" in page
+    assert page.split('<main id="content">')[1].count("Page not found") == 1  # heading only
+    assert '<link rel="icon" type="image/svg+xml"' in page
 
 
 def test_describe_uses_the_brief_first_bullet():

@@ -130,6 +130,25 @@ source_names:
   therealdeal.com: The Real Deal
   bisnow.com: Bisnow
   cpexecutive.com: CPE
+  credaily: CRE Daily
+  credaily.com: CRE Daily
+  cre daily: CRE Daily
+  aol.com: AOL
+  bostonrealestatetimes.com: Boston Real Estate Times
+  ocregister.com: Orange County Register
+  pei-privaterealestate.com: PERE
+  moneywise.com: Moneywise
+  financialexpress.com: Financial Express
+  thedailystar.net: The Daily Star
+  "| florida realtors": Florida Realtors
+  businesscloud.co.uk: BusinessCloud
+  openpr.com: openPR
+  pulse2.com: Pulse 2.0
+  telanganatribune.com: Telangana Tribune
+  ntnews.com.au: NT News
+  mb.com.ph: Manila Bulletin
+  chosun.com: The Chosun Ilbo
+  yourvalley.net: Your Valley
 
 lookback_hours:
   default: 30

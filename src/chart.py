@@ -85,7 +85,9 @@ def _day(d: date) -> str:
 
 
 def _pct(v: float) -> str:
-    return f"{round(v, 1) + 0.0:+.1f}%"
+    """"+1.2%" / "-0.4%"; a move that rounds to zero has no sign: "0.0%"."""
+    r = round(v, 1) + 0.0
+    return "0.0%" if r == 0 else f"{r:+.1f}%"
 
 
 def size_px(figsize: tuple[float, float]) -> tuple[int, int]:
@@ -243,10 +245,11 @@ def curve_rows(curve: Curve) -> Curve:
     return [(lbl, now, ago) for lbl, now, ago in curve or [] if now is not None]
 
 
-def yield_curve(curve: Curve, out: Path) -> Path | None:
-    """Treasury yields by maturity: today (navy, labeled) vs about a month ago (navy
-    tint). `curve` is in maturity order. None below CURVE_MIN maturities with today's
-    yield."""
+def yield_curve(curve: Curve, out: Path, now_date: date | None = None) -> Path | None:
+    """Treasury yields by maturity: the curve date (navy, labeled) vs about a month ago
+    (navy tint). `curve` is in maturity order. The key names the curve's actual date
+    ("Oct 5"), never "Today", so an older close is not passed off as today's. None below
+    CURVE_MIN maturities with a yield."""
     rows = curve_rows(curve)
     if len(rows) < CURVE_MIN:
         return None
@@ -269,7 +272,7 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
                             color=INK, fontweight="bold", zorder=4,
                             bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
             # Key above the plot: a short line swatch + word for each series, no legend box.
-            keys = [("Today", NAVY, INK)] + ([("A month ago", NAVY_TINT, MUTED)]
+            keys = [(_day(now_date) if now_date else "Latest", NAVY, INK)] + ([("A month ago", NAVY_TINT, MUTED)]
                                              if len(ago) >= 2 else [])
             x0 = 0.0
             for word, line, ink in keys:
@@ -277,8 +280,9 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
                         linewidth=2.2, clip_on=False, solid_capstyle="round")
                 ax.text(x0 + 0.08, 1.1, word, transform=ax.transAxes, color=ink,
                         fontsize=PAIR_TEXT["tick"], va="center")
-                x0 += 0.36  # room for the swatch and "Today" at this figure width
-            ax.set_xticks(xs, [r[0] for r in rows])
+                x0 += 0.36  # room for the swatch and "Oct 5" at this figure width
+            # A maturity on another date ("2Y (Oct 2)") shows its date under the label.
+            ax.set_xticks(xs, [r[0].replace(" (", "\n(") for r in rows])
             every = now + [a[1] for a in ago]
             lo, hi = min(every), max(every)
             pad = max((hi - lo) * 0.35, 0.12)
@@ -292,10 +296,11 @@ def yield_curve(curve: Curve, out: Path) -> Path | None:
             plt.close(fig)
 
 
-def curve_alt(curve: Curve, ago_date: date | None = None) -> str:
+def curve_alt(curve: Curve, ago_date: date | None = None, now_date: date | None = None) -> str:
     rows = curve_rows(curve)
     now = ", ".join(f"{lbl} {v:.2f}%" for lbl, v, _ in rows)
-    text = f"Line chart of Treasury yields by maturity. Today: {now}."
+    when = f"On {_day(now_date)}" if now_date else "Latest"
+    text = f"Line chart of Treasury yields by maturity. {when}: {now}."
     ago = [(lbl, a) for lbl, _, a in rows if a is not None]
     if ago:
         when = f" ({_day(ago_date)})" if ago_date else ""

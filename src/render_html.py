@@ -88,6 +88,17 @@ HINTS = {
 HINT_VALUE = re.compile(r"^\{(\w+)\}$")
 LABEL_ASOF = re.compile(r"\s*\(\{(\w+)\}\)")
 TICKER_MOVE = {"REIT_UP", "REIT_DOWN"}  # values like "NNN +1.9%": ticker, then a move
+# Color means good/bad only for prices (VNQ, REIT movers). Rates, Fed and Data Room rows
+# show direction in navy: a rising rate is not simply "good", so no green/red there.
+NEUTRAL_GROUPS = {"Rates", "Federal Reserve", "Credit"}
+NEUTRAL_KEYS = {k for title, rows in SUMMARY_GROUPS if title in NEUTRAL_GROUPS
+                for _, k, _ in rows}
+# Shown as n/a (not dropped) when the odds feed is missing but the meeting date is known.
+FED_ODDS = ("FED_CUT", "FED_HOLD", "FED_HIKE")
+SAME_TICKER = re.compile(r"\b([A-Z][A-Z.]{0,5}) \(\1\)")  # "UDR (UDR)" -> "UDR"
+# The compact Market Snapshot right after The Brief: (label, value key, change key).
+SNAPSHOT_ROWS = (("10-Year Treasury", "DGS10", "DGS10_CHG"), ("SOFR", "SOFR", "SOFR_CHG"),
+                 ("Real estate stocks (VNQ)", "VNQ", "VNQ_CHG"))
 
 EDITIONS = {"weekday": "Daily Edition", "friday": "Daily Edition",
             "saturday": "Weekend Edition", "sunday": "Weekend Edition"}
@@ -95,7 +106,7 @@ EDITIONS = {"weekday": "Daily Edition", "friday": "Daily Edition",
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 CHART_IMG = re.compile(r"^[ \t]*!\[Chart of the Day\]\([^)\n]*\)[ \t]*$", re.M)
 SECTION = re.compile(r"^## +(.+?)\s*$", re.M)
-MOVE = re.compile(r"^(.*?)\s*([+-]\d[\d.,]*\s*(?:%|bps)|unch)$")
+MOVE = re.compile(r"^(.*?)\s+([+-]?\d[\d.,]*\s*(?:%|bps)|unch)$")  # "0.0%" has no sign
 
 UP_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" '
           'focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>')
@@ -128,6 +139,8 @@ def hint_for(key: str, values: dict) -> str:
 
 
 def has_row(key: str, chg_key: str | None, values: dict) -> bool:
+    if key in FED_ODDS and not _is_na(values.get("FED_MEETING")):
+        return True  # meeting date known: all three odds rows show, n/a when missing
     return key in values or (chg_key is not None and chg_key in values)
 
 
@@ -176,15 +189,17 @@ def _value(v: str) -> str:
     return GHOST if _is_na(v) else _esc(v)
 
 
-def _change(chg: str | None) -> str:
-    """A change like '+4 bps', '-1.0%' or 'unch' as a marked span. Empty when n/a."""
+def _change(chg: str | None, neutral: bool = False) -> str:
+    """A change like '+4 bps', '-1.0%' or 'unch' as a marked span. Empty when n/a.
+    `neutral` (rates rows) keeps the triangle and sign but drops the green/red."""
     if _is_na(chg):
         return ""
     c = chg.strip()
+    tone = " rate" if neutral else ""
     if c.startswith("+") and re.search(r"[1-9]", c):
-        return f'<span class="chg up">{UP_SVG}{_esc(c)}</span>'
+        return f'<span class="chg up{tone}">{UP_SVG}{_esc(c)}</span>'
     if c.startswith("-") and re.search(r"[1-9]", c):
-        return f'<span class="chg down">{DOWN_SVG}{_esc(c)}</span>'
+        return f'<span class="chg down{tone}">{DOWN_SVG}{_esc(c)}</span>'
     return f'<span class="chg unch">{_esc(c)}</span>'
 
 
@@ -201,8 +216,8 @@ def _row(label: str, key: str, chg_key: str | None, values: dict, *, tag: str = 
             val, chg = m.group(1), m.group(2)
         name = values.get(f"{key}_NAME")  # "NNN REIT (NNN)" instead of the bare ticker
         if not _is_na(name):
-            val = name
-    change = _change(chg)
+            val = SAME_TICKER.sub(r"\1", name)  # never "UDR (UDR)"
+    change = _change(chg, neutral=key in NEUTRAL_KEYS)
     if quiet and change:
         change = f'<span class="chg unch">{_esc(chg.strip())}</span>'
     if _is_na(val) and not _is_na(chg):  # change only (e.g. CMBS delinquency)
@@ -351,6 +366,20 @@ def market_summary(values: dict, charts, prose_html: str) -> str:
     return "\n".join(parts)
 
 
+def market_snapshot(values: dict) -> str:
+    """The compact Market Snapshot after The Brief: 10-Year, SOFR and VNQ in the same row
+    style, plus a link down to the full Market Summary. "" when none of them has data."""
+    if not any(not _is_na(values.get(k)) for _, k, _ in SNAPSHOT_ROWS):
+        return ""
+    cells = "".join(_row(lbl, k, ck, values) for lbl, k, ck in SNAPSHOT_ROWS)
+    asof = values.get("RATES_ASOF")
+    when = f"Rates as of {_esc(asof)} close. " if not _is_na(asof) else ""
+    return ('<section class="snapshot" aria-labelledby="snapshot-h">'
+            '<h2 id="snapshot-h">Market Snapshot</h2>'
+            f'<dl>{cells}</dl><p class="caption">{when}'
+            '<a href="#summary-h">Full market data below</a></p></section>')
+
+
 def _md(text: str) -> str:
     return markdown.markdown(text, extensions=["sane_lists"], output_format="html")
 
@@ -387,11 +416,13 @@ WORDS_PER_MINUTE = 230
 LINK_TARGET = re.compile(r"\]\([^)\n]*\)")
 
 
-def read_minutes(md: str) -> int:
-    """Reading time: words / 230, rounded, at least 1. Link targets are not words."""
-    text = LINK_TARGET.sub("]", md)
+def read_minutes(text: str) -> int:
+    """Reading time from the rendered page body: HTML tags stripped (so tables, hints and
+    captions count the same everywhere), words / 230, rounded half up, at least 1.
+    Markdown link targets are not words either."""
+    text = html.unescape(TAGS.sub(" ", LINK_TARGET.sub("]", text)))
     words = sum(1 for tok in text.split() if re.search(r"\w", tok))
-    return max(1, round(words / WORDS_PER_MINUTE))
+    return max(1, int(words / WORDS_PER_MINUTE + 0.5))
 
 
 TAGLINE = "The daily commercial real estate briefing for students and young professionals."
@@ -452,7 +483,7 @@ H2_PLAIN = re.compile(r"<h2>(.*?)</h2>", re.S)
 H3_PLAIN = re.compile(r"<h3>(.*?)</h3>", re.S)
 H2_ANY = re.compile(r'<h2 id="([^"]+)"[^>]*>(.*?)</h2>', re.S)
 TAGS = re.compile(r"<[^>]+>")
-TOC_SKIP = {"The Brief"}
+TOC_SKIP = {"The Brief", "Market Snapshot"}  # both sit above the list
 TOC_MIN = 3
 
 
@@ -504,12 +535,27 @@ LIST_ITEM = re.compile(r"<li>(.*?)</li>", re.S)
 INNER_P = re.compile(r"^\s*<p>(.*)</p>\s*$", re.S)
 
 
+COFFEE_POINTS = re.compile(
+    r"<p><strong>Coffee chat talking points:</strong>\s*</p>\s*<ul>\s*(.*?)\s*</ul>", re.S)
+COFFEE_LABEL_MD = re.compile(r"^(\*\*Coffee chat talking points:\*\*)[ \t]*\n(?=[ \t]*[-*+] )",
+                             re.M)
+
+
 def _pull_quote(m: re.Match) -> str:
-    """The Coffee chat line as a pull quote: a small label over serif italic text."""
+    """The older single Coffee chat line (issues before Oct 7, 2026) as a pull quote."""
     return ('<aside class="pull" aria-label="Coffee chat line">'
             '<p class="pull-label">Coffee chat line</p>'
             '<p class="pull-note">A one-line take you can use in networking conversations</p>'
             f'<p class="pull-text">{m.group(1).strip()}</p></aside>')
+
+
+def _talking_points(m: re.Match) -> str:
+    """Coffee chat talking points: the same pull-quote component holding a serif italic
+    list of 2 or 3 sentences."""
+    return ('<aside class="pull" aria-label="Coffee chat talking points">'
+            '<p class="pull-label">Coffee chat talking points</p>'
+            '<p class="pull-note">Talking points you can use in networking conversations</p>'
+            f'<ul class="pull-list">{m.group(1)}</ul></aside>')
 
 
 def _list_to_paragraphs(m: re.Match) -> str:
@@ -536,6 +582,7 @@ def style_section(section_html: str, heading: str) -> str:
     if heading == "Market Watch":
         section_html = LIST.sub(_list_to_paragraphs, section_html)
     section_html = COFFEE.sub(_pull_quote, section_html)
+    section_html = COFFEE_POINTS.sub(_talking_points, section_html)
     section_html = WHY.sub(f'<p class="why">{WHY_LEAD}', section_html)
     cls = ' class="brief"' if heading == "The Brief" else ""
     return f"<section{cls}>{section_html}</section>"
@@ -557,6 +604,8 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
     md = "\n".join(ln for ln in md.splitlines() if ln.strip() != FOOTER)
     md = md.replace("{{", "").replace("}}", "")
     md = tidy(no_dashes(tame_urls(md)))
+    md = SAME_TICKER.sub(r"\1", md)  # "Why UDR (UDR) moved" -> "Why UDR moved"
+    md = COFFEE_LABEL_MD.sub(r"\1\n\n", md)  # the talking-point bullets parse as a list
     all_charts = {**as_charts(chart_rel), **(charts or {})}
 
     values = (factsheet or {}).get("values") or {}
@@ -564,44 +613,41 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
         run_date = date.fromisoformat(factsheet["date"])
     day_type = (factsheet or {}).get("day_type")
 
+    # Reading order (every edition): The Brief, a 3-row Market Snapshot, the "In this issue"
+    # list, the story sections in template order, then the full Market Summary (with The
+    # Numbers' prose and the charts), Term of the Day and the Data Room.
     pre, sections = _split(md)
-    used = {"summary-h", "dataroom-h", "term-h", "notes-h", "toc-h", "content", "top"}
-    body = [_decorate(_md(pre), used)] if pre.strip() else []
-    summary_done = factsheet is None
-    room = data_room(values, run_date) if factsheet is not None else ""
-    brief_at = None  # index in body just after The Brief
+    used = {"summary-h", "snapshot-h", "dataroom-h", "term-h", "notes-h", "toc-h",
+            "content", "top"}
+    head = [_decorate(_md(pre), used)] if pre.strip() else []
+    brief, stories, terms = [], [], []
+    numbers_prose = ""
     for heading, text in sections:
-        if heading == "The Numbers" and not summary_done:
-            body.append(market_summary(values, all_charts, _numbers_prose(text)))
-            summary_done = True
-        elif heading == "The Numbers":
-            continue
+        if heading == "The Numbers":
+            numbers_prose = numbers_prose or _numbers_prose(text)
         elif heading == "Term of the Day":
-            body.append(_term(text))
-            if room:  # the Data Room follows Term of the Day
-                body.append(room)
-                room = ""
+            terms.append(_term(text))
         else:
-            body.append(style_section(_decorate(_md(f"## {heading}{text}"), used,
-                                                icons_h3=heading == "Market Watch"), heading))
-            if heading == "The Brief" and brief_at is None:
-                brief_at = len(body)
-    if not summary_done:  # weekend issues have no Numbers section: lead with the summary
-        at = brief_at if brief_at is not None else (1 if pre.strip() else 0)
-        body.insert(at, market_summary(values, all_charts, ""))
-    if room:  # no Term of the Day: the Data Room goes last
-        body.append(room)
-    toc = jump_list("\n".join(body))
-    if toc:  # right after The Brief, else at the top
-        body.insert(brief_at if brief_at is not None else (1 if pre.strip() else 0), toc)
+            html_ = style_section(_decorate(_md(f"## {heading}{text}"), used,
+                                            icons_h3=heading == "Market Watch"), heading)
+            (brief if heading == "The Brief" and not brief else stories).append(html_)
+    has_data = factsheet is not None
+    snapshot = market_snapshot(values) if has_data else ""
+    summary = market_summary(values, all_charts, numbers_prose) if has_data else ""
+    room = data_room(values, run_date) if has_data else ""
+    lead = head + brief + ([snapshot] if snapshot else [])
+    rest = stories + [x for x in (summary, *terms, room) if x]
+    toc = jump_list("\n".join(lead + rest))
+    body = lead + ([toc] if toc else []) + rest
+    body_html = _first_eager("\n".join(body))
 
     if title is None:
         title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
     return PAGE.format(
         title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
-        cover=_cover(run_date, day_type, read_minutes(md)), nav=_slot(nav),
+        cover=_cover(run_date, day_type, read_minutes(body_html)), nav=_slot(nav),
         notes=_notes(problems),
-        body=_first_eager("\n".join(body)), extra_body=_slot(extra_body),
+        body=body_html, extra_body=_slot(extra_body),
         footer=_esc(FOOTER))
 
 
@@ -678,11 +724,12 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
 .chg.up { color: var(--up); }
 .chg.down { color: var(--down); }
 .chg.unch { color: var(--muted); }
+.chg.rate { color: var(--navy); }  /* rates: direction only, no good/bad color */
 .tri { flex: none; }
-.na { color: var(--muted); font-style: italic; cursor: help; }
+.na { color: var(--muted); font-style: italic; }
 .caption { color: var(--muted); font-size: 15px; margin: 14px 0 0; }
 .data-room .intro { color: var(--muted); font-size: 15px; }
-.tag { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em;
+.tag { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .06em;
   text-transform: uppercase; margin-left: 4px; }
 .takeaway { margin-top: 24px; }
 .chart { margin: 32px 0 0; min-width: 0; }
@@ -704,8 +751,17 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
   border-bottom: 1px solid var(--gold); }
 .pull-label { margin: 0 0 2px; }
 .pull-note { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
-.pull-text { font-family: var(--serif); font-style: italic; font-size: 1.25rem;
+.pull-text, .pull-list { font-family: var(--serif); font-style: italic; font-size: 1.25rem;
   line-height: 1.5; color: var(--navy); margin: 0; max-width: 60ch; }
+.pull-list { padding-left: 1.2em; }
+.pull-list li { margin: 0 0 .6em; }
+.pull-list li:last-child { margin-bottom: 0; }
+.snapshot { margin: 2.4rem 0 0; }
+.snapshot h2 { margin-top: 0; }
+.snapshot dl { margin: 0; }
+.snapshot .caption a { white-space: nowrap; }
+.return { color: var(--muted); font-size: 15px; margin: 3rem 0 0; }
+.return + .issue-nav, .return + section { margin-top: 1.2rem; }
 .icon { flex: none; color: var(--navy); }
 h2 .icon, h3 .icon { display: inline-block; vertical-align: -0.12em; margin-right: 10px; }
 h3 .icon { vertical-align: -0.18em; }
@@ -749,7 +805,7 @@ footer p { margin: 0 0 4px; }
   .brief, .term, .data-room { padding: 4px 16px 16px; }
   h2 { font-size: 1.5rem; margin-top: 2.5rem; }
   h3 { font-size: 1.1rem; }
-  .pull-text { font-size: 1.15rem; }
+  .pull-text, .pull-list { font-size: 1.15rem; }
   .hint { font-size: 14px; }
   .row { gap: 12px; }
   /* Value over change, right-aligned, so long values never wrap awkwardly. */

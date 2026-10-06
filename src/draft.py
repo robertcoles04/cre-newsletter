@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from src.checks import BUDGETS, FOOTER, load_banned
+from src.checks import BUDGETS, CLICHES, FOOTER, load_banned
 from src.llm import MODEL_WRITE, run_claude
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 def _read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf8")
 
+
+CLICHE_LIST = ", ".join(f'"{c}"' for c in CLICHES)
 
 # House tone for every explanation sentence (Quick Hits, Market Watch, The Brief...).
 TONE = ("in plain English for a smart college student new to CRE: define any term once, "
@@ -62,19 +64,28 @@ Rules:
 - Never use em dashes or en dashes; use commas, periods, colons or parentheses instead.
 - Tone for every explanation: {TONE}.
 - The Brief (first section): exactly 3 bullets, about 15 words each, no numbers, each
-  ending with the [source](url) link of the story it summarizes.
+  ending with the [source](url) link of the story it summarizes. Those 3 stories still get
+  their one full treatment below, but never retell a Brief line word for word.
+- No story repeated inside the issue: a story may appear at most twice (its Brief line plus
+  ONE full treatment). Never give a story a second full treatment in another section.
 - What it means (The Numbers): scale it to the fact sheet's `move_size` for the 10Y. If it
   is "unchanged" or "small", say rates were little changed and explain what the level
   means for borrowers; do not claim a cap-rate impact. Only a "notable" move gets deal
-  math (borrowing costs, refi pressure, cap rates).
-- Coffee chat line (after Top Stories): one sentence in the reader's own voice, a takeaway
-  they could say in an interview or coffee chat, tied to one linked story and ending with
-  its [source](url). No numbers.
+  math (borrowing costs, refi pressure, cap rates). If the fact sheet's `big_movers` list
+  is not empty, never say rates "barely moved" or were "little changed" overall: name
+  those rows (for example "the 30-year mortgage rate jumped") and say why it matters.
+- Coffee chat talking points (after Top Stories): the line "**Coffee chat talking
+  points:**" then 2 or 3 bullets. Each bullet is ONE specific sentence a student could
+  say to a broker, with exactly ONE concrete number that appears in a linked story's title
+  or summary, ending with that story's [source](url). Synthesize across stories (connect
+  two items, or tie a story to the market); never just restate one story. No clichés,
+  including: {CLICHE_LIST}.
 - Quick Hits: at most 6 bullets. Each is the one-line news item with its [source](url)
   link, then ONE explanation sentence (see Tone). No numbers in that sentence.
 - Debt Markets: skip novelty-angle stories (sports, playoffs, celebrities). The Distress
-  Watch line must restate what a linked story reports, with its link; never assert a
-  trend that no story supports.
+  Watch line uses ONLY the fact sheet's `distress` story (never a story from `debt` or
+  `top`): restate what it reports, with its link; never assert a trend that no story
+  supports. If `distress` is null, omit the Distress Watch line.
 - AI in Real Estate: pick a story about an AI tool or use case (underwriting, lease
   abstraction, valuation, property management, leasing chatbots, proptech launches,
   brokerages adopting AI) before data center or power-grid news, and say in plain English
@@ -139,9 +150,15 @@ Rubric:
   sentence. No numbers in that sentence.
 - What it means: if the fact sheet's `move_size` is "unchanged" or "small", it must not
   claim a cap-rate impact; it says rates were little changed and what the level means.
-- Coffee chat line: one sentence, the reader's voice, no numbers, ends with a story link.
-- Debt Markets: cut novelty-angle stories; the Distress Watch line must restate a linked
-  story, never an unsupported trend.
+  If `big_movers` is not empty, it must not call rates calm; it names those rows.
+- Coffee chat talking points: 2 or 3 bullets, each one specific sentence with ONE number
+  found in a linked story, ending with that story's link; they synthesize across stories
+  rather than restate one. Cut clichés ({CLICHE_LIST}).
+- No story repeated: a story may appear in its Brief line plus ONE full treatment only.
+  Cut any third mention, and never retell a Brief line word for word.
+- Debt Markets: cut novelty-angle stories; the Distress Watch line must restate the
+  fact sheet's `distress` story (not one already in Debt Markets), never an unsupported
+  trend. If `distress` is null, delete the Distress Watch line.
 - Term of the Day: keep a story tie-in only if the mechanism truly applies; otherwise a
   standalone example with round illustrative figures.
 - AI in Real Estate: keep the focus on what the AI tool does and who uses it. If the

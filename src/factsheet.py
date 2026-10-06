@@ -163,8 +163,28 @@ def pick_top(news: list, n: int) -> tuple[list, list]:
     return top, [r for r in news if id(r) not in taken]
 
 
+DISTRESS = re.compile(
+    r"\b(?:default\w*|foreclos\w*|special servic\w*|delinquen\w*|distress\w*|bankrupt\w*|"
+    r"receivership|non-?performing|missed payments?|loan losses?|workouts?|"
+    r"deed[- ]in[- ]lieu|note sales?|maturity wall)\b", re.I)
+
+
+def pick_distress(window: list, exclude: set[str]):
+    """The Distress Watch story: the best-ranked distress story whose URL is not in
+    `exclude` (the Debt Markets and Top Stories picks), so the line never repeats a story
+    told above. None when there is none."""
+    for r in window:
+        if r["url"] in exclude or r["section"] not in ("debt", "top", "deal"):
+            continue
+        if DISTRESS.search(f"{r['title']} {r['summary'] or ''}"):
+            return r
+    return None
+
+
 def _pct(value: float) -> str:
-    return f"{round(value, 1) + 0.0:+.1f}%"  # + 0.0 turns -0.0 into 0.0
+    """"+1.2%", "-0.4%"; a change that rounds to zero has no sign: "0.0%"."""
+    r = round(value, 1) + 0.0  # + 0.0 turns -0.0 into 0.0
+    return "0.0%" if r == 0 else f"{r:+.1f}%"
 
 
 def _day(d: date) -> str:
@@ -218,6 +238,40 @@ def fed_target(conn: sqlite3.Connection, run_date: date) -> tuple[str, str] | No
     return f"{lo.value:.2f}% to {hi.value:.2f}%", fmt_bps(chg)
 
 
+CURVE_LEGS = ("DGS10", "DGS2")  # the 10Y-2Y curve is computed from these, same date
+BIG_MOVE_BPS = 15  # a rates row moving this much is a "big mover" for "What it means"
+BIG_MOVE_ROWS = (("DGS10", "10-Year Treasury"), ("DGS5", "5-Year Treasury"),
+                 ("DGS2", "2-Year Treasury"), ("T10Y2Y", "10Y-2Y curve"), ("SOFR", "SOFR"),
+                 ("DFF", "Fed Funds"), ("MORTGAGE30US", "30-Year Mortgage"))
+
+
+def same_date_curve(conn: sqlite3.Connection, run_date: date):
+    """The 10Y-2Y curve from the 10Y and 2Y on the SAME date: (date, bps, change in bps vs
+    the previous date both exist, or None). None when they share no date (then the FRED
+    T10Y2Y series is the fallback)."""
+    legs = {}
+    for sid in CURVE_LEGS:
+        pts = get_rates(conn, sid, run_date - timedelta(days=lookback_days(sid)))
+        legs[sid] = {p.date: p.value for p in pts}
+    common = sorted(set(legs["DGS10"]) & set(legs["DGS2"]))
+    if not common:
+        return None
+    spread = {d: legs["DGS10"][d] - legs["DGS2"][d] for d in common}
+    last = common[-1]
+    chg = round((spread[last] - spread[common[-2]]) * 100) if len(common) > 1 else None
+    return last, round(spread[last] * 100), chg
+
+
+def big_movers(values: dict) -> list[str]:
+    """Labels of rates rows whose change is at least BIG_MOVE_BPS either way."""
+    out = []
+    for key, label in BIG_MOVE_ROWS:
+        m = re.match(r"\s*([+-]?\d+)\s*bps", str(values.get(f"{key}_CHG", "")))
+        if m and abs(int(m.group(1))) >= BIG_MOVE_BPS:
+            out.append(label)
+    return out
+
+
 def move_size(chg_bps: int | None) -> str | None:
     """How big the 10Y move was: "unchanged" (under 3 bps), "small" (3 to 9), "notable"
     (10 or more). None when there is no change to measure."""
@@ -252,6 +306,11 @@ def _rate_values(conn: sqlite3.Connection,
     extra, extra_dates = _extra_values(conn, run_date)
     values.update(extra)
     dates.update(extra_dates)
+    curve = same_date_curve(conn, run_date)
+    if curve is not None:  # same-date legs replace FRED's T10Y2Y (which can mix dates)
+        d, bps, chg = curve
+        values["T10Y2Y"], values["T10Y2Y_CHG"] = f"{bps} bps", fmt_bps(chg)
+        dates["T10Y2Y"] = d
     target = fed_target(conn, run_date)
     if target is not None:  # the target range replaces the effective rate (DFF fallback)
         values["DFF"], values["DFF_CHG"] = target
@@ -265,7 +324,7 @@ def _rate_values(conn: sqlite3.Connection,
             values[f"{key}_ASOF"] = _day(d)
         else:
             values.pop(f"{key}_ASOF", None)
-    for key in DATED_KEYS:
+    for key in DATED_KEYS + ("DGS10", "DGS2", "T10Y2Y"):  # curve legs: consistency check
         if key in dates:
             values[f"{key}_DATE"] = dates[key].isoformat()
     return values, dgs10, dgs10_chg
@@ -333,7 +392,9 @@ def _reit_names(values: dict, info: dict) -> None:
         raw = values.get(key, NA)
         ticker = raw.split()[0] if raw != NA else None
         meta = (info or {}).get(ticker) or {}
-        values[f"{key}_NAME"] = (f"{meta['name']} ({ticker})" if meta.get("name")
+        name = meta.get("name")
+        # "NNN REIT (NNN)", but just "UDR" when the company name is the ticker itself.
+        values[f"{key}_NAME"] = (f"{name} ({ticker})" if name and name != ticker
                                  else ticker or NA)
         values[f"{key}_TYPE"] = meta.get("type") or NA
 
@@ -493,6 +554,11 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
                            used_urls, used_titles)), anchor)
     news = [r for r in window if r["section"] in ("top", "deal")]
     top, rest = pick_top(news, TOP_COUNT.get(dtype, 0))
+    debt = [r for r in window if r["section"] == "debt"][:DEBT_COUNT]
+    distress = None
+    if dtype in ("weekday", "friday"):  # never a story already in Debt Markets or Top Stories
+        distress = pick_distress(window, {r["url"] for r in debt + top})
+        rest = [r for r in rest if distress is None or r["url"] != distress["url"]]
     quick = rest[:QUICK_HITS_COUNT] if dtype in ("weekday", "friday") else []
 
     sheet = {
@@ -502,9 +568,11 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         "values": values,
         # 10Y move size, so "What it means" is scaled to the move (see the template).
         "move_size": move_size(dgs10_chg),
+        # Rates rows that moved >= 15 bps (names only): "What it means" must acknowledge them.
+        "big_movers": big_movers(values),
         "top": [_story(r) for r in top],
         "quick_hits": [_story(r) for r in quick],
-        "debt": [_story(r) for r in window if r["section"] == "debt"][:DEBT_COUNT],
+        "debt": [_story(r) for r in debt],
         "ai": [_story(r) for r in _ai_rank(
             [r for r in window
              if r["section"] == "ai" and (r["importance"] or 0) >= AI_MIN_IMPORTANCE])][:1],
@@ -514,9 +582,13 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
     }
 
     if dtype in ("weekday", "friday"):
+        # Distress Watch: a distress story not used in Debt Markets (null: omit the line).
+        sheet["distress"] = _story(distress) if distress is not None else None
         sheet["mover_news"] = _mover_news(values, sources.get("reit_info") or {}, window)
         # Market Watch: one story per region, never one already used above.
         taken = {s["url"] for key in ("top", "quick_hits", "debt", "ai") for s in sheet[key]}
+        if sheet["distress"]:
+            taken.add(sheet["distress"]["url"])
         picks = pick_markets([r for r in window if r["section"] not in ("other", "ai")], taken)
         sheet["markets"] = {region: (_story(row) if row is not None else None)
                             for region, row in picks.items()}

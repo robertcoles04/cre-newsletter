@@ -1,6 +1,6 @@
 ## The Brief
 
-<!-- Exactly 3 bullets, about 15 words each, on the 3 most important stories in this issue, taken from the fact sheet's story lists (`top`, `debt`, `markets`, `quick_hits`, `ai`). Each bullet says what happened and why it matters, in plain English for a smart college student new to CRE: define any term once, say who gains or loses and why it matters. Simple words, but never babyish or patronizing (no 'fancy', no 'big companies like to'). No numbers at all. End each bullet with the [source](url) link of the story it summarizes. If the fact sheet has fewer than 3 stories, write one bullet per story; if it has none, delete this section, heading included. About 60 words total. -->
+<!-- Exactly 3 bullets, about 15 words each, on the 3 most important stories in this issue (each still gets its one full treatment below, but never retold word for word), taken from the fact sheet's story lists (`top`, `debt`, `markets`, `quick_hits`, `ai`). Each bullet says what happened and why it matters, in plain English for a smart college student new to CRE: define any term once, say who gains or loses and why it matters. Simple words, but never babyish or patronizing (no 'fancy', no 'big companies like to'). No numbers at all. End each bullet with the [source](url) link of the story it summarizes. If the fact sheet has fewer than 3 stories, write one bullet per story; if it has none, delete this section, heading included. About 60 words total. -->
 
 ## The Numbers
 
@@ -16,7 +16,7 @@
 - **REITs:** VNQ {{VNQ}} ({{VNQ_CHG}}). Best: {{REIT_UP}}. Worst: {{REIT_DOWN}}.
 - **REIT yield vs. 10Y:** VNQ yields {{VNQ_YIELD}}, {{SPREAD_10Y}} vs. the 10Y.
 
-**What it means:** <!-- one sentence, no numbers, scaled to `move_size` -->
+**What it means:** <!-- one sentence, no numbers, scaled to `move_size`; if `big_movers` is not empty, name those rows (they moved 15+ bps) instead of saying rates barely moved -->
 
 <!-- REIT movers, from the fact sheet's `mover_news`. For each of "up" and "down" that is present: if it is a story, finish the line with ONE plain-English sentence on the likely reason for the move, citing that story as [source](url), with no numbers; if it is null, finish the line with only its note placeholder ({{MOVER_UP_NOTE}} for up, {{MOVER_DOWN_NOTE}} for down). Delete the line of any side missing from `mover_news`. -->
 
@@ -28,13 +28,16 @@
 
 ## Debt Markets
 
-<!-- About 200 words from the fact sheet's `debt` stories: financings, refis, CMBS and CRE CLO issuance, lender moves. Skip novelty-angle stories (sports, playoffs, celebrities). One short paragraph per story, each linked as [source](url). End with a "**Distress Watch:**" line if any story covers defaults, foreclosures or special servicing; that line must restate what a linked story reports, with its [source](url), and never assert a trend no story supports. Otherwise drop that line. If `debt` is empty, write one sentence saying it was a quiet day for debt news. -->
+<!-- About 200 words from the fact sheet's `debt` stories: financings, refis, CMBS and CRE CLO issuance, lender moves. Skip novelty-angle stories (sports, playoffs, celebrities). One short paragraph per story, each linked as [source](url). End with a "**Distress Watch:**" line only if the fact sheet's `distress` story is not null: restate what that story reports (defaults, foreclosures, special servicing), with its [source](url), and never assert a trend no story supports. Never use a story already told in this section. If `distress` is null, drop that line. If `debt` is empty, write one sentence saying it was a quiet day for debt news. -->
 
 ## Top Stories
 
 <!-- 3 to 5 stories from the fact sheet's `top` list, in order. For each: a ### headline, then 2 sentences with a name, place or number from the source, then a line starting "**Why it matters:**" with a concrete consequence for a borrower, lender, tenant, buyer or city, then [source](url). About 500 words total. -->
 
-**Coffee chat line:** <!-- One sentence in the reader's own voice: a takeaway they could say in an interview or a coffee chat, tied to one story linked above and ending with that story's [source](url). No numbers. Natural and specific, not a slogan. -->
+**Coffee chat talking points:** <!-- 2 or 3 bullets below this line. Each bullet is ONE specific sentence a student could say to a broker or in an interview, with exactly ONE concrete number that appears in a linked story's title or summary, ending with that story's [source](url). Synthesize across stories (connect two items, or tie a story to the market); never restate a single story. No clichés ("smart money", "worst is behind", "time will tell", "only time", "game changer"). -->
+
+- <!-- talking point 1 -->
+- <!-- talking point 2 -->
 
 ## Market Watch
 

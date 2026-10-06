@@ -65,7 +65,8 @@ def test_draft_prompt_has_new_rules():
              "top": [], "move_size": "small"}
     draft.write(sheet, run=lambda p, m: seen.append(p) or "x")
     prompt = seen[0]
-    for text in ("## The Brief", "Coffee chat line", "move_size", "AI Infrastructure",
+    for text in ("## The Brief", "Coffee chat talking points", "big_movers", "`distress`",
+                     "smart money", "move_size", "AI Infrastructure",
                  "novelty-angle", "mechanism truly applies", "at most 6 bullets",
                  "never babyish or patronizing"):
         assert text in prompt, text
@@ -200,7 +201,7 @@ def test_data_room_tags_recent_rows_only():
     assert room.startswith('<section class="data-room"') and ">Data Room</h2>" in room
     assert "Slower-moving credit data. Rows marked Updated changed since the last issue." in room
     hy, dq = room.split("High-yield spread")[1].split("Bank CRE delinquency")
-    assert '<span class="tag">Updated</span>' in hy and 'class="chg down"' in hy
+    assert '<span class="tag">Updated</span>' in hy and 'class="chg down rate"' in hy
     assert "Updated" not in dq
     assert 'class="chg unch">+13 bps' in dq and "chg up" not in dq  # no implied move today
     assert data_room({"DGS10": "4.30%"}, date(2026, 10, 6)) == ""
@@ -218,12 +219,13 @@ def test_data_room_placed_after_term_of_the_day_not_in_summary():
     assert html.index("The Brief") < html.index('id="summary-h"')
 
 
-def test_weekend_summary_goes_after_the_brief():
+def test_weekend_snapshot_after_the_brief_summary_after_the_stories():
     md = ("## The Brief\n\n- One. [S](https://x.com/1)\n\n## Week in Review\n\nText.\n\n"
           + FOOTER + "\n")
-    html = render_issue_html(md, {"values": ROOM_VALUES, "date": "2026-10-10",
-                                  "day_type": "saturday"}, [], None)
-    assert html.index("The Brief") < html.index('id="summary-h"') < html.index('id="week-in-review"')
+    html = render_issue_html(md, {"values": {**ROOM_VALUES, "DGS10": "4.30%"},
+                                  "date": "2026-10-10", "day_type": "saturday"}, [], None)
+    assert (html.index("The Brief") < html.index('id="snapshot-h"')
+            < html.index('id="week-in-review"') < html.index('id="summary-h"'))
     assert 'id="dataroom-h"' in html  # no Term of the Day: Data Room goes last
 
 

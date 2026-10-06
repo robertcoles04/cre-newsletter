@@ -237,23 +237,40 @@ def _meta(path: Path, alt: str, figsize, sm: Path | None = None, sm_size=None) -
     return meta
 
 
-def curve_points(conn, run_date: date) -> tuple[list, date | None]:
-    """[(maturity, latest %, % about a month before that)] and the month-ago date (from
-    the 10Y). Month ago = the last observation at least CURVE_AGO_DAYS before the latest."""
-    rows, ago_date = [], None
+def curve_points(conn, run_date: date) -> tuple[list, date | None, date | None]:
+    """([(maturity, %, % about a month before that)], month-ago date, curve date).
+
+    Every maturity is read on the SAME date: the latest date all maturities with data
+    share, so the chart never mixes days. If they share no date, each uses its own latest
+    and a maturity whose date differs from the 10Y's is labeled with it ("2Y (Oct 2)").
+    Month ago = the last observation at least CURVE_AGO_DAYS before the curve date (the
+    month-ago date shown is the 10Y's)."""
+    series = []
     for label, sid in CURVE_SERIES:
         pts = sorted(get_rates(conn, sid, run_date - timedelta(days=CHART_DAYS)),
                      key=lambda p: p.date)
+        series.append((label, sid, pts))
+    have = [pts for _, _, pts in series if pts]
+    common = set.intersection(*({p.date for p in pts} for pts in have)) if have else set()
+    now_date = max(common) if common else None
+    if now_date is None:  # no shared date: the 10Y's latest names the curve
+        ten = next((pts for _, sid, pts in series if sid == "DGS10" and pts), None)
+        now_date = ten[-1].date if ten else (have[0][-1].date if have else None)
+    rows, ago_date = [], None
+    for label, sid, pts in series:
         if not pts:
             rows.append((label, None, None))
             continue
-        last = pts[-1]
+        at = [p for p in pts if p.date <= now_date] if common else pts
+        last = at[-1]
+        if last.date != now_date:
+            label = f"{label} ({last.date:%b} {last.date.day})"
         older = [p for p in pts if p.date <= last.date - timedelta(days=CURVE_AGO_DAYS)]
         ago = older[-1] if older else None
         if ago is not None and (sid == "DGS10" or ago_date is None):
             ago_date = ago.date
         rows.append((label, last.value, ago.value if ago else None))
-    return rows, ago_date
+    return rows, ago_date, now_date
 
 
 def _make_extra_charts(conn, run_date: date, factsheet: dict | None, tmp: Path,
@@ -266,9 +283,9 @@ def _make_extra_charts(conn, run_date: date, factsheet: dict | None, tmp: Path,
     values = factsheet.get("values") or {}
 
     def curve():
-        rows, ago_date = curve_points(conn, run_date)
-        path = charts_mod.yield_curve(rows, tmp / "curve.png")
-        return path and _meta(path, charts_mod.curve_alt(rows, ago_date),
+        rows, ago_date, now_date = curve_points(conn, run_date)
+        path = charts_mod.yield_curve(rows, tmp / "curve.png", now_date)
+        return path and _meta(path, charts_mod.curve_alt(rows, ago_date, now_date),
                               charts_mod.PAIR_FIGSIZE)
 
     def mortgage():

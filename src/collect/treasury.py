@@ -13,7 +13,9 @@ TREASURY_URL = (
     "daily-treasury-rates.csv/{year}/all?type=daily_treasury_yield_curve"
     "&field_tdr_date_value={year}&page&_format=csv"
 )
-COLUMN_TO_SERIES = {"10 Yr": "DGS10", "5 Yr": "DGS5"}
+# 2Y and 30Y too, so the curve legs and the yield-curve chart get same-day Treasury data
+# when FRED posts a day late.
+COLUMN_TO_SERIES = {"10 Yr": "DGS10", "5 Yr": "DGS5", "2 Yr": "DGS2", "30 Yr": "DGS30"}
 
 
 def fetch_yields(year: int, client: httpx.Client) -> list[RatePoint]:
