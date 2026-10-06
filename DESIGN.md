@@ -22,9 +22,15 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - Editor notes: amber bg `#FBF4E4`, line `#E3C88A`, ink `#6E4A0B`
 
 ## Type
-- One Google Fonts css2 link: Libre Caslon Display, Source Serif 4 (opsz, 400/600/700,
-  italic 400), Public Sans (400 to 700). Fallbacks: Georgia / Times New Roman for the
-  serifs, -apple-system / Segoe UI / Helvetica / Arial for Public Sans.
+- Self-hosted fonts (SIL Open Font License), latin subset woff2 in `fonts/` with their
+  `OFL-*.txt` licenses, copied to `site/fonts/`: Libre Caslon Display 400, Source Serif 4
+  (variable 400 to 700 with the opsz axis, plus italic 400), Public Sans (variable 400 to
+  700). `@font-face` with `font-display: swap` (`render_html.FONT_FILES`); URLs are
+  relative to each page's depth, root-relative `/fonts/` on 404.html. Site pages make no
+  Google Fonts request. Only the standalone 5 AM preview (issues/<date>.html, seen only by
+  the editor) keeps the Google Fonts css2 link, so it renders anywhere. Fallbacks:
+  Georgia / Times New Roman for the serifs, -apple-system / Segoe UI / Helvetica / Arial
+  for Public Sans.
 - **Libre Caslon Display:** the masthead "CRE Blurb" (76px desktop, 48px phone, clamped),
   large section titles (The Numbers, Coffee chat: 34px / 28px), the term name (32px /
   26px), Brief numerals, page titles (44px / 34px), the footer name.
@@ -51,8 +57,15 @@ Sample (illustrative data): `samples/preview-sample.html`.
   price changes are light green / light red. Pure CSS: three copies of the items in an
   inline-flex track, `translateX(-33.3333%)`, linear infinite, duration `--n` (item
   count) x 4.6s on desktop (about 60s) and x 2.5s on phones (about 32s), paused on hover.
-  Under `prefers-reduced-motion` there is no animation and the band scrolls
-  (`overflow-x: auto`). The track is `aria-hidden`; the band has `role="img"` and an
+  **Pause/Play control** (WCAG 2.2.2, no JavaScript, `render_html.ticker_band`): a real
+  checkbox `#ticker-pause` (class `visually-hidden-but-focusable`) and its label styled
+  as a button at the band's right end (Public Sans 11px 700 uppercase, white on navy, a
+  1px navy-tint rule on its left, a small SVG pause or play icon, visually hidden
+  " markets ticker" for screen readers). Checked: the track gets
+  `animation-play-state: paused` and the label reads "Play". Keyboard focus shows a 2px
+  white ring inside the label; phones give it a 44px tap target. It sits outside the
+  aria-hidden track. Under `prefers-reduced-motion` there is no animation, the control is
+  hidden, and the band scrolls (`overflow-x: auto`). The track is `aria-hidden`; the band has `role="img"` and an
   `aria-label` that reads every value once in words ("Markets as of Oct 5 close: 10-Year
   5.31% up 3 bps, ..."). Non-issue pages show the latest published issue's ticker and date.
 - **Name block:** centered "CRE Blurb", the tagline in tracked small caps ("The daily
@@ -133,11 +146,15 @@ site and the 5 AM preview.
 - **Editor notes:** amber box at the top of main, "Editor notes, not for publishing",
   only when `problems` is non-empty (5 AM preview only).
 - **Footer:** 3px ink rule, "CRE Blurb" in Caslon, "Written with AI from the linked
-  sources. Every number is pulled automatically from public data. Edited by Robert.",
-  and the exact FOOTER text once per page.
+  sources. Every number is pulled automatically from public data. Reviewed by the
+  editor.", the exact FOOTER text once per page, then a quiet full-width row of muted
+  links: About · Privacy · Terms · Accessibility (hairline middots, 44px tall on phones).
+  Links are relative to the page's depth; 404.html and the standalone preview use
+  absolute https://creblurb.org/ links. The site never names the publisher; the one
+  contact address is corrections@creblurb.org (`site.CONTACT_EMAIL`).
 - **Favicon:** `/favicon.svg`, a navy square with a gold serif "CB". The site also writes
-  `robots.txt` and `sitemap.xml` (home, archive, glossary, about, every issue) and the
-  RSS `feed.xml`.
+  `robots.txt` and `sitemap.xml` (home, archive, glossary, about, privacy, terms,
+  accessibility, every issue) and the RSS `feed.xml`.
 
 ## Other pages
 - **Archive:** month labels; each issue is a newspaper row: the date (link) in Public
@@ -147,10 +164,14 @@ site and the 5 AM preview.
   the Day" opening with `**Term:**`), alphabetical; the term in Caslon, its definition,
   and "From the issue of" with each issue date linked. A term that ran twice keeps its
   newest definition and lists both dates.
-- **About** and **404:** the same masthead and a centered 820px text column.
+- **About**, **Privacy** (`/privacy/`), **Terms** (`/terms/`), **Accessibility**
+  (`/accessibility/`) and **404:** the same masthead and a centered 820px text column.
+  The three policy pages open with "Last updated: <date>" and are plain-English, short
+  (`site.INFO_PAGES`).
 
 ## Rules
-- No JavaScript. Self-contained except the Google Fonts link and the chart images.
+- No JavaScript. Self-contained except the chart images and the self-hosted fonts
+  (the preview alone links Google Fonts).
 - No gradients, emoji or rounded cards; no unicode glyphs as icons (triangles are SVG).
   No colored border-left/right over 1px.
 - No em or en dashes anywhere. Code text uses commas or hyphens; `no_dashes()` replaces

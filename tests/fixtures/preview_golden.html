@@ -44,9 +44,29 @@ strong { font-weight: 700; }
   padding-top: 10px; padding-bottom: 10px; }
 .utility .edition { letter-spacing: .08em; text-transform: uppercase; font-weight: 600;
   color: var(--navy); }
-.ticker { background: var(--navy); color: #FFFFFF; font-family: var(--sans); font-size: 13px;
+.ticker-band { position: relative; display: flex; align-items: center;
+  background: var(--navy); }
+.ticker { flex: 1 1 auto; min-width: 0; background: var(--navy); color: #FFFFFF;
+  font-family: var(--sans); font-size: 13px;
   line-height: 1.4; font-variant-numeric: tabular-nums; padding: 10px 0 10px 24px;
   overflow: hidden; white-space: nowrap; }
+/* Pause/Play: a visually hidden but focusable checkbox, its label styled as a button at
+   the band's right end. Checked = paused; the label then reads "Play". */
+.visually-hidden, .visually-hidden-but-focusable { position: absolute; width: 1px;
+  height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0);
+  clip-path: inset(50%); white-space: nowrap; }
+.tk-pause { order: 2; flex: none; display: inline-flex; align-items: center;
+  justify-content: center; align-self: stretch; min-width: 44px; margin: 0; padding: 0 16px;
+  border-left: 1px solid rgba(185, 200, 218, .35); background: var(--navy); color: #FFFFFF;
+  font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1;
+  letter-spacing: .1em; text-transform: uppercase; cursor: pointer; user-select: none; }
+.tk-pause:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tk-pause .tk-icon { width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; }
+.tk-pause .tk-on { display: none; }
+#ticker-pause:checked ~ .tk-pause .tk-off { display: none; }
+#ticker-pause:checked ~ .tk-pause .tk-on { display: inline; }
+#ticker-pause:checked ~ .ticker .ticker-track { animation-play-state: paused; }
+#ticker-pause:focus-visible ~ .tk-pause { outline: 2px solid #FFFFFF; outline-offset: -5px; }
 .ticker-track { display: inline-flex; animation: cb-ticker calc(var(--n, 12) * 4.6s) linear infinite; }
 .ticker:hover .ticker-track { animation-play-state: paused; }
 @keyframes cb-ticker { from { transform: translateX(0); } to { transform: translateX(-33.3333%); } }
@@ -250,6 +270,11 @@ footer .wrap { padding-top: 22px; padding-bottom: 40px; display: flex; flex-wrap
   font-size: 13px; line-height: 1.5; color: var(--muted); }
 footer p { margin: 0; }
 footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--ink); }
+footer .foot-links { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0 10px; padding-top: 6px; }
+footer .foot-links a { color: var(--muted); }
+footer .foot-links a:hover { color: var(--navy); }
+footer .foot-links .sep { color: var(--hairline); }
 
 /* Archive, About, Glossary, 404 */
 .page { max-width: 820px; margin: 0 auto; }
@@ -338,6 +363,7 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
   .utility { display: none; }
   .ticker { font-size: 12px; padding: 9px 0 9px 16px; }
   .ticker-track { animation-duration: calc(var(--n, 12) * 2.5s); }
+  .tk-pause { min-height: 44px; padding: 0 12px; }
   .tk { padding-right: 22px; }
   .tk-date { font-size: 12px; }
   .masthead { padding-top: 22px; }
@@ -388,6 +414,8 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
   footer { margin-top: 32px; }
   footer .wrap { display: block; padding-top: 18px; padding-bottom: 28px; font-size: 12px; }
   footer p { margin: 0 0 4px; }
+  footer .foot-links { padding-top: 4px; }
+  footer .foot-links a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 @media (max-width: 359px) {
   .site-nav { font-size: 11px; letter-spacing: .03em; }
@@ -395,13 +423,14 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
 @media (prefers-reduced-motion: reduce) {
   .ticker { overflow-x: auto; }
   .ticker-track { animation: none; }
+  .tk-pause, #ticker-pause { display: none; }
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 </style>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
-<header class="site-head" id="top"><div class="utility"><div class="wrap"><span><time datetime="2026-10-06">Tuesday, October 6, 2026</time></span><span class="edition">Daily Edition · 1 min read</span><span>Free. New issue every weekday morning, lighter on weekends.</span></div></div><div class="ticker" role="img" aria-label="Markets as of Oct 2 close: 10-Year 4.28% up 4 bps, 5-Year 3.91% down 2 bps, SOFR 3.87% unchanged, VNQ $89.50 up 0.4%, NNN up 1.9%, MAA down 1.0%, Fed hold odds 82.5%" style="--n: 8"><div class="ticker-track" aria-hidden="true"><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span></div></div><div class="masthead wrap"><p class="dateline-m">Tuesday, October 6, 2026 · Daily Edition</p><p class="name">CRE Blurb</p><p class="tagline"><span class="tagline-long">The daily commercial real estate briefing for students and young professionals</span><span class="tagline-short">Daily CRE briefing for students</span></p><div class="double-rule" role="presentation"></div></div></header>
+<header class="site-head" id="top"><div class="utility"><div class="wrap"><span><time datetime="2026-10-06">Tuesday, October 6, 2026</time></span><span class="edition">Daily Edition · 1 min read</span><span>Free. New issue every weekday morning, lighter on weekends.</span></div></div><div class="ticker-band"><input type="checkbox" id="ticker-pause" class="visually-hidden-but-focusable"><label for="ticker-pause" class="tk-pause"><span class="tk-off"><svg class="tk-icon" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 1h2v8H2zM6 1h2v8H6z" fill="currentColor"/></svg>Pause</span><span class="tk-on"><svg class="tk-icon" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>Play</span><span class="visually-hidden"> markets ticker</span></label><div class="ticker" role="img" aria-label="Markets as of Oct 2 close: 10-Year 4.28% up 4 bps, 5-Year 3.91% down 2 bps, SOFR 3.87% unchanged, VNQ $89.50 up 0.4%, NNN up 1.9%, MAA down 1.0%, Fed hold odds 82.5%" style="--n: 8"><div class="ticker-track" aria-hidden="true"><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span><span class="tk tk-date">OCT 2 CLOSE</span><span class="tk">10-Yr <b>4.28%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>4 bps</span></span><span class="tk">5-Yr <b>3.91%</b> <span class="tk-rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>2 bps</span></span><span class="tk">SOFR <b>3.87%</b> <span class="tk-flat">unch</span></span><span class="tk">REITs (VNQ) <b>$89.50</b> <span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>0.4%</span></span><span class="tk">NNN <b><span class="tk-up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>1.9%</span></b></span><span class="tk">MAA <b><span class="tk-down"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>1.0%</span></b></span><span class="tk">Fed hold odds <b>82.5%</b></span></div></div></div><div class="masthead wrap"><p class="dateline-m">Tuesday, October 6, 2026 · Daily Edition</p><p class="name">CRE Blurb</p><p class="tagline"><span class="tagline-long">The daily commercial real estate briefing for students and young professionals</span><span class="tagline-short">Daily CRE briefing for students</span></p><div class="double-rule" role="presentation"></div></div></header>
 <main id="content" class="wrap">
 <aside class="notes" aria-labelledby="notes-h"><h2 id="notes-h">Editor notes, not for publishing</h2><ul><li>p1</li></ul></aside>
 <div class="front no-brief"><article class="lead" id="top-stories" aria-labelledby="lead-h"><p class="kicker">Top Story</p><h2 class="hl" id="lead-h"><a href="https://example.com/a">Big deal closes</a></h2><div class="deck"><p>Two sentences here.</p></div><p class="source">Source: <a href="https://example.com/a">source</a></p></article><section class="snapshot" aria-labelledby="snapshot-h"><h2 id="snapshot-h">Market Snapshot</h2><dl><div class="row cell"><dt>10-Year Treasury</dt><dd><span class="val">4.28%</span><span class="chg up rate"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+4 bps</span></dd><dd class="hint">Benchmark for long-term property loans</dd></div><div class="row cell"><dt>SOFR</dt><dd><span class="val">3.87%</span><span class="chg unch">unch</span></dd><dd class="hint">Base rate for floating-rate property loans</dd></div><div class="row cell"><dt>Real estate stocks (VNQ)</dt><dd><span class="val">$89.50</span><span class="chg up"><svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" focusable="false"><path d="M5 1.5 9.2 8.5H.8z" fill="currentColor"/></svg>+0.4%</span></dd><dd class="hint">A fund holding about 150 REITs</dd></div></dl><p class="caption">Rates as of Oct 2 close. <a href="#numbers">Full market data</a></p></section></div>
@@ -417,8 +446,9 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
 <footer>
 <div class="wrap">
 <p class="foot-name">CRE Blurb</p>
-<p>Written with AI from the linked sources. Every number is pulled automatically from public data. Edited by Robert.</p>
+<p>Written with AI from the linked sources. Every number is pulled automatically from public data. Reviewed by the editor.</p>
 <p>For informational purposes only. Not investment advice.</p>
+<nav class="foot-links" aria-label="Site information"><a href="https://creblurb.org/about/">About</a><span class="sep" aria-hidden="true">&middot;</span><a href="https://creblurb.org/privacy/">Privacy</a><span class="sep" aria-hidden="true">&middot;</span><a href="https://creblurb.org/terms/">Terms</a><span class="sep" aria-hidden="true">&middot;</span><a href="https://creblurb.org/accessibility/">Accessibility</a></nav>
 </div>
 </footer>
 </body>

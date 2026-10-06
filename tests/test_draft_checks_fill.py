@@ -290,7 +290,7 @@ def test_templates_structure():
 
 def test_voice_has_sample_heading():
     text = (ROOT / "config" / "voice.md").read_text(encoding="utf8")
-    assert "## Robert's sample issue" in text
+    assert "## Sample issue" in text and "Robert" not in text
 
 
 

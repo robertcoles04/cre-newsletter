@@ -107,9 +107,11 @@ def test_missing_chart_no_img_no_og_image(built):
 def test_relative_links_resolve(built):
     _, out, _ = built
     pages = [p for p in out.rglob("*.html") if p.name != "404.html"]
-    assert len(pages) == 6
+    assert len(pages) == 9
     for page in pages:
-        for href in re.findall(r'(?:href|src)="([^"]*)"', _read(page)):
+        text = _read(page)
+        refs = re.findall(r'(?:href|src)="([^"]*)"', text) + re.findall(r'url\("([^"]*)"\)', text)
+        for href in refs:
             if re.match(r"[a-z]+:", href) or href.startswith("//"):
                 continue
             path, _, frag = href.partition("#")
@@ -134,12 +136,15 @@ def test_archive_and_about(built):
     assert "<h2>October 2026</h2>" in archive
     assert 'href="../issues/2026-10-06/"' in archive
     about = _read(out / "about/index.html")
-    assert "students and early-career professionals" in about and "Robert Coles" in about
+    assert "students and early-career professionals" in about
+    assert "CRE Blurb is published by a student interested in commercial real estate." in about
+    assert "Every issue is read by the editor, and errors are fixed as soon as they are found." \
+        in about
     assert "tailored towards" not in about
     assert about.count("For informational purposes only. Not investment advice.") == 1
     assert "Our standards" in about and "Claude" not in about and "script gathers" not in about
     assert "Corrections" in about
-    assert 'href="mailto:robertjcoles@icloud.com"' in about
+    assert 'href="mailto:corrections@creblurb.org"' in about
     assert "Data sources" not in about
 
 
@@ -304,3 +309,89 @@ def test_no_actions_annotation_locally(tmp_path, capsys, monkeypatch):
     site.build(root, tmp_path / "site")
     printed = capsys.readouterr().out
     assert "warning: skipping 2026-10-06" in printed and "::warning" not in printed
+
+
+# --- Privacy / Terms / Accessibility, footer links, self-hosted fonts, anonymity ---------
+INFO = ("privacy", "terms", "accessibility")
+FOOTER_ROW = ('<nav class="foot-links" aria-label="Site information">')
+
+
+def test_info_pages_exist_with_copy_and_email(built):
+    _, out, _ = built
+    titles = {"privacy": "Privacy Notice", "terms": "Terms of Use",
+              "accessibility": "Accessibility Statement"}
+    for folder in INFO:
+        page = _read(out / folder / "index.html")
+        assert f"<h1>{titles[folder]}</h1>" in page, folder
+        assert "Last updated: October 6, 2026" in page, folder
+        assert 'href="mailto:corrections@creblurb.org"' in page, folder
+        assert '<header class="site-head" id="top">' in page and "ticker-band" in page
+        assert "\u2014" not in page and "\u2013" not in page, folder  # no em/en dashes
+    privacy = _read(out / "privacy/index.html")
+    assert "github-general-privacy-statement" in privacy and "under 13" in privacy
+    assert "served from this site" in privacy
+    terms = _read(out / "terms/index.html")
+    assert "not investment, legal, tax or financial advice" in terms
+    assert "belong to the publisher of CRE Blurb" in terms and "as is" in terms
+    a11y = _read(out / "accessibility/index.html")
+    assert "WCAG) 2.1 at Level AA" in a11y and "few business days" in a11y
+
+
+def test_info_pages_in_sitemap(built):
+    _, out, _ = built
+    sm = _read(out / "sitemap.xml")
+    for folder in ("about",) + INFO:
+        assert f"<loc>{site.SITE_URL}{folder}/</loc>" in sm, folder
+
+
+def test_footer_links_on_every_page(built):
+    _, out, _ = built
+    expect = {"index.html": "", "issues/2026-10-05/index.html": "../../",
+              "about/index.html": "../", "privacy/index.html": "../",
+              "archive/index.html": "../", "404.html": site.SITE_URL}
+    for rel, base in expect.items():
+        page = _read(out / rel)
+        assert page.count(FOOTER_ROW) == 1, rel
+        for folder in ("about",) + INFO:
+            assert f'href="{base}{folder}/"' in page, (rel, folder)
+        # the existing footer lines stay exactly as they are
+        assert ("Written with AI from the linked sources. Every number is pulled "
+                "automatically from public data. Reviewed by the editor.") in page, rel
+        assert page.count("For informational purposes only. Not investment advice.") == 1, rel
+
+
+def test_site_pages_use_only_self_hosted_fonts(built):
+    _, out, _ = built
+    for f in ("libre-caslon-display-400.woff2", "source-serif-4-var.woff2",
+              "source-serif-4-italic-400.woff2", "public-sans-var.woff2",
+              "OFL-librecaslondisplay.txt", "OFL-publicsans.txt", "OFL-sourceserif4.txt"):
+        assert (out / "fonts" / f).is_file(), f
+    assert (out / "fonts" / "public-sans-var.woff2").read_bytes()[:4] == b"wOF2"
+    for page in out.rglob("*.html"):
+        text = _read(page)
+        assert "googleapis" not in text and "gstatic" not in text, page
+        assert "Google" not in text.split("</head>")[0], page
+        fonts = re.findall(r'url\("([^"]*\.woff2)"\)', text)
+        assert len(fonts) == 4, page
+        assert "font-display: swap" in text
+        for u in fonts:
+            assert not re.match(r"[a-z]+:", u) and not u.startswith("//"), (page, u)
+    assert 'url("/fonts/public-sans-var.woff2")' in _read(out / "404.html")
+    assert 'url("../../fonts/public-sans-var.woff2")' in \
+        _read(out / "issues/2026-10-06/index.html")
+
+
+def test_no_owner_name_or_personal_email_on_any_page(built):
+    _, out, _ = built
+    for page in list(out.rglob("*.html")) + list(out.rglob("*.xml")):
+        text = _read(page)
+        assert "Robert" not in text and "icloud" not in text.lower(), page
+
+
+def test_preview_keeps_google_fonts_and_absolute_footer_links():
+    from src.render_html import render_issue_html
+    html = render_issue_html("## Top Stories\n\nText.\n", {"date": "2026-10-06",
+                             "values": {"DGS10": "4.10%"}}, [])
+    assert "fonts.googleapis.com/css2" in html and "@font-face" not in html
+    assert 'href="https://creblurb.org/privacy/">Privacy</a>' in html
+    assert "Robert" not in html

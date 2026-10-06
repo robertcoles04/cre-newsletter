@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Self-contained except Google Fonts (Libre Caslon Display, Source Serif 4, Public Sans) with system fallbacks; no JavaScript. An issue goes live automatically when its draft passes the publish safety check; a draft that fails waits until Robert fixes it and adds the `approved` label. Nothing is emailed yet.
+A static website at https://creblurb.org/ (GitHub Pages), built by Python (`src/site.py`) from each approved issue's Markdown + fact-sheet values; the same renderer makes the 5 AM review preview (issues/<date>.html). Fonts (Libre Caslon Display, Source Serif 4, Public Sans) are self-hosted on the site with system fallbacks (only the private preview links Google Fonts); no JavaScript, cookies or analytics. Footer links on every page: About, Privacy, Terms, Accessibility. The site never names the publisher; contact is corrections@creblurb.org. An issue goes live automatically when its draft passes the publish safety check; a draft that fails waits until Robert fixes it and adds the `approved` label. Nothing is emailed yet.
 
 ## Users
 

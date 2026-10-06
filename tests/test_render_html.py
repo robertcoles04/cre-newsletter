@@ -99,7 +99,7 @@ def test_footer_present_no_braces_no_comments():
     html = render()
     assert FOOTER in html
     assert ("Written with AI from the linked sources. Every number is pulled automatically "
-            "from public data. Edited by Robert.") in html
+            "from public data. Reviewed by the editor.") in html
     assert "{{" not in html and "<!--" not in html and "template note" not in html
 
 

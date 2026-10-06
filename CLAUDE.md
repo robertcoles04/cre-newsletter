@@ -31,6 +31,8 @@ Phase 1 is merged (pending secrets + first scheduled run). Website publishing is
 
 - Broadsheet redesign (2026-10-06): newspaper look from an approved mockup (DESIGN.md). Libre Caslon Display / Source Serif 4 / Public Sans, white paper + ink, navy CSS ticker code-filled from fact-sheet values (no JS, reduced-motion safe), masthead on every page with nav Today / Markets / Archive / Glossary / About, 12-col grid on desktop (lead story + Brief, Snapshot strip, story grid, Coffee chat band, paired sections that stack when unbalanced, The Numbers at `#numbers`, Term + Data Room). New `/glossary/` page built from published issues' Term of the Day.
 
+- Legal + accessibility (2026-10-06): `/privacy/`, `/terms/`, `/accessibility/` pages (`site.INFO_PAGES`, in the sitemap), footer row About / Privacy / Terms / Accessibility on every page, a no-JS Pause/Play checkbox on the ticker, fonts self-hosted from `fonts/` (OFL; only the private preview links Google Fonts). Anonymity: the site and prompts never name the owner; contact is corrections@creblurb.org (`site.CONTACT_EMAIL`); a test fails if any built page contains "Robert" or "icloud".
+
 ## Guardrails (non-negotiable)
 - The daily run auto-publishes issues that pass the publish gate; failing drafts wait for the approved label. Only publish.yml puts an issue on the website (after the gate); nothing is emailed.
 - Rates, bps changes, REIT prices: inserted by code from APIs, never written by the model.

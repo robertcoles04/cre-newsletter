@@ -303,3 +303,29 @@ def test_every_page_has_the_masthead_and_latest_ticker(tmp_path):
     assert '<a href="#numbers">Markets</a>' in home and 'id="numbers"' in home
     assert 'href="https://creblurb.org/issues/2026-10-06/#numbers">Markets</a>' in \
         (out / "404.html").read_text(encoding="utf-8")
+
+
+def test_ticker_pause_control_markup_and_css():
+    from src.render_html import ticker_band
+    band = ticker_band(VALUES)
+    assert band.startswith('<div class="ticker-band"><input type="checkbox" id="ticker-pause" '
+                           'class="visually-hidden-but-focusable"><label for="ticker-pause" '
+                           'class="tk-pause">')
+    assert ">Pause</span>" in band and ">Play</span>" in band
+    # the control sits outside the aria-hidden track, before the role="img" band
+    assert band.index('<label for="ticker-pause"') < band.index('<div class="ticker" role="img"')
+    track = band[band.index('class="ticker-track"'):]
+    assert "ticker-pause" not in track and "tk-pause" not in track
+    assert ticker_band({}) == ""
+    h = html_()
+    assert band in h and "<script" not in h
+    css = h[h.index("<style>"):h.index("</style>")]
+    assert "#ticker-pause:checked ~ .ticker .ticker-track { animation-play-state: paused; }" in css
+    assert "#ticker-pause:checked ~ .tk-pause .tk-on { display: inline; }" in css
+    assert "#ticker-pause:focus-visible ~ .tk-pause { outline:" in css
+    assert ".ticker:hover .ticker-track { animation-play-state: paused; }" in css
+    assert ".tk-pause { min-height: 44px;" in css  # phones
+    rm = css[css.index("@media (prefers-reduced-motion: reduce)"):]
+    assert ".ticker-track { animation: none; }" in rm
+    assert ".visually-hidden, .visually-hidden-but-focusable { position: absolute;" in css
+    assert ".tk-pause, #ticker-pause { display: none; }" in rm  # no motion, no control

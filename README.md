@@ -59,6 +59,8 @@ The automatic checks found something suspicious (for example a number the model 
 ## Publishing
 The website is at https://creblurb.org/ (GitHub Pages, custom domain bought at Porkbun; the old github.io address redirects).
 
+Site pages: home (latest issue), each issue, Archive, Glossary, About, Privacy, Terms and Accessibility (the last four linked in every footer), plus `feed.xml` and `sitemap.xml`. Fonts are self-hosted from `fonts/` (SIL Open Font License, license files alongside) so readers' browsers never contact Google. The site never shows the publisher's name; the contact address everywhere is corrections@creblurb.org (set up forwarding at the registrar). The ticker has a Pause/Play button.
+
 Issues publish automatically around 5 to 6 AM ET when they pass the safety check; otherwise they wait as a draft for the `approved` label. To fix a published issue, edit issues/<date>.md on GitHub and commit; the site rebuilds in about 2 minutes.
 
 How the automatic publish works: after the daily run saves the draft and opens its `Draft: CRE Blurb <date>` Issue, it starts the "Publish CRE Blurb" workflow for that Issue. That runs the same safety check as the `approved` label. If it passes, the issue goes live, and GitHub comments "Published automatically: <link>" on the Issue and closes it. If it fails, GitHub comments "Not auto-published: <reasons>" and leaves the Issue open. These are AI-written issues going live without a human read first, so read each one afterwards. (GitHub's scheduled runs can start late, sometimes by 30+ minutes, so "5 to 6 AM" is approximate.)

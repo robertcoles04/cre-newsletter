@@ -15,6 +15,7 @@ students and early-career people who want to understand the market, not be sold 
   parentheses instead.
 - No throat-clearing intros, no sign-offs, no "in conclusion", no rhetorical questions.
 - No "not just X, but Y" constructions.
+- Never name the newsletter's publisher, editor or owner, and never sign an issue.
 
 ## Specificity
 
@@ -44,7 +45,7 @@ Good Term of the Day:
 > **Cap rate:** a property's yearly net income divided by its price. When today's Phoenix
 > buyer quotes a cap rate, they are telling you the return before any debt.
 
-## Robert's sample issue
+## Sample issue
 
-_To be filled in by Robert in Phase 0: a hand-written sample issue that sets the house style.
-Until then, follow the rules above._
+_To be filled in by the editor in Phase 0: a hand-written sample issue that sets the house
+style. Until then, follow the rules above._

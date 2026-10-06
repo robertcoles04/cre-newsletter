@@ -114,9 +114,59 @@ DOWN_SVG = ('<svg class="tri" viewBox="0 0 10 10" width="9" height="9" aria-hidd
             'focusable="false"><path d="M.8 1.5h8.4L5 8.5z" fill="currentColor"/></svg>')
 GHOST = '<span class="na" title="Data unavailable today" aria-label="Data unavailable today">n/a</span>'
 
+# The standalone 5 AM preview (issues/<date>.html, opened from a download or the repo)
+# keeps the Google Fonts link: only the editor sees it and it always loads. Site pages use
+# the self-hosted copies in fonts/ (SIL Open Font License), copied to site/fonts/.
 FONTS = ("https://fonts.googleapis.com/css2?family=Libre+Caslon+Display"
          "&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400"
          "&family=Public+Sans:wght@400;500;600;700&display=swap")
+GOOGLE_FONTS = ('<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+                '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+                f'<link rel="stylesheet" href="{FONTS}">\n')
+SITE_ROOT = "https://creblurb.org/"  # where the standalone preview's footer links point
+LATIN = ("U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, "
+         "U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, "
+         "U+FEFF, U+FFFD")
+# (family, style, weight range, file in fonts/): latin subset woff2 from Google Fonts.
+# Source Serif 4 and Public Sans are variable fonts (Source Serif 4 keeps its opsz axis).
+FONT_FILES = (
+    ("Libre Caslon Display", "normal", "400", "libre-caslon-display-400.woff2"),
+    ("Source Serif 4", "normal", "400 700", "source-serif-4-var.woff2"),
+    ("Source Serif 4", "italic", "400", "source-serif-4-italic-400.woff2"),
+    ("Public Sans", "normal", "400 700", "public-sans-var.woff2"),
+)
+
+
+def font_faces(fonts_base: str) -> str:
+    """@font-face rules for the self-hosted fonts in `fonts_base` ("../../fonts/" etc.)."""
+    return "".join(
+        f'@font-face {{ font-family: "{fam}"; font-style: {style}; font-weight: {weight}; '
+        f'font-display: swap; src: url("{fonts_base}{file}") format("woff2"); '
+        f"unicode-range: {LATIN}; }}\n"
+        for fam, style, weight, file in FONT_FILES)
+
+
+# A quiet row of links at the bottom of every page and issue (paths under the site root).
+FOOTER_LINKS = (("about/", "About"), ("privacy/", "Privacy"), ("terms/", "Terms"),
+                ("accessibility/", "Accessibility"))
+
+
+def footer_links(base: str) -> str:
+    sep = '<span class="sep" aria-hidden="true">&middot;</span>'
+    return ('<nav class="foot-links" aria-label="Site information">' + sep.join(
+        f'<a href="{html.escape(base + path, quote=True)}">{text}</a>'
+        for path, text in FOOTER_LINKS) + "</nav>")
+
+
+def _shell(base: str | None, fonts_base: str | None) -> tuple[str, str, str]:
+    """(font link tags, @font-face css, footer links) for a page. `base` reaches the site
+    root from this page ("", "../", "../../" or an absolute URL); `fonts_base` defaults
+    to base + "fonts/". Both None = the standalone preview: Google Fonts, absolute links."""
+    if base is None and fonts_base is None:
+        return GOOGLE_FONTS, "", footer_links(SITE_ROOT)
+    links = footer_links(SITE_ROOT if base is None else base)
+    faces = font_faces(fonts_base if fonts_base is not None else f"{base}fonts/")
+    return "", faces, links
 
 
 def summary_label(label: str, values: dict) -> str:
@@ -388,6 +438,31 @@ def ticker(values: dict | None) -> str:
             f'{track}</div></div>')
 
 
+PAUSE_SVG = ('<svg class="tk-icon" viewBox="0 0 10 10" width="10" height="10" '
+             'aria-hidden="true" focusable="false"><path d="M2 1h2v8H2zM6 1h2v8H6z" '
+             'fill="currentColor"/></svg>')
+PLAY_SVG = ('<svg class="tk-icon" viewBox="0 0 10 10" width="10" height="10" '
+            'aria-hidden="true" focusable="false"><path d="M2 1l7 4-7 4z" '
+            'fill="currentColor"/></svg>')
+
+
+def ticker_band(values: dict | None) -> str:
+    """The ticker plus its Pause/Play control (WCAG 2.2.2), no JavaScript: a real,
+    keyboard-focusable checkbox and its label styled as a button. When checked, CSS
+    pauses the track and the label reads "Play". The control sits outside the
+    aria-hidden track. "" when there is no ticker."""
+    band = ticker(values)
+    if not band:
+        return ""
+    return ('<div class="ticker-band">'
+            '<input type="checkbox" id="ticker-pause" class="visually-hidden-but-focusable">'
+            '<label for="ticker-pause" class="tk-pause">'
+            f'<span class="tk-off">{PAUSE_SVG}Pause</span>'
+            f'<span class="tk-on">{PLAY_SVG}Play</span>'
+            '<span class="visually-hidden"> markets ticker</span></label>'
+            f'{band}</div>')
+
+
 # Code-generated charts (src/chart.py), keyed by name. "chart" is the 10-Year Treasury
 # line (file name kept from before the other charts existed).
 CHART_CAPTIONS = {
@@ -591,7 +666,7 @@ def masthead(run_date: date | None, day_type: str | None, minutes: int | None = 
     dateline = f'<p class="dateline-m">{short}</p>' if short else ""
     return ('<header class="site-head" id="top">'
             f'<div class="utility"><div class="wrap">{util}</div></div>'
-            f'{ticker(values)}'
+            f'{ticker_band(values)}'
             f'<div class="masthead wrap">{dateline}<p class="name">CRE Blurb</p>'
             f'<p class="tagline"><span class="tagline-long">{TAGLINE}</span>'
             f'<span class="tagline-short">{TAGLINE_SHORT}</span></p>'
@@ -898,9 +973,11 @@ def _h2_text(section_html: str) -> tuple[str, str] | None:
 def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
                       chart_rel=None, run_date: date | None = None, *,
                       head_extra: str = "", nav: str = "", extra_body: str = "",
-                      title: str | None = None, charts: dict | None = None) -> str:
+                      title: str | None = None, charts: dict | None = None,
+                      base: str | None = None, fonts_base: str | None = None) -> str:
     """`chart_rel` is the 10-Year chart's src (older call style); `charts` maps chart names
-    (CHART_NAMES) to {"src", "alt", "width", "height"} and wins over `chart_rel`."""
+    (CHART_NAMES) to {"src", "alt", "width", "height"} and wins over `chart_rel`.
+    `base` / `fonts_base`: see _shell (both None = the standalone preview)."""
     md = prepare_md(md)
     all_charts = {**as_charts(chart_rel), **(charts or {})}
 
@@ -971,24 +1048,28 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
 
     if title is None:
         title = "CRE Blurb" + (f" | {run_date:%B} {run_date.day}, {run_date.year}" if run_date else "")
+    fonts, faces, links = _shell(base, fonts_base)
     return PAGE.format(
-        title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
+        title=_esc(title), head_extra=_slot(head_extra), fonts=fonts, css=faces + CSS,
         masthead=masthead(run_date, day_type, read_minutes(body_html), values, nav),
         notes=_slot(_notes(problems)), body=body_html, extra_body=_slot(extra_body),
-        footer=_esc(FOOTER))
+        footer=_esc(FOOTER), footer_links=links)
 
 
 def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = "",
-                factsheet: dict | None = None) -> str:
-    """A non-issue page (About, Archive, Glossary, 404) in the same shell, with the latest
-    issue's date, edition and ticker in the masthead (`factsheet`), and no editor notes."""
+                factsheet: dict | None = None, base: str | None = None,
+                fonts_base: str | None = None) -> str:
+    """A non-issue page (About, Archive, Glossary, Privacy, Terms, Accessibility, 404) in
+    the same shell, with the latest issue's date, edition and ticker in the masthead
+    (`factsheet`), and no editor notes. `base` / `fonts_base`: see _shell."""
     fs = factsheet or {}
     run_date = date.fromisoformat(fs["date"]) if fs.get("date") else None
+    fonts, faces, links = _shell(base, fonts_base)
     return PAGE.format(
-        title=_esc(title), head_extra=_slot(head_extra), fonts=FONTS, css=CSS,
+        title=_esc(title), head_extra=_slot(head_extra), fonts=fonts, css=faces + CSS,
         masthead=masthead(run_date, fs.get("day_type"), None, fs.get("values"), nav),
         notes="", body=f'<div class="page">{body_html}</div>', extra_body="",
-        footer=_esc(FOOTER))
+        footer=_esc(FOOTER), footer_links=links)
 
 
 CSS = """
@@ -1028,9 +1109,29 @@ strong { font-weight: 700; }
   padding-top: 10px; padding-bottom: 10px; }
 .utility .edition { letter-spacing: .08em; text-transform: uppercase; font-weight: 600;
   color: var(--navy); }
-.ticker { background: var(--navy); color: #FFFFFF; font-family: var(--sans); font-size: 13px;
+.ticker-band { position: relative; display: flex; align-items: center;
+  background: var(--navy); }
+.ticker { flex: 1 1 auto; min-width: 0; background: var(--navy); color: #FFFFFF;
+  font-family: var(--sans); font-size: 13px;
   line-height: 1.4; font-variant-numeric: tabular-nums; padding: 10px 0 10px 24px;
   overflow: hidden; white-space: nowrap; }
+/* Pause/Play: a visually hidden but focusable checkbox, its label styled as a button at
+   the band's right end. Checked = paused; the label then reads "Play". */
+.visually-hidden, .visually-hidden-but-focusable { position: absolute; width: 1px;
+  height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0);
+  clip-path: inset(50%); white-space: nowrap; }
+.tk-pause { order: 2; flex: none; display: inline-flex; align-items: center;
+  justify-content: center; align-self: stretch; min-width: 44px; margin: 0; padding: 0 16px;
+  border-left: 1px solid rgba(185, 200, 218, .35); background: var(--navy); color: #FFFFFF;
+  font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1;
+  letter-spacing: .1em; text-transform: uppercase; cursor: pointer; user-select: none; }
+.tk-pause:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tk-pause .tk-icon { width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; }
+.tk-pause .tk-on { display: none; }
+#ticker-pause:checked ~ .tk-pause .tk-off { display: none; }
+#ticker-pause:checked ~ .tk-pause .tk-on { display: inline; }
+#ticker-pause:checked ~ .ticker .ticker-track { animation-play-state: paused; }
+#ticker-pause:focus-visible ~ .tk-pause { outline: 2px solid #FFFFFF; outline-offset: -5px; }
 .ticker-track { display: inline-flex; animation: cb-ticker calc(var(--n, 12) * 4.6s) linear infinite; }
 .ticker:hover .ticker-track { animation-play-state: paused; }
 @keyframes cb-ticker { from { transform: translateX(0); } to { transform: translateX(-33.3333%); } }
@@ -1234,6 +1335,11 @@ footer .wrap { padding-top: 22px; padding-bottom: 40px; display: flex; flex-wrap
   font-size: 13px; line-height: 1.5; color: var(--muted); }
 footer p { margin: 0; }
 footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--ink); }
+footer .foot-links { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0 10px; padding-top: 6px; }
+footer .foot-links a { color: var(--muted); }
+footer .foot-links a:hover { color: var(--navy); }
+footer .foot-links .sep { color: var(--hairline); }
 
 /* Archive, About, Glossary, 404 */
 .page { max-width: 820px; margin: 0 auto; }
@@ -1322,6 +1428,7 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
   .utility { display: none; }
   .ticker { font-size: 12px; padding: 9px 0 9px 16px; }
   .ticker-track { animation-duration: calc(var(--n, 12) * 2.5s); }
+  .tk-pause { min-height: 44px; padding: 0 12px; }
   .tk { padding-right: 22px; }
   .tk-date { font-size: 12px; }
   .masthead { padding-top: 22px; }
@@ -1372,6 +1479,8 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
   footer { margin-top: 32px; }
   footer .wrap { display: block; padding-top: 18px; padding-bottom: 28px; font-size: 12px; }
   footer p { margin: 0 0 4px; }
+  footer .foot-links { padding-top: 4px; }
+  footer .foot-links a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 @media (max-width: 359px) {
   .site-nav { font-size: 11px; letter-spacing: .03em; }
@@ -1379,6 +1488,7 @@ footer .foot-name { font-family: var(--display); font-size: 22px; color: var(--i
 @media (prefers-reduced-motion: reduce) {
   .ticker { overflow-x: auto; }
   .ticker-track { animation: none; }
+  .tk-pause, #ticker-pause { display: none; }
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 """
@@ -1389,10 +1499,7 @@ PAGE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>{head_extra}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="{fonts}">
-<style>{css}</style>
+{fonts}<style>{css}</style>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
@@ -1403,8 +1510,9 @@ PAGE = """<!doctype html>
 <footer>
 <div class="wrap">
 <p class="foot-name">CRE Blurb</p>
-<p>Written with AI from the linked sources. Every number is pulled automatically from public data. Edited by Robert.</p>
+<p>Written with AI from the linked sources. Every number is pulled automatically from public data. Reviewed by the editor.</p>
 <p>{footer}</p>
+{footer_links}
 </div>
 </footer>
 </body>

@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import sys
+from urllib.parse import urlparse
 from datetime import date, datetime, time, timezone
 from email.utils import format_datetime
 from html import escape
@@ -15,10 +16,11 @@ from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 from src.publish import _valid_date, check, load_published, strip_banner
-from src.render_html import (CHART_NAMES, DEFAULT_ALT, EDITION_NOTE, _md, prepare_md,
-                              render_issue_html, render_page, slug, split_term)
+from src.render_html import (CHART_NAMES, DEFAULT_ALT, EDITION_NOTE, SITE_ROOT, _md,
+                              prepare_md, render_issue_html, render_page, slug, split_term)
 
-SITE_URL = "https://creblurb.org/"
+SITE_URL = SITE_ROOT
+FONTS_DIR = Path(__file__).resolve().parent.parent / "fonts"  # woff2 + OFL licenses
 SITE_NAME = "CRE Blurb"
 RECENT = 10
 RECENT_MIN = 3  # the home page's "Recent issues" list shows once there are this many
@@ -37,7 +39,11 @@ FAVICON_SVG = (
     '</svg>\n')
 
 # The disclaimer is not repeated here: every page's footer already carries it once.
-CORRECTIONS_EMAIL = "robertjcoles@icloud.com"
+# The site never names the publisher: one contact address for corrections, privacy and
+# accessibility (forwarded at the registrar).
+CONTACT_EMAIL = "corrections@creblurb.org"
+MAILTO = f'<a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a>'
+LAST_UPDATED = '<p class="updated">Last updated: October 6, 2026</p>'
 ABOUT = (
     "<h1>About CRE Blurb</h1>"
     "<p>CRE Blurb is a free daily briefing on commercial real estate for students and "
@@ -45,12 +51,11 @@ ABOUT = (
     "deals and REITs, with plain-English context and one industry term to learn, all in "
     "about five minutes.</p>"
     "<h2>About the editor</h2>"
-    "<p>CRE Blurb is published by Robert Coles, a student working to build a career in "
-    "commercial real estate. Like a lot of people trying to break into the industry, "
-    "Robert found that the best market coverage is written for people who already work "
-    "in it: dense, full of jargon and often behind a paywall. CRE Blurb is the briefing "
-    "he wanted when he started, the kind that explains not just what happened but why it "
-    "matters.</p>"
+    "<p>CRE Blurb is published by a student interested in commercial real estate. Like a "
+    "lot of people trying to break into the industry, the editor found that the best "
+    "market coverage is written for people who already work in it: dense, full of jargon "
+    "and often behind a paywall. CRE Blurb is the briefing the editor wanted at the start, "
+    "the kind that explains not just what happened but why it matters.</p>"
     "<p>The goal is simple: help students and young professionals follow the market every "
     "day, learn the language of the business and walk into interviews, coffee chats and "
     "their first jobs ready to talk about what is actually happening in commercial real "
@@ -60,13 +65,128 @@ ABOUT = (
     "<li><strong>Sourced.</strong> Every story links to the original reporting.</li>"
     "<li><strong>Data-driven.</strong> Rates, prices and market odds are pulled "
     "automatically from public sources and checked before each issue goes out.</li>"
-    "<li><strong>Reviewed.</strong> Robert reads every issue and fixes errors as soon as they are found.</li>"
+    "<li><strong>Reviewed.</strong> Every issue is read by the editor, and errors are fixed "
+    "as soon as they are found.</li>"
     "</ul>"
     "<h2>Corrections</h2>"
-    "<p>Accuracy matters to us. If you spot an error, email "
-    f'<a href="mailto:{CORRECTIONS_EMAIL}">{CORRECTIONS_EMAIL}</a> with the issue date and '
-    "what needs fixing. We review every report, correct confirmed errors promptly and note "
-    "significant corrections at the end of the affected issue.</p>"
+    f"<p>Accuracy matters to us. If you spot an error, email {MAILTO} with the issue date "
+    "and what needs fixing. We review every report, correct confirmed errors promptly and "
+    "note significant corrections at the end of the affected issue.</p>"
+)
+GITHUB_PRIVACY = ("https://docs.github.com/en/site-policy/privacy-policies/"
+                  "github-general-privacy-statement")
+PRIVACY = (
+    "<h1>Privacy Notice</h1>" + LAST_UPDATED +
+    "<p>CRE Blurb is a free website with no accounts, no sign-up forms and no ads. This "
+    "notice explains the small amount of information involved in reading it.</p>"
+    "<h2>What we collect</h2>"
+    "<p>Nothing directly. The site uses no cookies, tracking, analytics or advertising, and "
+    "it runs no scripts in your browser. You never need to give us your name or email "
+    "address to read it.</p>"
+    "<h2>Hosting</h2>"
+    "<p>The site is hosted on GitHub Pages. Like most web hosts, GitHub may log technical "
+    "data such as IP addresses for security and to keep the service running. GitHub "
+    "handles that data under the "
+    f'<a href="{GITHUB_PRIVACY}">GitHub General Privacy Statement</a>. We do not use '
+    "those logs, and we add no tracking of our own.</p>"
+    "<h2>Fonts and images</h2>"
+    "<p>The fonts and charts on this site are served from this site itself, so reading an "
+    "issue does not send requests to font services or other outside companies.</p>"
+    "<h2>If you email us</h2>"
+    f"<p>If you email {MAILTO}, we use your message and address only to reply to you and to "
+    "fix any error you report. We do not add you to any mailing list.</p>"
+    "<h2>No selling or sharing</h2>"
+    "<p>We do not sell, rent or trade personal information, and we do not share it with "
+    "advertisers or data brokers.</p>"
+    "<h2>Links to other sites</h2>"
+    "<p>Issues link to news articles and data on other websites. Those sites have their own "
+    "privacy policies, and we are not responsible for how they handle your information.</p>"
+    "<h2>Children</h2>"
+    "<p>CRE Blurb is not directed at children under 13, and we do not knowingly collect "
+    "information from them.</p>"
+    "<h2>Changes to this notice</h2>"
+    "<p>If our practices change, we will update this page and the date at the top.</p>"
+    "<h2>Contact</h2>"
+    f"<p>Questions about privacy? Email {MAILTO}.</p>"
+)
+TERMS = (
+    "<h1>Terms of Use</h1>" + LAST_UPDATED +
+    "<p>By using CRE Blurb you agree to these terms. They are short and written in plain "
+    "English.</p>"
+    "<h2>Information only</h2>"
+    "<p>CRE Blurb is for general information and education. It is not investment, legal, "
+    "tax or financial advice, and reading it does not create an adviser or client "
+    "relationship with anyone. Nothing here is a recommendation to buy, sell or hold any "
+    "security or property. Do your own research, and talk to a qualified professional "
+    "before making decisions.</p>"
+    "<h2>Accuracy</h2>"
+    "<p>Each issue is compiled with AI assistance from the linked public reporting, and "
+    "every number is filled in automatically from public data. Issues publish "
+    "automatically and are reviewed after publication. We work to be accurate, but we give "
+    "no warranty that anything here is complete, current or correct. Numbers can be "
+    "delayed or wrong. Always check the original source before relying on what you read "
+    "here.</p>"
+    "<h2>Links to other sites</h2>"
+    "<p>Issues link to articles and data on websites we do not control. A link is not an "
+    "endorsement, and we are not responsible for the content or policies of those "
+    "sites.</p>"
+    "<h2>Intellectual property</h2>"
+    "<p>CRE Blurb's original text, charts and design belong to the publisher of CRE Blurb. "
+    "Linked articles belong to their publishers. You are welcome to quote brief passages "
+    "for commentary or discussion, with a link back to the issue.</p>"
+    "<h2>Limitation of liability</h2>"
+    "<p>CRE Blurb is provided \"as is\", without warranties of any kind. To the fullest "
+    "extent the law allows, the publisher of CRE Blurb is not liable for any loss or damage "
+    "that comes from using the site or relying on its content.</p>"
+    "<h2>Changes</h2>"
+    "<p>We may update these terms. Changes take effect when posted here, and the date at "
+    "the top shows the latest version. Using the site after a change means you accept the "
+    "updated terms.</p>"
+    "<h2>Contact</h2>"
+    f"<p>Questions about these terms? Email {MAILTO}.</p>"
+)
+ACCESSIBILITY = (
+    "<h1>Accessibility Statement</h1>" + LAST_UPDATED +
+    "<p>We want CRE Blurb to be easy to read for everyone, including people who use screen "
+    "readers, keyboards, zoom or other assistive technology. We aim to meet the Web Content "
+    "Accessibility Guidelines (WCAG) 2.1 at Level AA.</p>"
+    "<h2>What is in place</h2>"
+    "<ul>"
+    "<li><strong>Keyboard navigation.</strong> Every link and control works with a "
+    "keyboard and shows a visible focus outline.</li>"
+    "<li><strong>Skip link.</strong> A \"Skip to content\" link at the top of each page jumps "
+    "past the masthead.</li>"
+    "<li><strong>Text contrast.</strong> Text is dark on white or white on navy, chosen for "
+    "strong contrast.</li>"
+    "<li><strong>Image descriptions.</strong> Every chart has a text description that "
+    "includes the actual numbers it shows.</li>"
+    "<li><strong>Reduced motion.</strong> If your device is set to reduce motion, the "
+    "markets ticker does not scroll.</li>"
+    "<li><strong>Pause control.</strong> The scrolling markets ticker has a Pause button, "
+    "and screen readers hear its values once as plain text.</li>"
+    "<li><strong>Readable text.</strong> Body text is 16 to 18 pixels with generous line "
+    "spacing, and pages work when zoomed or read on a phone.</li>"
+    "</ul>"
+    "<h2>Known limitations</h2>"
+    "<ul>"
+    "<li>Charts are images. Each one has a full text description, and the same numbers "
+    "appear in the data rows beside it.</li>"
+    "<li>Issues link to news and data on other websites, and we cannot control how "
+    "accessible those sites are.</li>"
+    "</ul>"
+    "<h2>Report a problem</h2>"
+    f"<p>If something on CRE Blurb is hard to use, email {MAILTO} with the page and what "
+    "went wrong. We aim to respond within a few business days.</p>"
+)
+# (folder, nav title, body, meta description): plain text pages under the site root.
+INFO_PAGES = (
+    ("about", "About", ABOUT, "What CRE Blurb is and how each issue is made."),
+    ("privacy", "Privacy Notice", PRIVACY,
+     "CRE Blurb collects nothing directly: no cookies, tracking, analytics or ads."),
+    ("terms", "Terms of Use", TERMS,
+     "Terms of use for CRE Blurb: information only, not investment advice."),
+    ("accessibility", "Accessibility Statement", ACCESSIBILITY,
+     "How CRE Blurb works to be accessible, and how to report a problem."),
 )
 
 _SECTION = re.compile(r"^## +(.+?)\s*$", re.M)
@@ -261,7 +381,7 @@ def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                  image_alt=og["alt"] if og else None,
                  image_size=png_size(og["file"]) if og else None)
     return render_issue_html(issue["md"], issue["factsheet"], [], None, charts=charts,
-                             head_extra=head,
+                             head_extra=head, base=prefix,
                              nav=_nav(prefix, current, latest or d,
                                       "#numbers" if current == "home" else None),
                              extra_body=extra_body, title=title)
@@ -333,7 +453,7 @@ def _glossary(issues: list[dict], site_url: str) -> str:
                     f'<p class="gloss-from">From the issue of {dates}</p></article>')
     head = _head(f"{SITE_NAME} | Glossary", "Every CRE term explained in CRE Blurb, A to Z.",
                  f"{site_url}glossary/", "website", site_url=site_url)
-    return render_page(f"{SITE_NAME} | Glossary", "".join(body), head_extra=head,
+    return render_page(f"{SITE_NAME} | Glossary", "".join(body), head_extra=head, base="../",
                        nav=_nav("../", "glossary", issues[0]["date"] if issues else None),
                        factsheet=issues[0]["factsheet"] if issues else None)
 
@@ -349,11 +469,12 @@ def robots_txt(site_url: str = SITE_URL) -> str:
 
 
 def sitemap_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
-    """Home, archive, about and every issue page."""
+    """Home, archive, glossary, the info pages (about, privacy, terms, accessibility) and
+    every issue page."""
     urls = [(site_url, issues[0]["date"] if issues else None),
             (f"{site_url}archive/", issues[0]["date"] if issues else None),
-            (f"{site_url}glossary/", issues[0]["date"] if issues else None),
-            (f"{site_url}about/", None)]
+            (f"{site_url}glossary/", issues[0]["date"] if issues else None)]
+    urls += [(f"{site_url}{folder}/", None) for folder, *_ in INFO_PAGES]
     urls += [(f"{site_url}issues/{i['date']}/", i["date"]) for i in issues]
     rows = "".join(f"<url><loc>{xml_escape(u)}</loc>"
                    + (f"<lastmod>{d}</lastmod>" if d else "") + "</url>" for u, d in urls)
@@ -375,7 +496,7 @@ def _archive(issues: list[dict], site_url: str) -> str:
             for m, items in months.items())
     head = _head(f"{SITE_NAME} | Archive", "Every published issue of CRE Blurb.",
                  f"{site_url}archive/", "website", site_url=site_url)
-    return render_page(f"{SITE_NAME} | Archive", body, head_extra=head,
+    return render_page(f"{SITE_NAME} | Archive", body, head_extra=head, base="../",
                        nav=_nav("../", "archive", issues[0]["date"] if issues else None),
                        factsheet=issues[0]["factsheet"] if issues else None)
 
@@ -400,6 +521,15 @@ def feed_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
             "<description>A free daily commercial real estate briefing for students and "
             "young professionals.</description><language>en-us</language>"
             + "".join(items) + "</channel></rss>\n")
+
+
+def copy_fonts(out: Path) -> None:
+    """Self-hosted fonts (woff2) and their OFL license files go to site/fonts/."""
+    dest = Path(out) / "fonts"
+    dest.mkdir(parents=True, exist_ok=True)
+    for f in sorted(FONTS_DIR.iterdir()):
+        if f.suffix in (".woff2", ".txt"):
+            shutil.copyfile(f, dest / f.name)
 
 
 def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
@@ -437,17 +567,19 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
         home = render_page(SITE_NAME, "<p>The first issue of CRE Blurb is coming soon.</p>",
                            head_extra=_head(SITE_NAME, desc, site_url, "website",
                                             site_url=site_url),
-                           nav=_nav("", "home"))
+                           nav=_nav("", "home"), base="")
     _write(out / "index.html", home)
     _write(out / "feed.xml", feed_xml(issues, site_url))
     _write(out / "archive" / "index.html", _archive(issues, site_url))
     latest = issues[0]["date"] if issues else None
     latest_fs = issues[0]["factsheet"] if issues else None
     _write(out / "glossary" / "index.html", _glossary(issues, site_url))
-    _write(out / "about" / "index.html", render_page(
-        f"{SITE_NAME} | About", ABOUT, nav=_nav("../", "about", latest), factsheet=latest_fs,
-        head_extra=_head(f"{SITE_NAME} | About", "What CRE Blurb is and how each issue is made.",
-                         f"{site_url}about/", "website", site_url=site_url)))
+    for folder, name, body, desc in INFO_PAGES:
+        title = f"{SITE_NAME} | {name}"
+        _write(out / folder / "index.html", render_page(
+            title, body, nav=_nav("../", folder, latest), factsheet=latest_fs, base="../",
+            head_extra=_head(title, desc, f"{site_url}{folder}/", "website",
+                             site_url=site_url)))
     _write(out / "404.html", render_page(
         f"{SITE_NAME} | Page not found",
         "<h1>Page not found</h1><p>That page doesn't exist. Today's issue is on the home page.</p>"
@@ -455,8 +587,11 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
         f'<a href="{_a(site_url)}archive/">Archive</a> &middot; '
         f'<a href="{_a(site_url)}glossary/">Glossary</a></p>',
         nav=_nav(site_url, None, latest), factsheet=latest_fs,
+        # 404.html is served at any depth: absolute links, root-relative fonts.
+        base=site_url, fonts_base=urlparse(site_url).path + "fonts/",
         head_extra=_head(f"{SITE_NAME} | Page not found", "Page not found.",
                          f"{site_url}404.html", "website", site_url=site_url)))
+    copy_fonts(out)
     _write(out / "favicon.svg", FAVICON_SVG)
     _write(out / "robots.txt", robots_txt(site_url))
     _write(out / "sitemap.xml", sitemap_xml(issues, site_url))
