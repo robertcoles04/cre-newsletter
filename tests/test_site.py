@@ -240,7 +240,7 @@ def test_rss_feed_parses_and_is_linked(built):
         page = _read(out / rel)
         assert (f'<link rel="alternate" type="application/rss+xml" title="CRE Blurb" '
                 f'href="{site.SITE_URL}feed.xml">') in page, rel
-        assert ">RSS</a>" in page, rel
+        assert ">RSS</a>" not in page, rel  # feed stays, but no visible nav button
 
 
 def test_feed_caps_at_20_items_and_escapes():

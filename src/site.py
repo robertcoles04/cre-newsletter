@@ -102,7 +102,7 @@ def _nav(p: str, current: str | None = None) -> str:
     """Site nav. `current` (home, archive, about) gets aria-current="page"."""
     p = _a(p)
     links = [("home", "", "Home"), ("archive", "archive/", "Archive"),
-             ("about", "about/", "About"), ("rss", "feed.xml", "RSS")]
+             ("about", "about/", "About")]
     return ('<nav class="site-nav" aria-label="Site">' + "".join(
         f'<a href="{p}{href}"{CURRENT if key == current else ""}>{text}</a>'
         for key, href, text in links) + "</nav>")
