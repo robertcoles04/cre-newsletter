@@ -6,7 +6,7 @@ The original idea is in [`BRIEF.md`](BRIEF.md); the design is in `docs/superpowe
 
 ## What the pipeline does
 1. GitHub Actions runs it every morning (about 5-6 AM ET).
-2. It pulls news feeds, rates and credit data (FRED, Trepp), Fed odds (Polymarket), REIT prices (Alpha Vantage) and, on Sundays, the Fed calendar.
+2. It pulls news feeds, rates and credit data (FRED, Trepp), Fed odds (Polymarket, checked against Kalshi), REIT prices (Alpha Vantage, plus Tiingo when its key is set) and, on Sundays, the Fed calendar.
 3. Everything is saved to a small SQLite database and duplicate stories are merged.
 4. Claude drafts the issue. The model never types a number: code fills in every rate and price, and a missing value shows as `n/a`.
 5. The draft is saved to `issues/YYYY-MM-DD.md` and opened as a GitHub Issue labeled `draft`, which GitHub emails to me.
@@ -20,7 +20,24 @@ The table at the top of each issue is built by code, never by Claude. Each row h
 
 Charts (all drawn by our own code from the same data, never pictures from the web): the 10-Year Treasury trend, the yield curve (today vs. a month ago), the 30-year mortgage over six months, the Fed odds as one bar, and a REIT scoreboard of every tracked REIT's daily move. Any chart without enough data is simply left out.
 
-Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Alpha Vantage, Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar plus FRED's release calendar (major data releases only). The site also publishes an RSS feed at `feed.xml`. Each issue page has an "In this issue" jump list and Previous / Next issue links. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
+Sources: FRED (Treasury, Freddie Mac, ICE BofA and Federal Reserve series), U.S. Treasury, Polymarket, Kalshi, Alpha Vantage, Tiingo (optional), Trepp. Sunday's Week Ahead list comes from the Federal Reserve calendar plus FRED's release calendar (major data releases only). The site also publishes an RSS feed at `feed.xml`. Each issue page has an "In this issue" jump list and Previous / Next issue links. Weekday issues also have a Market Watch section: one story each for the Sun Belt, the West Coast and International.
+
+## Data sources and cross-checks
+
+Every market number is checked against a second, independent source where a free one exists. Disagreements become notes in the review banner; they never block publishing.
+
+| Number | Primary | Second source | Rule |
+| --- | --- | --- | --- |
+| REIT and VNQ prices | Tiingo when `TIINGO_API_KEY` is set (Stooq when switched on), else Alpha Vantage | Alpha Vantage confirms VNQ plus 3 REITs a day (rotating) | Closes within 0.5% agree. A third source breaks a tie. Two that disagree with no tiebreaker: the ticker shows n/a with `reits: <T> sources disagree (AV x, Tiingo y)`. One source only: published, with `reits: <T> single source (<name>)`. |
+| 2/5/10/30-Year Treasury | FRED | Treasury.gov | Compared on their latest shared date. More than 2 bps apart: Treasury.gov wins (it publishes the numbers) and the banner says `rates: <series> FRED x vs Treasury y`. |
+| Fed odds | Polymarket | Kalshi (no key needed) | Shown as "Kalshi: hold X%" under the odds rows. A hold gap over 10 points adds a note; "kalshi: unavailable" if Kalshi is down. |
+| SOFR, Fed funds, credit data | FRED / Trepp | none | Covered by the stale-data guard below. |
+
+Each issue's json has a `sources` map (which sources agreed on each value, e.g. `"VNQ": "AV+Tiingo"`, `"DGS10": "FRED+Treasury"`, `"FED": "Polymarket+Kalshi"`), and the Data Room ends with a short code-written "Data checks" line.
+
+Alpha Vantage's free quota is about 25 calls a day. With a second price source it makes about 5 calls a day (4 quotes plus the VNQ dividend yield); it covers every ticker only when no second source is up. Stooq (free, no key) answered with a JavaScript bot check on 2026-10-06, so it is off (`reit_stooq: false` in `config/sources.yaml`); we never work around bot checks.
+
+**Optional Tiingo key (recommended, free):** sign up at tiingo.com, copy the API token from your account page, then add `TIINGO_API_KEY=<token>` to `.env` and run `gh secret set TIINGO_API_KEY` (paste the token). Without it, REIT prices come from Alpha Vantage alone and the banner says they were not cross-checked.
 
 ## Local setup
 ```bash
@@ -28,7 +45,7 @@ python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt   # Windows (Git Bash)
 cp .env.example .env                                       # then fill in the keys
 ```
-`.env` holds `FRED_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` and `GH_TOKEN`. It is never committed. You also need the Claude Code CLI installed (`npm i -g @anthropic-ai/claude-code`).
+`.env` holds `FRED_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `GH_TOKEN` and optionally `TIINGO_API_KEY`. It is never committed. You also need the Claude Code CLI installed (`npm i -g @anthropic-ai/claude-code`).
 
 Try it without sending anything:
 ```bash

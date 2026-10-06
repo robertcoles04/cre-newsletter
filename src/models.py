@@ -40,6 +40,7 @@ class ReitQuote:
     date: date
     close: float
     change_pct: float
+    source: str = ""  # which price sources agreed ("AV+Stooq", "Tiingo"); "" when unknown
 
 
 @dataclass
@@ -48,3 +49,6 @@ class SourceResult:
     name: str
     ok: bool
     error: str = ""
+    sources: str = ""  # provenance of the value shown ("FRED+Treasury", "Treasury", "FRED")
+    match: bool | None = None  # cross-check result; None when not cross-checked
+    note: str = ""  # cross-check disagreement, for the draft banner

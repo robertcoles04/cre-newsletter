@@ -23,13 +23,16 @@ TONE = ("in plain English for a smart college student new to CRE: define any ter
         "patronizing (no 'fancy', no 'big companies like to')")
 
 
+PAGE_ONLY = ("DATA_CHECKS",)  # code-rendered on the page (Data Room), never in prose
+
+
 def _sheet_for_model(factsheet: dict) -> str:
     # Numbers stay out of the model's view: values are placeholders only, and reit_moves
     # is chart data for code.
-    sheet = {k: v for k, v in factsheet.items() if k not in ("values", "reit_moves")}
+    sheet = {k: v for k, v in factsheet.items() if k not in ("values", "reit_moves", "sources")}
     # *_DATE values are machine dates for the page (Data Room "Updated" tags), not prose.
     sheet["placeholders"] = sorted(k for k in factsheet.get("values", {})
-                                   if not k.endswith("_DATE"))
+                                   if not k.endswith("_DATE") and k not in PAGE_ONLY)
     return json.dumps(sheet, indent=2, ensure_ascii=False)
 
 

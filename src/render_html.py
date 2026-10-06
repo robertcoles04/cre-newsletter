@@ -346,11 +346,15 @@ def data_room(values: dict, run_date: date | None) -> str:
             fresh = _updated(k, values, run_date)
             cells.append(_row(lbl, k, ck, values, tag="Updated" if fresh else "",
                               quiet=not fresh))
-    if not cells:
+    checks = values.get("DATA_CHECKS")
+    checks_html = (f'<p class="checks">Data checks: {_esc(checks)}</p>'
+                   if not _is_na(checks) else "")
+    if not cells and not checks_html:
         return ""
+    rows = f'<dl>{"".join(cells)}</dl>' if cells else ""
     return ('<section class="data-room" aria-labelledby="dataroom-h">'
             '<h2 id="dataroom-h">Data Room</h2>'
-            f'<p class="intro">{_esc(DATA_ROOM_INTRO)}</p><dl>{"".join(cells)}</dl></section>')
+            f'<p class="intro">{_esc(DATA_ROOM_INTRO)}</p>{rows}{checks_html}</section>')
 
 
 # --- The ticker: a navy band of the day's numbers, filled only from the fact sheet ----------
@@ -561,8 +565,13 @@ def market_summary(values: dict, charts, prose_html: str) -> str:
         col = side if title in SUMMARY_SIDE else main
         cells = [_row(lbl, k, ck, values) for lbl, k, ck in rows if has_row(k, ck, values)]
         if cells:
+            extra = ""
+            if title == "Federal Reserve" and not _is_na(values.get("KALSHI_HOLD")):
+                # Second opinion under the Polymarket odds rows.
+                extra = (f'<p class="hint second-source">Kalshi: hold '
+                         f'{_esc(values["KALSHI_HOLD"])}</p>')
             col.append(f'<div class="group"><h3 class="group-name">{_esc(title)}</h3>'
-                       f'<dl>{"".join(cells)}</dl></div>')
+                       f'<dl>{"".join(cells)}</dl>{extra}</div>')
         if title == "Rates" and not _is_na(asof):
             col.append(f'<p class="caption">Rates as of {_esc(asof)} close.</p>')
         if title == "Rates":
@@ -1357,6 +1366,8 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-num
 .term-name { margin: 12px 0 0; font-family: var(--display); font-size: 32px; line-height: 1.1; }
 .term-def p { margin: 10px 0 0; font-size: 18px; line-height: 1.6; }
 .data-room .intro { margin: 0 0 4px; }
+.data-room .checks { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.group .second-source { margin: 6px 0 0; }
 .pair.back .pb { margin-top: 32px; }
 .term.solo, .data-room.solo { margin-top: 44px; }
 

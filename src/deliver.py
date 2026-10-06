@@ -64,6 +64,8 @@ def deliver(conn, run_date: date, md: str, problems: list[str], chart: Path | No
                 "values": factsheet["values"]}
         if factsheet.get("as_of_dates") is not None:
             data["as_of_dates"] = factsheet["as_of_dates"]
+        if factsheet.get("sources"):  # provenance: which sources agreed on each value
+            data["sources"] = factsheet["sources"]
         if charts:
             data["charts"] = {}
             for name, c in charts.items():

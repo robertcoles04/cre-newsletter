@@ -330,7 +330,7 @@ def _rate_values(conn: sqlite3.Connection,
     return values, dgs10, dgs10_chg
 
 
-FED_HOLD_WORDS = re.compile(r"no change|hold|unchanged|pause", re.I)
+FED_HOLD_WORDS = re.compile(r"no change|hold|unchanged|pause|maintain", re.I)
 FED_CUT_WORDS = re.compile(r"decrease|cut|lower", re.I)
 FED_HIKE_WORDS = re.compile(r"increase|hike|raise", re.I)
 
@@ -387,6 +387,68 @@ def _fed_values(odds: FedOdds | None, run_date: date) -> tuple[dict, list[str]]:
         for bucket, pct in _to_100(sums).items():  # buckets with no market stay n/a
             values[f"FED_{bucket.upper()}"] = f"{pct:.1f}%"
     return values, unmapped
+
+
+FED_DISAGREE_PP = 10  # Polymarket vs Kalshi "hold" gap (percentage points) worth a note
+
+
+def bucket_odds(odds: FedOdds | None) -> dict[str, float]:
+    """{"cut"/"hold"/"hike": percent} summing to 100, from any odds source."""
+    if odds is None or not odds.outcomes:
+        return {}
+    sums: dict[str, float] = {}
+    for label, prob in odds.outcomes:
+        bucket = fed_bucket(label)
+        if bucket is not None:
+            sums[bucket] = sums.get(bucket, 0.0) + prob
+    return _to_100(sums)
+
+
+def kalshi_check(values: dict, kalshi: FedOdds | None) -> tuple[str | None, str | None]:
+    """Sets KALSHI_HOLD ("84.0%", the hint line under the Fed odds) and returns
+    (provenance for the Fed odds, note). Polymarket stays the published number; a hold gap
+    over FED_DISAGREE_PP points gets a note."""
+    k = bucket_odds(kalshi)
+    if "hold" not in k:
+        return ("Polymarket" if values.get("FED_HOLD", NA) != NA else None), None
+    values["KALSHI_HOLD"] = f"{k['hold']:.1f}%"
+    poly = values.get("FED_HOLD", NA)
+    if poly == NA:
+        return None, None
+    gap = abs(float(poly.rstrip("%")) - k["hold"])
+    if gap > FED_DISAGREE_PP:
+        return ("Polymarket (Kalshi differs)",
+                f"fed: Polymarket hold {poly} vs Kalshi hold {k['hold']:.1f}%")
+    return "Polymarket+Kalshi", None
+
+
+TREASURY_IDS = ("DGS2", "DGS5", "DGS10", "DGS30")
+TREASURY_NAMES = {"DGS2": "2-Year", "DGS5": "5-Year", "DGS10": "10-Year", "DGS30": "30-Year"}
+
+
+def data_checks_line(quotes: list[ReitQuote], rate_checks: dict, fed_sources: str | None
+                     ) -> str:
+    """The plain-text "Data checks" line at the bottom of the Data Room, built by code,
+    e.g. "Prices confirmed by 2 sources for 4 of 12 REITs. Treasury yields matched across
+    FRED and Treasury.gov." Empty when nothing was checked."""
+    parts = []
+    if quotes:
+        both = sum(1 for q in quotes if "+" in (q.source or ""))
+        parts.append(f"Prices confirmed by 2 sources for {both} of {len(quotes)} REITs."
+                     if both else "REIT prices came from a single source today.")
+    checked = {k: v for k, v in (rate_checks or {}).items() if k in TREASURY_IDS}
+    if checked:
+        differ = [TREASURY_NAMES[k] for k in TREASURY_IDS if checked.get(k) is False]
+        if differ:
+            parts.append(f"Treasury.gov used for the {', '.join(differ)} "
+                         "(FRED showed a different number).")
+        else:
+            parts.append("Treasury yields matched across FRED and Treasury.gov.")
+    if fed_sources == "Polymarket+Kalshi":
+        parts.append("Fed odds in line with Kalshi.")
+    elif fed_sources == "Polymarket (Kalshi differs)":
+        parts.append("Fed odds differ between Polymarket and Kalshi; both shown.")
+    return " ".join(parts)
 
 
 MOVER_NOTE = "No company-specific news today; it may have moved with other {group} REITs."
@@ -606,7 +668,9 @@ def as_of_dates(conn: sqlite3.Connection, run_date: date, values: dict,
 def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | None,
                     quotes: list[ReitQuote], problems: list[str],
                     vnq_yield: float | None, *, cmbs: dict | None = None,
-                    week_events: list[dict] | None = None) -> dict:
+                    week_events: list[dict] | None = None,
+                    kalshi: FedOdds | None = None, provenance: dict | None = None,
+                    rate_checks: dict | None = None) -> dict:
     dtype = day_type(run_date)
     anchor = _anchor(run_date)
     sources = load_sources()
@@ -617,6 +681,15 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
     fed, unmapped = _fed_values(odds, run_date)
     values.update(fed)
     problems.extend(f"polymarket: unmapped outcome {name!r}" for name in unmapped)
+    fed_sources, fed_note = kalshi_check(values, kalshi)
+    if fed_note:
+        problems.append(fed_note)
+    data_sources = dict(provenance or {})
+    if fed_sources:
+        data_sources["FED"] = fed_sources
+    checks_line = data_checks_line(quotes, rate_checks or {}, fed_sources)
+    if checks_line:
+        values["DATA_CHECKS"] = checks_line
     values.update(_market_values(quotes))
     _reit_names(values, sources.get("reit_info") or {})
     values.update(_cmbs_values(cmbs))
@@ -661,6 +734,8 @@ def build_factsheet(conn: sqlite3.Connection, run_date: date, odds: FedOdds | No
         "term": _pick_term(conn, run_date),
         # Chart data only (REIT scoreboard); kept out of the model's copy of the sheet.
         "reit_moves": reit_moves(quotes, sources.get("reit_info") or {}),
+        # Which sources back each value ("AV+Stooq", "FRED+Treasury", "Polymarket+Kalshi").
+        "sources": data_sources,
     }
 
     if dtype in ("weekday", "friday"):

@@ -55,6 +55,10 @@ def connect(path: str) -> sqlite3.Connection:
     if "region" not in cols:  # DBs created before Market Watch
         conn.execute("ALTER TABLE items ADD COLUMN region TEXT")
         conn.commit()
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(reit_quotes)")}
+    if "source" not in cols:  # DBs created before the price cross-check
+        conn.execute("ALTER TABLE reit_quotes ADD COLUMN source TEXT")
+        conn.commit()
     return conn
 
 
@@ -219,8 +223,10 @@ def save_rates(conn: sqlite3.Connection, points: list[RatePoint]) -> None:
 
 def save_quotes(conn: sqlite3.Connection, quotes: list[ReitQuote]) -> None:
     conn.executemany(
-        "INSERT OR REPLACE INTO reit_quotes (ticker, date, close, change_pct) VALUES (?,?,?,?)",
-        [(q.ticker, q.date.isoformat(), q.close, q.change_pct) for q in quotes],
+        "INSERT OR REPLACE INTO reit_quotes (ticker, date, close, change_pct, source)"
+        " VALUES (?,?,?,?,?)",
+        [(q.ticker, q.date.isoformat(), q.close, q.change_pct, q.source or None)
+         for q in quotes],
     )
     conn.commit()
 
@@ -244,9 +250,10 @@ def recent_items(conn: sqlite3.Connection, since: datetime) -> list[sqlite3.Row]
 
 def get_quotes(conn: sqlite3.Connection, since: date) -> list[ReitQuote]:
     rows = conn.execute(
-        "SELECT ticker, date, close, change_pct FROM reit_quotes WHERE date >= ?"
+        "SELECT ticker, date, close, change_pct, source FROM reit_quotes WHERE date >= ?"
         " ORDER BY ticker, date",
         (since.isoformat(),),
     ).fetchall()
-    return [ReitQuote(r["ticker"], date.fromisoformat(r["date"]), r["close"], r["change_pct"])
+    return [ReitQuote(r["ticker"], date.fromisoformat(r["date"]), r["close"], r["change_pct"],
+                      r["source"] or "")
             for r in rows]

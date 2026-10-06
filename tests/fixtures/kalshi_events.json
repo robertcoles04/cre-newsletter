@@ -1,0 +1,138 @@
+{
+ "cursor": "",
+ "events": [
+  {
+   "category": "Economics",
+   "event_ticker": "KXFEDDECISION-26OCT",
+   "mutually_exclusive": true,
+   "series_ticker": "KXFEDDECISION",
+   "strike_date": "2026-10-28T18:00:00Z",
+   "sub_title": "On Oct 28, 2026",
+   "title": "Fed decision in Oct 2026?",
+   "markets": [
+    {
+     "close_time": "2026-10-28T17:59:00Z",
+     "event_ticker": "KXFEDDECISION-26OCT",
+     "last_price_dollars": "0.0100",
+     "previous_price_dollars": "0.0100",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26OCT-C26",
+     "yes_ask_dollars": "0.0100",
+     "yes_bid_dollars": "0.0000",
+     "yes_sub_title": "Cut >25bps"
+    },
+    {
+     "close_time": "2026-10-28T17:59:00Z",
+     "event_ticker": "KXFEDDECISION-26OCT",
+     "last_price_dollars": "0.0100",
+     "previous_price_dollars": "0.0100",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26OCT-C25",
+     "yes_ask_dollars": "0.0100",
+     "yes_bid_dollars": "0.0000",
+     "yes_sub_title": "Cut 25bps"
+    },
+    {
+     "close_time": "2026-10-28T17:59:00Z",
+     "event_ticker": "KXFEDDECISION-26OCT",
+     "last_price_dollars": "0.8400",
+     "previous_price_dollars": "0.8000",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26OCT-H0",
+     "yes_ask_dollars": "0.8400",
+     "yes_bid_dollars": "0.8300",
+     "yes_sub_title": "Fed maintains rate"
+    },
+    {
+     "close_time": "2026-10-28T17:59:00Z",
+     "event_ticker": "KXFEDDECISION-26OCT",
+     "last_price_dollars": "0.1800",
+     "previous_price_dollars": "0.2100",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26OCT-H25",
+     "yes_ask_dollars": "0.1800",
+     "yes_bid_dollars": "0.1700",
+     "yes_sub_title": "Hike 25bps"
+    },
+    {
+     "close_time": "2026-10-28T17:59:00Z",
+     "event_ticker": "KXFEDDECISION-26OCT",
+     "last_price_dollars": "0.0100",
+     "previous_price_dollars": "0.0100",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26OCT-H26",
+     "yes_ask_dollars": "0.0100",
+     "yes_bid_dollars": "0.0000",
+     "yes_sub_title": "Hike >25bps"
+    }
+   ]
+  },
+  {
+   "category": "Economics",
+   "event_ticker": "KXFEDDECISION-26DEC",
+   "mutually_exclusive": true,
+   "series_ticker": "KXFEDDECISION",
+   "strike_date": "2026-12-09T19:00:00Z",
+   "sub_title": "On Dec 9, 2026",
+   "title": "Fed decision in Dec 2026?",
+   "markets": [
+    {
+     "close_time": "2026-12-09T18:59:00Z",
+     "event_ticker": "KXFEDDECISION-26DEC",
+     "last_price_dollars": "0.0100",
+     "previous_price_dollars": "0.0100",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26DEC-C26",
+     "yes_ask_dollars": "0.0100",
+     "yes_bid_dollars": "0.0000",
+     "yes_sub_title": "Cut >25bps"
+    },
+    {
+     "close_time": "2026-12-09T18:59:00Z",
+     "event_ticker": "KXFEDDECISION-26DEC",
+     "last_price_dollars": "0.0300",
+     "previous_price_dollars": "0.0200",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26DEC-C25",
+     "yes_ask_dollars": "0.0300",
+     "yes_bid_dollars": "0.0100",
+     "yes_sub_title": "Cut 25bps"
+    },
+    {
+     "close_time": "2026-12-09T18:59:00Z",
+     "event_ticker": "KXFEDDECISION-26DEC",
+     "last_price_dollars": "0.2700",
+     "previous_price_dollars": "0.2500",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26DEC-H0",
+     "yes_ask_dollars": "0.2700",
+     "yes_bid_dollars": "0.2600",
+     "yes_sub_title": "Fed maintains rate"
+    },
+    {
+     "close_time": "2026-12-09T18:59:00Z",
+     "event_ticker": "KXFEDDECISION-26DEC",
+     "last_price_dollars": "0.7200",
+     "previous_price_dollars": "0.7400",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26DEC-H25",
+     "yes_ask_dollars": "0.7200",
+     "yes_bid_dollars": "0.7100",
+     "yes_sub_title": "Hike 25bps"
+    },
+    {
+     "close_time": "2026-12-09T18:59:00Z",
+     "event_ticker": "KXFEDDECISION-26DEC",
+     "last_price_dollars": "0.0300",
+     "previous_price_dollars": "0.0300",
+     "status": "active",
+     "ticker": "KXFEDDECISION-26DEC-H26",
+     "yes_ask_dollars": "0.0300",
+     "yes_bid_dollars": "0.0200",
+     "yes_sub_title": "Hike >25bps"
+    }
+   ]
+  }
+ ],
+ "milestones": []
+}

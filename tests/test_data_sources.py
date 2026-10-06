@@ -371,7 +371,7 @@ def test_collect_records_trepp_and_calendar_problems_and_continues(tmp_path, mon
     problems = []
     sources = {"feeds": [], "google_news": [], "fred_series": [], "reit_etf": "VNQ"}
     out = main._collect(conn, sources, SUN, _Client(), problems)
-    assert out[3] == {"cmbs": None, "week_events": None}
+    assert {k: out[3][k] for k in ("cmbs", "week_events")} == {"cmbs": None, "week_events": None}
     assert any(p.startswith("trepp: no CMBS") for p in problems)
     assert any(p.startswith("calendar: ConnectError") for p in problems)
     # Weekdays do not fetch the calendar.
@@ -391,7 +391,8 @@ def test_collect_passes_week_events_and_trepp_through(tmp_path, monkeypatch):
     out = main._collect(connect(str(tmp_path / "t.db")),
                         {"feeds": [], "google_news": [], "fred_series": []},
                         SUN, _Client(), problems)
-    assert out[3] == {"cmbs": {"CMBS_DQ_CHG": "0 bps"}, "week_events": [ev]}
+    assert {k: out[3][k] for k in ("cmbs", "week_events")} == {
+        "cmbs": {"CMBS_DQ_CHG": "0 bps"}, "week_events": [ev]}
     assert not any(p.startswith(("trepp", "calendar")) for p in problems)
 
 

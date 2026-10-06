@@ -86,6 +86,12 @@ fred_series:
 
 reit_etf: VNQ
 
+# Second REIT price source (src/collect/prices.py). Stooq is free with no key, but on
+# 2026-10-06 it answered with a JavaScript bot check instead of its CSV, and we never work
+# around bot protection, so it is off. Set to true if it serves plain CSV again. Tiingo
+# (free key, TIINGO_API_KEY) is used whenever its key is set.
+reit_stooq: false
+
 reit_tickers:
   - O
   - PLD

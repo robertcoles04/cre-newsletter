@@ -1,4 +1,4 @@
-"""Alpha Vantage REIT quote and ETF yield collector."""
+"""Alpha Vantage REIT quote and ETF yield collector (plus which tickers it confirms)."""
 
 import time
 from collections import Counter
@@ -114,3 +114,18 @@ def split_stale(quotes: list[ReitQuote], days: list[date]
         return [], list(quotes), None
     day = max(counts, key=lambda d: (counts[d], d))
     return ([q for q in quotes if q.date == day], [q for q in quotes if q.date != day], day)
+
+
+AV_CONFIRM_ROTATION = 3  # REITs Alpha Vantage double-checks each day, besides the ETF
+
+
+def confirm_set(etf: str | None, tickers: list[str], run_date: date,
+                n: int = AV_CONFIRM_ROTATION) -> list[str]:
+    """Tickers Alpha Vantage confirms when another price source is up: the ETF (VNQ) plus
+    `n` REITs rotated by date, so every REIT gets a second look every few days while the
+    Alpha Vantage quota stays near 5 calls a day (4 quotes + the VNQ yield)."""
+    out = [etf] if etf else []
+    if tickers:
+        start = run_date.toordinal() % len(tickers)
+        out += [tickers[(start + i) % len(tickers)] for i in range(min(n, len(tickers)))]
+    return out

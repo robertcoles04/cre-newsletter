@@ -19,7 +19,7 @@ from src import classify, deliver as deliver_mod, draft, llm, trepp
 from src import chart as charts_mod
 from src.chart import rate_chart
 from src.checks import FOOTER, check_issue, load_banned
-from src.collect import calendar, google_news, polymarket, reits, rss
+from src.collect import calendar, google_news, kalshi, polymarket, prices, reits, rss
 from src.config import ET, env, http_client, load_sources
 from src.factsheet import _day, build_factsheet, day_type, next_meeting
 from src.cleanup import tidy
@@ -163,14 +163,53 @@ def _stored_quotes(conn, tickers: list[str], days: list[date]):
     return [], None
 
 
+def _free_bars(sources: dict, tickers: list[str], days: list[date], client,
+               problems: list[str]) -> dict[str, dict]:
+    """{source name: {ticker: bars}} from the free price sources that are switched on:
+    Stooq when `reit_stooq` is true in sources.yaml, Tiingo when TIINGO_API_KEY is set.
+    A bot-check page stops that source for the run; a source that fails for every ticker
+    gets one "unavailable" note."""
+    out: dict[str, dict] = {}
+    start = min(days) - timedelta(days=10)
+    fetchers = []
+    if sources.get("reit_stooq"):
+        fetchers.append(("Stooq", lambda t: prices.fetch_stooq(t, client)))
+    tiingo_key = env("TIINGO_API_KEY", required=False)
+    if tiingo_key:
+        fetchers.append(("Tiingo", lambda t: prices.fetch_tiingo(t, tiingo_key, client, start)))
+    for name, fetch in fetchers:
+        got, error = {}, ""
+        for ticker in tickers:
+            try:
+                got[ticker] = fetch(ticker)
+            except prices.Blocked:
+                error = "blocked by a bot check"
+                got = {}
+                break
+            except Exception as exc:
+                error = error or _err(exc)
+        if got:
+            out[name] = got
+        else:
+            problems.append(f"reits: {name.lower()} unavailable ({error or 'no data'})")
+    return out
+
+
 def _collect_reits(conn, sources: dict, run_date: date, client, problems: list[str],
-                   now: datetime | None):
+                   now: datetime | None, provenance: dict | None = None):
     """(quotes, vnq yield). Quotes must be dated the expected trading day (see
     reits.accepted_days); an older one is reported as stale and dropped, never retried.
+
+    Sources: the free ones (Stooq / Tiingo, see _free_bars) cover every ticker; Alpha
+    Vantage confirms VNQ plus 3 rotated REITs (reits.confirm_set) and fills in any ticker
+    the free sources lack, or every ticker when no free source is up. Each ticker then goes
+    through prices.cross_check; `provenance` gets {ticker: "AV+Stooq"}.
     A --force or second run the same day reuses the stored quotes for that trading day
     instead of spending the Alpha Vantage quota again."""
+    provenance = provenance if provenance is not None else {}
     etf = sources.get("reit_etf")
-    tickers = ([etf] if etf else []) + list(sources.get("reit_tickers", []))
+    others = list(sources.get("reit_tickers", []))
+    tickers = ([etf] if etf else []) + others
     days = reits.accepted_days(run_date, now)
     if tickers:
         reused, day = _stored_quotes(conn, tickers, days)
@@ -180,26 +219,72 @@ def _collect_reits(conn, sources: dict, run_date: date, client, problems: list[s
             missing = [t for t in tickers if t not in have]
             if missing:
                 problems.append(f"reits: no stored quote for {', '.join(missing)}")
+            provenance.update({q.ticker: q.source or "stored" for q in reused})
             stored_yield = [p for p in get_rates(conn, VNQ_YIELD_SERIES, day) if p.date == day]
             return reused, (stored_yield[-1].value if stored_yield else None)
+    if not tickers:
+        return [], None
+
+    free = _free_bars(sources, tickers, days, client, problems)
+    day = prices.best_day({f"{src}:{t}": bars for src, got in free.items()
+                           for t, bars in got.items()}, days)
+    cands: dict[str, dict] = {t: {} for t in tickers}
+    if day is not None:
+        for src, got in free.items():
+            for t, bars in got.items():
+                q = prices.quote_on(t, bars, day, src)
+                if q is not None:
+                    cands[t][src] = q
 
     av_key = env("ALPHA_VANTAGE_API_KEY", required=False)
+    confirm = set(reits.confirm_set(etf, others, run_date)) if free else set(tickers)
+    need_av = [t for t in tickers if t in confirm or not cands[t]]
     if not av_key:
         problems.append("reits: missing ALPHA_VANTAGE_API_KEY")
-        return [], None
+        need_av = []
+    if not free and av_key:
+        problems.append("reits: prices from Alpha Vantage only, not cross-checked "
+                        "(no second source; set TIINGO_API_KEY)")
+
     quotes, vnq_yield = [], None
     try:
-        fetched, failed = reits.fetch_quotes(tickers, av_key, client)
-        quotes, stale, day = reits.split_stale(fetched, days)
-        save_quotes(conn, quotes)
+        fetched, failed = (reits.fetch_quotes(need_av, av_key, client) if need_av
+                           else ([], []))
+        if day is None:
+            fresh, stale, day = reits.split_stale(fetched, days)
+        else:
+            fresh = [q for q in fetched if q.date == day]
+            stale = [q for q in fetched if q.date != day]
+        for q in fresh:
+            cands[q.ticker]["AV"] = q
+        stale_by = {q.ticker: q for q in stale}
+        for t in tickers:
+            quote, prov, note = prices.cross_check(t, cands[t])
+            if note:
+                problems.append(note)
+                continue
+            if quote is None:
+                if t in stale_by:
+                    problems.append(f"reits: {t} quote is stale "
+                                    f"({stale_by[t].date.isoformat()})")
+                continue
+            tried = set(free) | ({"AV"} if t in need_av else set())
+            if len(cands[t]) == 1 and len(tried) >= 2:
+                problems.append(f"reits: {t} single source ({prov})")
+            quote.source = prov
+            quotes.append(quote)
+            provenance[t] = prov
+        published = {q.ticker for q in quotes}
+        failed = [t for t in failed if t not in published]
         if failed:
             problems.append(f"reits: failed {', '.join(failed)}")
-        problems.extend(f"reits: {q.ticker} quote is stale ({q.date.isoformat()})"
-                        for q in stale)
-        sleep(AV_SPACING_SECONDS)
-        vnq_yield = reits.fetch_etf_yield(etf, av_key, client)
-        if vnq_yield is not None and day is not None:
-            save_rates(conn, [RatePoint(VNQ_YIELD_SERIES, day, vnq_yield)])
+        save_quotes(conn, quotes)
+        if av_key and etf:
+            if need_av:
+                sleep(AV_SPACING_SECONDS)
+            vnq_yield = reits.fetch_etf_yield(etf, av_key, client)
+            if vnq_yield is not None and day is not None:
+                save_rates(conn, [RatePoint(VNQ_YIELD_SERIES, day, vnq_yield)])
     except Exception as exc:
         problems.append(f"reits: {_err(exc)}")
     return quotes, vnq_yield
@@ -212,7 +297,8 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str],
     the run's start time (decides whether today's close counts and dates the Fed odds)."""
     anchor = datetime(run_date.year, run_date.month, run_date.day, 5, tzinfo=ET)
     since = anchor - timedelta(hours=COLLECT_HOURS)
-    extras: dict = {"cmbs": None, "week_events": None}
+    extras: dict = {"cmbs": None, "week_events": None, "kalshi": None, "sources": {},
+                    "rate_checks": {}}
 
     for f in sources.get("feeds", []):
         # A feed may keep older items (Trepp: its monthly CMBS report); the fact sheet
@@ -250,8 +336,15 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str],
         for r in collect_rates(conn, sources["fred_series"], fred_key or None, client, run_date):
             if not r.ok:
                 problems.append(f"rates/{r.name}: {r.error}")
-            elif r.error:
+                continue
+            if r.error:
                 problems.append(f"rates/{r.name}: fallback treasury")
+            if r.note:
+                problems.append(r.note)
+            if r.sources:
+                extras["sources"][r.name] = r.sources
+            if r.match is not None:
+                extras["rate_checks"][r.name] = r.match
     except Exception as exc:
         problems.append(f"fred: {_err(exc)}")
 
@@ -268,7 +361,16 @@ def _collect(conn, sources: dict, run_date: date, client, problems: list[str],
     except Exception as exc:
         problems.append(f"polymarket: {_err(exc)}")
 
-    quotes, vnq_yield = _collect_reits(conn, sources, run_date, client, problems, now)
+    # Kalshi: a second read on the same meeting (shown as a hint line, never the primary).
+    try:
+        extras["kalshi"] = kalshi.fetch_fed_odds(client, meeting)
+        if extras["kalshi"] is None and meeting:
+            problems.append(f"kalshi: no market for {_day(meeting)}")
+    except Exception:
+        problems.append("kalshi: unavailable")
+
+    quotes, vnq_yield = _collect_reits(conn, sources, run_date, client, problems, now,
+                                       provenance=extras["sources"])
     return odds, quotes, vnq_yield, extras
 
 
@@ -478,7 +580,10 @@ def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extra
     try:
         factsheet = build_factsheet(conn, run_date, odds, quotes, problems, vnq_yield,
                                     cmbs=extras.get("cmbs"),
-                                    week_events=extras.get("week_events"))
+                                    week_events=extras.get("week_events"),
+                                    kalshi=extras.get("kalshi"),
+                                    provenance=extras.get("sources"),
+                                    rate_checks=extras.get("rate_checks"))
     except Exception as exc:
         problems.append(f"factsheet: {_err(exc)}")
         return _stub_markdown(problems), None
