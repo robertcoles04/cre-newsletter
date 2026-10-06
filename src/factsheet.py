@@ -456,19 +456,57 @@ def reit_moves(quotes: list[ReitQuote], info: dict) -> list[dict]:
     return sorted(rows, key=lambda r: -r["chg_pct"])
 
 
-def _pick_term(conn: sqlite3.Connection, run_date: date) -> dict:
+TERM_COOLDOWN_DAYS = 120  # a term (or one in the same family) never returns sooner
+ISSUES_DIR = Path("issues")  # published issue files; tests point this elsewhere
+_TERM_IN_MD = re.compile(r"^## Term of the Day\s*\n+\s*\*\*(.+?):?\*\*", re.M)
+
+
+def _terms_used(conn: sqlite3.Connection, run_date: date,
+                issues_dir: Path | None = None) -> dict[str, date]:
+    """Last date each term ran, lowercased. Reads the DB and the issue files, so a term
+    swapped by hand in a published issue counts too. Today's own issue is ignored, so a
+    same-day rerun picks the same term."""
+    last: dict[str, date] = {}
+
+    def note(name: str, day: date) -> None:
+        key = name.strip().rstrip(":").strip().lower()
+        if key and (key not in last or day > last[key]):
+            last[key] = day
+
+    for r in conn.execute("SELECT date, term FROM issues WHERE term IS NOT NULL AND term != ''"
+                          " AND date != ?", (run_date.isoformat(),)):
+        note(r["term"], date.fromisoformat(r["date"]))
+    for path in sorted(Path(issues_dir or ISSUES_DIR).glob("????-??-??.md")):
+        try:
+            day = date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if day >= run_date:
+            continue
+        m = _TERM_IN_MD.search(path.read_text(encoding="utf-8-sig"))
+        if m:
+            note(m.group(1), day)
+    return last
+
+
+def _pick_term(conn: sqlite3.Connection, run_date: date,
+               issues_dir: Path | None = None) -> dict:
     terms = _load_yaml("config/terms.yaml")
-    # Ignore today's own row so a same-day rerun picks the same term.
-    rows = conn.execute(
-        "SELECT date, term FROM issues WHERE term IS NOT NULL AND term != '' AND date != ?"
-        " ORDER BY date", (run_date.isoformat(),)).fetchall()
-    used = {r["term"] for r in rows}
-    chosen = next((t for t in terms if t["term"] not in used), None)
-    if chosen is None:  # every term used: wrap to the one after the most recent
-        names = [t["term"] for t in terms]
-        last = rows[-1]["term"]
-        idx = (names.index(last) + 1) % len(terms) if last in names else 0
-        chosen = terms[idx]
+    last = _terms_used(conn, run_date, issues_dir)
+
+    def last_use(t: dict) -> date | None:
+        # A term is as "recent" as the latest use of any term in its family.
+        family = t.get("family")
+        names = [x["term"] for x in terms if family and x.get("family") == family] or [t["term"]]
+        days = [last[n.lower()] for n in names if n.lower() in last]
+        return max(days) if days else None
+
+    fresh = [t for t in terms if last_use(t) is None]
+    if fresh:
+        chosen = fresh[0]
+    else:  # every term has run: the least recently used one, past the cooldown if possible
+        rested = [t for t in terms if (run_date - last_use(t)).days >= TERM_COOLDOWN_DAYS]
+        chosen = min(rested or terms, key=last_use)
     return {"term": chosen["term"], "definition_hint": chosen["hint"]}
 
 

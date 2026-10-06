@@ -125,12 +125,15 @@ def test_term_wraps_when_all_used():
     conn = connect(":memory:")
     with open("config/terms.yaml", encoding="utf8") as f:
         names = [e["term"] for e in yaml.safe_load(f)]
-    assert len(names) == 30
+    assert len(names) >= 120
+    start = date(2026, 1, 1)
     for i, term in enumerate(names):
         conn.execute("INSERT INTO issues (date, term) VALUES (?,?)",
-                     ((date(2026, 8, 1) + timedelta(days=i)).isoformat(), term))
+                     ((start + timedelta(days=i)).isoformat(), term))
     conn.commit()
-    assert fs(conn, date(2026, 10, 6))["term"]["term"] == names[0]
+    # names[0] (NNN lease) shares a family with the last-run Absolute NNN, so the
+    # least recently used standalone term comes back first.
+    assert fs(conn, start + timedelta(days=len(names)))["term"]["term"] == names[1]
 
 
 def test_ai_requires_importance_7():
