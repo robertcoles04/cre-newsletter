@@ -161,5 +161,5 @@ jobs:
         # Site URL is hard-coded; keep it in sync with SITE_URL in src/site.py.
         run: |
           gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Published: https://robertcoles04.github.io/cre-newsletter/issues/$DAY/"
+            --body "Published: https://creblurb.org/issues/$DAY/"
           gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY"

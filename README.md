@@ -57,7 +57,7 @@ After that it runs on its own every morning. The database lives on a `data` bran
 The automatic checks found something suspicious (for example a number the model typed itself, or a missing source link). Nothing is wrong with the pipeline; it is asking for a human look. Read the banner, check the flagged lines against the linked sources, fix or delete them. You do not need to delete the banner; it is removed automatically when you publish (see Publishing below).
 
 ## Publishing
-The website is at https://robertcoles04.github.io/cre-newsletter/ (GitHub Pages).
+The website is at https://creblurb.org/ (GitHub Pages, custom domain bought at Porkbun; the old github.io address redirects).
 
 1. Open the `Draft: CRE Blurb <date>` Issue and read the draft. To change it, edit `issues/<date>.md` on github.com (the pencil icon) and save.
 2. Add the `approved` label to the Issue.

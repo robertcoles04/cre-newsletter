@@ -16,7 +16,7 @@ from xml.sax.saxutils import escape as xml_escape
 from src.publish import _valid_date, check, load_published, strip_banner
 from src.render_html import CHART_NAMES, DEFAULT_ALT, render_issue_html, render_page
 
-SITE_URL = "https://robertcoles04.github.io/cre-newsletter/"
+SITE_URL = "https://creblurb.org/"
 SITE_NAME = "CRE Blurb"
 RECENT = 10
 RECENT_MIN = 3  # the home page's "Recent issues" list shows once there are this many
