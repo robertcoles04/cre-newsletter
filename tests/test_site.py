@@ -137,7 +137,7 @@ def test_archive_and_about(built):
     assert "students and early-career professionals" in about and "Robert Coles" in about
     assert "tailored towards" not in about
     assert about.count("For informational purposes only. Not investment advice.") == 1
-    assert "Our standards" in about and "AI" not in about
+    assert "Our standards" in about and "Claude" not in about and "script gathers" not in about
     assert "Corrections" in about
     assert 'href="mailto:robertcoles@icloud.com"' in about
     assert "Data sources" not in about
