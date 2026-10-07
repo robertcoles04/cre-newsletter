@@ -274,6 +274,19 @@ def test_describe_uses_the_brief_first_bullet():
     assert site.describe(md, date(2026, 10, 5)) == "Office rents hit a record in Manhattan."
 
 
+def test_describe_drops_source_link_without_period():
+    """2026-10-07: a Brief bullet with no period before its source link leaked the
+    link text ("...agree on price Bisnow") into the meta description and feed."""
+    md = ("## The Brief\n\n- High yields are freezing REIT mergers, leaving buyers and "
+          "sellers unable to agree on price [Bisnow](https://www.bisnow.com/x)\n"
+          "- Two [CO](https://x.com/2)\n\n## Top Stories\n\nOther text.\n")
+    assert site.describe(md, date(2026, 10, 7)) == (
+        "High yields are freezing REIT mergers, leaving buyers and sellers unable "
+        "to agree on price.")
+    two = "## The Brief\n\n- Deals stalled [WSJ](https://a.com) [Bisnow](https://b.com)\n"
+    assert site.describe(two, date(2026, 10, 7)) == "Deals stalled."
+
+
 def test_unpublished_draft_never_rendered(tmp_path):
     """A pushed draft (md + json, not in published.json) stays off the site, so the
     push-triggered rebuild in publish.yml cannot leak an unapproved issue."""

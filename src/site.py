@@ -192,6 +192,7 @@ INFO_PAGES = (
 _SECTION = re.compile(r"^## +(.+?)\s*$", re.M)
 _LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
 _SENTENCE_END = re.compile(r"[.!?] ")
+_TRAILING_LINKS = re.compile(r"(?:\s*!?\[[^\]]*\]\([^)]*\))+\s*$")
 
 
 def _a(v: str) -> str:
@@ -219,12 +220,17 @@ def describe(md: str, day: date) -> str:
                 continue
             if (not s or s[0] in "#-*>!" or s[0].isdigit() or s.startswith("<!--")):
                 continue
+            s = _TRAILING_LINKS.sub("", s)  # the story's source link, never summary text
             s = _LINK.sub(r"\1", s)
             s = re.sub(r"\*+", "", s)
             s = re.sub(r"(?<!\w)_+|_+(?!\w)", "", s)
             m = _SENTENCE_END.search(s + " ")
             s = s[:m.start() + 1] if m else s
-            s = " ".join(s.split())
+            s = " ".join(s.split()).rstrip(" ,;:")
+            if not s:  # the line was only a link
+                continue
+            if s[-1] not in ".!?":
+                s += "."
             if len(s) > DESC_MAX:
                 s = s[:DESC_MAX - 1].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
             return s
