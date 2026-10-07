@@ -98,7 +98,7 @@ reit_tickers:
   - EQIX
   - DLR
   - VICI
-  - AVB
+  - ESS
   - UDR
   - MAA
   - ADC
@@ -113,7 +113,7 @@ reit_info:
   EQIX: {name: Equinix, type: "Owns data centers", group: data center}
   DLR: {name: Digital Realty, type: "Owns data centers", group: data center}
   VICI: {name: VICI Properties, type: "Owns casinos and resorts", group: casino}
-  AVB: {name: AvalonBay, type: "Owns apartments", group: apartment}
+  ESS: {name: Essex Property Trust, type: "Owns West Coast apartments", group: apartment}
   UDR: {name: UDR, type: "Owns apartments", group: apartment}
   MAA: {name: Mid-America Apartment, type: "Owns Sun Belt apartments", group: apartment}
   ADC: {name: Agree Realty, type: "Owns net-lease retail like grocery and auto parts stores", group: net-lease retail}
