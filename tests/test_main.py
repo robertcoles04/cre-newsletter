@@ -353,3 +353,46 @@ def test_dry_run_and_skips_write_no_step_output(tmp_path, fakes, monkeypatch):
 def test_step_output_noop_outside_actions(monkeypatch):
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
     main._step_output(issue=1)  # must not raise
+
+
+def _editor_claude(verdict, seen=None, **extra):
+    import json
+
+    def claude(prompt, model):
+        if "You are the fact-check editor" in prompt:
+            if seen is not None:
+                seen.append(prompt)
+            return json.dumps({"verdict": verdict, "fixes": extra.get("fixes", []),
+                               "reasons": extra.get("reasons", [])})
+        return DRAFT
+    return claude
+
+
+def test_editor_review_runs_before_fill_and_approve_adds_nothing(tmp_path, fakes):
+    seen = []
+    code, path = run(tmp_path, claude=_editor_claude("approve", seen))
+    text = path.read_text(encoding="utf-8")
+    assert code == 0 and len(seen) == 1
+    assert "{{DGS10}}" in seen[0]  # the editor sees placeholders, not numbers
+    assert "editor:" not in text and "[CHECK]" not in text
+
+
+def test_editor_hold_blocks_the_publish_gate(tmp_path, fakes):
+    from src import publish
+    fix = {"find": "Two sentences here. Short ones.", "replace": "Two sentences here.",
+           "why": "trimmed"}
+    code, path = run(tmp_path, claude=_editor_claude("hold", fixes=[fix],
+                                                     reasons=["main story misread"]))
+    text = path.read_text(encoding="utf-8")
+    assert code == 0
+    assert "editor: hold: main story misread" in text and "editor: fixed: trimmed" in text
+    body = publish.strip_banner(text)
+    assert body.startswith("[CHECK] Editor hold: main story misread\n")
+    assert "Short ones." not in body
+    assert any("[CHECK]" in r for r in publish.check(body))
+
+
+def test_unparseable_editor_reply_only_adds_a_problem(tmp_path, fakes):
+    code, path = run(tmp_path)  # good_claude answers every prompt with markdown
+    text = path.read_text(encoding="utf-8")
+    assert code == 0 and "editor: review unavailable" in text and "[CHECK]" not in text

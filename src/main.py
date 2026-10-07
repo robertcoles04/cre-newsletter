@@ -15,7 +15,7 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src import classify, deliver as deliver_mod, draft, llm, trepp
+from src import balance, classify, deliver as deliver_mod, draft, llm, review, trepp
 from src import chart as charts_mod
 from src.chart import rate_chart
 from src.checks import FOOTER, check_issue, load_banned
@@ -497,8 +497,10 @@ def _ensure_footer(md: str) -> str:
     return md.rstrip("\n") + "\n\n" + FOOTER + "\n"
 
 
-def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
-    """Draft, edit, check. Falls back to a fact-sheet-only issue if drafting fails."""
+def _write_issue(factsheet: dict, problems: list[str], claude, repo_root=REPO_ROOT,
+                 run_date=None) -> str:
+    """Draft, edit, balance, editor review, check. Falls back to a fact-sheet-only issue
+    if drafting fails."""
     try:
         md = draft.write(factsheet, run=claude)
     except Exception as exc:  # LLMError or anything unexpected: same fallback
@@ -508,6 +510,11 @@ def _write_issue(factsheet: dict, problems: list[str], claude) -> str:
         md = draft.edit(md, factsheet, run=claude)
     except Exception as exc:
         problems.append(f"claude: {_err(exc)}")
+    md = balance.balance_debt(md, factsheet, claude, problems)  # never raises
+    # Editor fact-check (src/review.py), still before fill. Never raises; a hold adds a
+    # "[CHECK] Editor hold" line that the publish gate blocks on.
+    md = review.run_review(md, factsheet, repo_root, run_date or factsheet["date"], claude,
+                           problems)
     try:
         for p in check_issue(md, factsheet, load_banned()):
             problems.append(f"check/{p['kind']}: {p['detail']}")
@@ -574,7 +581,8 @@ def _backfill_used_stories(conn, repo_root: Path, run_date: date) -> None:
         record_used_stories(conn, day, path.read_text(encoding="utf-8-sig"))
 
 
-def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extras=None):
+def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extras=None,
+                repo_root=REPO_ROOT):
     """Returns (markdown, factsheet or None)."""
     extras = extras or {}
     try:
@@ -587,7 +595,7 @@ def _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude, extra
     except Exception as exc:
         problems.append(f"factsheet: {_err(exc)}")
         return _stub_markdown(problems), None
-    md = _write_issue(factsheet, problems, claude)
+    md = _write_issue(factsheet, problems, claude, repo_root, run_date)
     values = {**factsheet["values"], "DATE": run_date.isoformat()}
     try:
         md, missing = fill(md, values)
@@ -655,7 +663,7 @@ def run(args, *, client=None, claude=llm.run_claude, gh=deliver_mod.run_gh, now=
         except Exception as exc:
             problems.append(f"repeat check: {_err(exc)}")
         md, factsheet = _build_body(conn, run_date, odds, quotes, vnq_yield, problems, claude,
-                                    extras)
+                                    extras, repo_root)
         md, snippet = _scrub(md)
         if snippet:
             problems.append(f"fill: stray braces {snippet}")
