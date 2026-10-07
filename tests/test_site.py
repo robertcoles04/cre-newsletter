@@ -137,7 +137,7 @@ def test_archive_and_about(built):
     assert "<h2>October 2026</h2>" in archive
     assert 'href="../issues/2026-10-06/"' in archive
     about = _read(out / "about/index.html")
-    assert "students and early-career professionals" in about
+    assert "students and professionals" in about
     assert "CRE Blurb is published by a student interested in commercial real estate." in about
     assert "Every issue is read by the editor, and errors are fixed as soon as they are found." \
         in about

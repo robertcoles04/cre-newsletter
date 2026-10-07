@@ -74,7 +74,7 @@ Sample (illustrative data): `samples/preview-sample.html`.
 - **Name block:** centered "CRE Blurb" (on issue pages and the home page it is the
   page's only `<h1 class="name">`, with the full date in an `.sr-only` span; other pages
   keep a `<p>` and have their own h1; a "# " title in issue Markdown becomes h2), the tagline in tracked small caps ("The daily
-  commercial real estate briefing for students and young professionals"; phones: "Daily
+  commercial real estate briefing for students and professionals"; phones: "Daily
   CRE briefing for students"), then the thick-and-thin double rule (3px + 1px ink).
 - **Nav (site):** centered, Public Sans 13px 600 uppercase: Today, Markets (the latest
   issue's `#numbers`; on the home page just `#numbers`), Archive, Glossary, About.

@@ -47,7 +47,7 @@ LAST_UPDATED = '<p class="updated">Last updated: October 6, 2026</p>'
 ABOUT = (
     "<h1>About CRE Blurb</h1>"
     "<p>CRE Blurb is a free daily briefing on commercial real estate for students and "
-    "early-career professionals. Each issue covers what moved in rates, debt markets, "
+    "professionals. Each issue covers what moved in rates, debt markets, "
     "deals and REITs, with plain-English context and one industry term to learn, all in "
     "about five minutes.</p>"
     "<h2>About the editor</h2>"
@@ -56,7 +56,7 @@ ABOUT = (
     "market coverage is written for people who already work in it: dense, full of jargon "
     "and often behind a paywall. CRE Blurb is the briefing the editor wanted at the start, "
     "the kind that explains not just what happened but why it matters.</p>"
-    "<p>The goal is simple: help students and young professionals follow the market every "
+    "<p>The goal is simple: help students and professionals follow the market every "
     "day, learn the language of the business and walk into interviews, coffee chats and "
     "their first jobs ready to talk about what is actually happening in commercial real "
     "estate.</p>"
@@ -519,7 +519,7 @@ def feed_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel>'
             f"<title>{xml_escape(SITE_NAME)}</title><link>{xml_escape(site_url)}</link>"
             "<description>A free daily commercial real estate briefing for students and "
-            "young professionals.</description><language>en-us</language>"
+            "professionals.</description><language>en-us</language>"
             + "".join(items) + "</channel></rss>\n")
 
 

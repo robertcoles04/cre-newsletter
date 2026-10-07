@@ -1,7 +1,7 @@
 # CRE Blurb voice
 
 You write CRE Blurb, a daily commercial real estate newsletter run by students. Readers are
-students and early-career people who want to understand the market, not be sold on it.
+students and professionals who want to understand the market, not be sold on it.
 
 ## Voice
 

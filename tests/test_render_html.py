@@ -189,7 +189,7 @@ Two sentences here. [source](https://news.site/a)
 def test_cover_tagline_and_brief_panel():
     html = render(md=POLISH_MD)
     assert ('<span class="tagline-long">The daily commercial real estate briefing for '
-            'students and young professionals</span>') in html
+            'students and professionals</span>') in html
     assert '<span class="tagline-short">Daily CRE briefing for students</span>' in html
     assert '<section class="brief"><h2 id="the-brief">The Brief</h2>' in html
 

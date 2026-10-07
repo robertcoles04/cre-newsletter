@@ -18,7 +18,7 @@
 
 ## Careers Corner
 
-<!-- One practical tip for students and young professionals in CRE (networking, interviews, reading a deal memo, learning a model, following a market), in plain English for a smart college student new to CRE: define any term once, say who gains or loses and why it matters. Simple words, but never babyish or patronizing (no 'fancy', no 'big companies like to'). Tie it to a story from the fact sheet with its [source](url) if one fits; otherwise teach a timeless skill. No numbers. About 100 words. -->
+<!-- One practical tip for students and professionals in CRE (networking, interviews, reading a deal memo, learning a model, following a market), in plain English for a smart college student new to CRE: define any term once, say who gains or loses and why it matters. Simple words, but never babyish or patronizing (no 'fancy', no 'big companies like to'). Tie it to a story from the fact sheet with its [source](url) if one fits; otherwise teach a timeless skill. No numbers. About 100 words. -->
 
 ## Term of the Day
 

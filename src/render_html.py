@@ -685,7 +685,7 @@ def read_minutes(text: str) -> int:
     return max(1, int(words / WORDS_PER_MINUTE + 0.5))
 
 
-TAGLINE = "The daily commercial real estate briefing for students and young professionals"
+TAGLINE = "The daily commercial real estate briefing for students and professionals"
 TAGLINE_SHORT = "Daily CRE briefing for students"
 EDITION_NOTE = "Free. New issue every weekday morning, lighter on weekends."
 
