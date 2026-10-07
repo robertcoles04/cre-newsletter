@@ -20,7 +20,7 @@ MAX_EM_DASHES = 0  # owner style: none (render_html.no_dashes also strips them f
 MAX_SENTENCE_WORDS = 30
 BUDGET_SLACK = 1.3
 BUDGETS = {
-    "The Brief": 60, "The Numbers": 100, "Debt Markets": 200, "Top Stories": 550,
+    "The Brief": 60, "The Numbers": 100, "Debt Markets": 250, "Top Stories": 550,
     "Quick Hits": 220, "AI in Real Estate": 80, "AI Infrastructure": 80,
     "Term of the Day": 50, "Week in Review": 200, "AI in Real Estate Weekly": 150,
     "REIT Weekly": 200, "Week Ahead": 120, "Market Watch": 200, "Market Spotlight": 150,

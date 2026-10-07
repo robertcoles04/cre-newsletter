@@ -85,10 +85,15 @@ Rules:
   including: {CLICHE_LIST}.
 - Quick Hits: at most 6 bullets. Each is the one-line news item with its [source](url)
   link, then ONE explanation sentence (see Tone). No numbers in that sentence.
-- Debt Markets: skip novelty-angle stories (sports, playoffs, celebrities). The Distress
-  Watch line uses ONLY the fact sheet's `distress` story (never a story from `debt` or
-  `top`): restate what it reports, with its link; never assert a trend that no story
-  supports. If `distress` is null, omit the Distress Watch line.
+- Debt Markets: skip novelty-angle stories (sports, playoffs, celebrities). Use the same
+  layout as Market Watch: for each debt story a short paragraph (2 or 3 sentences, own
+  words) ending with its [source](url), then a separate line starting "**Why it
+  matters:**" with ONE plain-English sentence. Use as many `debt` stories as Market Watch
+  has regions (normally 3), or all of them if there are fewer, so the section is about as
+  long as Market Watch. The Distress Watch line uses ONLY the fact sheet's `distress`
+  story (never a story from `debt` or `top`): restate what it reports, with its link;
+  never assert a trend that no story supports. If `distress` is null, omit the Distress
+  Watch line. If `debt` is empty, one sentence saying it was a quiet day for debt news.
 - AI in Real Estate: pick a story about an AI tool or use case (underwriting, lease
   abstraction, valuation, property management, leasing chatbots, proptech launches,
   brokerages adopting AI) before data center or power-grid news, and say in plain English
@@ -159,9 +164,12 @@ Rubric:
   rather than restate one. Cut clichés ({CLICHE_LIST}).
 - No story repeated: a story may appear in its Brief line plus ONE full treatment only.
   Cut any third mention, and never retell a Brief line word for word.
-- Debt Markets: cut novelty-angle stories; the Distress Watch line must restate the
-  fact sheet's `distress` story (not one already in Debt Markets), never an unsupported
-  trend. If `distress` is null, delete the Distress Watch line.
+- Debt Markets: cut novelty-angle stories. Keep the Market Watch layout: each debt story
+  is a short paragraph ending with its [source](url) plus a separate "**Why it
+  matters:**" line, and the section should be about as long as Market Watch. Never cut
+  it to fewer stories than Market Watch has regions. The Distress Watch line must restate
+  the fact sheet's `distress` story (not one already in Debt Markets), never an
+  unsupported trend. If `distress` is null, delete the Distress Watch line.
 - Term of the Day: keep a story tie-in only if the mechanism truly applies; otherwise a
   standalone example with round illustrative figures.
 - AI in Real Estate: keep the focus on what the AI tool does and who uses it. If the

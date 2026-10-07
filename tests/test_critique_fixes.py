@@ -133,12 +133,12 @@ def _add_item(conn, n, section, title, importance=8):
 
 def test_factsheet_distress_is_not_a_debt_story(tmp_path):
     conn = connect(str(tmp_path / "t.db"))
-    for n in range(4):
+    for n in range(5):
         _add_item(conn, n, "debt", f"Loan default number {n}", importance=9)
     _add_item(conn, 9, "debt", "Hotel loan sent to special servicing", importance=5)
     sheet = build_factsheet(conn, D, None, [], [], None)
     debt_urls = {s["url"] for s in sheet["debt"]}
-    assert len(debt_urls) == 4
+    assert len(debt_urls) == 5
     assert sheet["distress"]["url"] == "https://x.com/9" not in debt_urls
 
 

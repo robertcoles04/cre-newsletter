@@ -144,11 +144,11 @@ def test_ai_requires_importance_7():
     assert [a["title"] for a in fs(conn, date(2026, 10, 6))["ai"]] == ["Title 2"]
 
 
-def test_debt_capped_at_4():
+def test_debt_capped_at_5():
     conn = connect(":memory:")
     for n in range(6):
         add_item(conn, n, section="debt")
-    assert len(fs(conn, date(2026, 10, 6))["debt"]) == 4
+    assert len(fs(conn, date(2026, 10, 6))["debt"]) == 5
 
 
 def test_saturday_sections():

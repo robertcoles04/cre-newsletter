@@ -167,8 +167,8 @@ def test_long_sentence_skips_headings():
 
 def test_budget_over_130_percent():
     words = lambda n: " ".join(["w."] * n)  # noqa: E731
-    ok = issue(f"## Debt Markets\n\n{words(260)}")  # budget 200 x 1.3
-    bad = issue(f"## Debt Markets\n\n{words(261)}")
+    ok = issue(f"## Market Watch\n\n{words(260)}")  # budget 200 x 1.3
+    bad = issue(f"## Market Watch\n\n{words(261)}")
     assert "budget" not in kinds(check_issue(ok, sheet(), BANNED))
     assert "budget" in kinds(check_issue(bad, sheet(), BANNED))
 
@@ -176,8 +176,8 @@ def test_budget_over_130_percent():
 def test_budget_counts_link_text_and_placeholders_as_words():
     # 130 links with 2-word text = 260 words (at the limit); one placeholder tips it over.
     links = " ".join(["[two words](https://example.com/a)."] * 130)
-    at_limit = issue(f"## Debt Markets\n\n{links}")
-    over = issue(f"## Debt Markets\n\n{links} {{{{VNQ}}}}")
+    at_limit = issue(f"## Market Watch\n\n{links}")
+    over = issue(f"## Market Watch\n\n{links} {{{{VNQ}}}}")
     assert "budget" not in kinds(check_issue(at_limit, sheet(), BANNED))
     assert "budget" in kinds(check_issue(over, sheet(), BANNED))
 
