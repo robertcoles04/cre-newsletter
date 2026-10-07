@@ -104,6 +104,13 @@ def test_contradiction_flagged_both_directions():
     assert "contradiction" not in kinds(fell, flat)
 
 
+def test_general_explanation_is_not_a_contradiction():
+    up = {"day_type": "saturday", "values": {"VNQ_CHG": "+0.9%"}}
+    rule = _issue_with("When yields rise, a REIT's stock falls, so mergers stall.")
+    kinds = [p["kind"] for p in check_issue(rule, up, [])]
+    assert "contradiction" not in kinds
+
+
 # --- 5. Move size ----------------------------------------------------------------
 
 def test_move_size_buckets():

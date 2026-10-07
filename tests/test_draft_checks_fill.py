@@ -376,3 +376,11 @@ def test_dollar_unit_spellings_match_each_other():
     top2 = [story(1, summary="A $1.2 billion loan closed.")]
     ok2 = issue("## Top Stories\n\nA $1.2B loan closed. [Src](https://x.com/1)")
     assert check_issue(ok2, sheet(top=top2), BANNED) == []
+
+
+def test_percent_spellings_match_each_other():
+    top = [story(1, summary="Erez Asset Management disclosed a 5.8% stake in Empire State Realty Trust.")]
+    ok = issue("## Top Stories\n\nErez now owns 5.8 percent of the REIT. [Src](https://x.com/1)")
+    bad = issue("## Top Stories\n\nErez now owns 8.5 percent of the REIT. [Src](https://x.com/1)")
+    assert check_issue(ok, sheet(top=top), BANNED) == []
+    assert "unsourced_number" in kinds(check_issue(bad, sheet(top=top), BANNED))

@@ -136,10 +136,26 @@ def _dollars(text: str) -> float | None:
     return float(m.group(1).replace(",", "")) * DOLLAR_SCALE[m.group(2)]
 
 
+def _rate(text: str) -> tuple[float, str] | None:
+    """'5.8 percent', '5.8%', '5.8 pct' -> (5.8, '%'); '25 bps', '25 basis points' -> (25, 'bp')."""
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)[\s-]{0,2}(.+)", _norm(text))
+    if not m:
+        return None
+    unit = m.group(2)
+    if unit.startswith(("%", "percent", "per cent", "pct")):
+        return float(m.group(1)), "%"
+    if unit.startswith(("bp", "basis")):
+        return float(m.group(1)), "bp"
+    return None
+
+
 def _sourced(number: str, corpus: str) -> bool:
     value = _dollars(number)
     if value is not None:  # "$631 million" is sourced by "$631M": compare amounts
         return any(_dollars(m.group(0)) == value for m in NUMBER.finditer(corpus))
+    rate = _rate(number)
+    if rate is not None:  # "5.8 percent" is sourced by "5.8%": compare value and unit
+        return any(_rate(m.group(0)) == rate for m in NUMBER.finditer(corpus))
     pattern = r"(?<![\d.])" + re.escape(_norm(number)) + r"(?!\d|[.,]\d)"
     return re.search(pattern, corpus) is not None
 
@@ -218,6 +234,10 @@ CLAUSE_END = re.compile(r"[,;:(]|\b(?:as|while|but|after|because|even though|and
                         re.I)
 
 
+# A general cause-and-effect explanation, not a report of today's move.
+GENERAL_RULE = re.compile(r"\b(?:when|whenever|if)\b[^.]*,", re.I)
+
+
 def _check_contradictions(sections, factsheet) -> list[dict]:
     """Editor note when prose says REITs / real estate stocks fell while VNQ_CHG is
     positive, or rose while it is negative. A simple keyword + sign check: the move word
@@ -230,6 +250,8 @@ def _check_contradictions(sections, factsheet) -> list[dict]:
     for name, body in sections:
         for unit in _prose_units(body):
             for sentence in SENTENCE_END.split(_plain(unit)):
+                if GENERAL_RULE.search(sentence):
+                    continue  # "when yields rise, REIT stocks fall" explains, not reports
                 clauses = [CLAUSE_END.split(sentence[m.end():], 1)[0]
                            for m in REIT_SUBJECT.finditer(sentence)]
                 if any(wrong.search(c) for c in clauses):
