@@ -110,15 +110,15 @@ def test_spread_to_10y():
 def test_term_rotates_skipping_used():
     conn = connect(":memory:")
     t0 = fs(conn, date(2026, 10, 6))["term"]
-    assert t0["term"] == "NNN lease" and t0["definition_hint"]
-    for i, term in enumerate(["NNN lease", "Absolute NNN"]):
-        conn.execute("INSERT INTO issues (date, term) VALUES (?,?)", (f"2026-10-0{i + 1}", term))
+    # Debt and acquisition terms run first, alternating: first debt term, then first acquisition.
+    assert t0["term"] == "DSCR" and t0["definition_hint"]
+    conn.execute("INSERT INTO issues (date, term) VALUES ('2026-10-01', 'DSCR')")
     conn.commit()
-    assert fs(conn, date(2026, 10, 6))["term"]["term"] == "CAM"
+    assert fs(conn, date(2026, 10, 6))["term"]["term"] == "Cap rate"
     # a rerun on a day that already has a term keeps that day's term
-    conn.execute("INSERT INTO issues (date, term) VALUES ('2026-10-06', 'CAM')")
+    conn.execute("INSERT INTO issues (date, term) VALUES ('2026-10-06', 'Cap rate')")
     conn.commit()
-    assert fs(conn, date(2026, 10, 6))["term"]["term"] == "CAM"
+    assert fs(conn, date(2026, 10, 6))["term"]["term"] == "Cap rate"
 
 
 def test_term_wraps_when_all_used():

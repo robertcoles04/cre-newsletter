@@ -528,6 +528,7 @@ def reit_moves(quotes: list[ReitQuote], info: dict) -> list[dict]:
 
 
 TERM_COOLDOWN_DAYS = 120  # a term (or one in the same family) never returns sooner
+TERM_FIRST_TOPICS = ("debt", "acquisition")  # unused terms in these run first, alternating
 ISSUES_DIR = Path("issues")  # published issue files; tests point this elsewhere
 _TERM_IN_MD = re.compile(r"^## Term of the Day\s*\n+\s*\*\*(.+?):?\*\*", re.M)
 
@@ -560,6 +561,20 @@ def _terms_used(conn: sqlite3.Connection, run_date: date,
     return last
 
 
+def _term_order(terms: list[dict]):
+    """Sort key for unused terms: debt and acquisition first, alternating (1st debt,
+    1st acquisition, 2nd debt...), then every other topic in file order."""
+    keys, seen = {}, {}
+    for i, t in enumerate(terms):
+        topic = t.get("topic")
+        if topic in TERM_FIRST_TOPICS:
+            n = seen[topic] = seen.get(topic, -1) + 1
+            keys[t["term"]] = (0, n, TERM_FIRST_TOPICS.index(topic))
+        else:
+            keys[t["term"]] = (1, i, 0)
+    return lambda t: keys[t["term"]]
+
+
 def _pick_term(conn: sqlite3.Connection, run_date: date,
                issues_dir: Path | None = None) -> dict:
     terms = _load_yaml("config/terms.yaml")
@@ -574,7 +589,7 @@ def _pick_term(conn: sqlite3.Connection, run_date: date,
 
     fresh = [t for t in terms if last_use(t) is None]
     if fresh:
-        chosen = fresh[0]
+        chosen = min(fresh, key=_term_order(terms))
     else:  # every term has run: the least recently used one, past the cooldown if possible
         rested = [t for t in terms if (run_date - last_use(t)).days >= TERM_COOLDOWN_DAYS]
         chosen = min(rested or terms, key=last_use)

@@ -70,3 +70,25 @@ def test_wrap_picks_least_recent_past_cooldown(tmp_path):
     picked = _pick_term(conn, day, issues_dir=tmp_path)["term"]
     # TERMS[0] is in a family whose sibling ran last, so the oldest standalone term wins.
     assert picked == TERMS[1]["term"]
+
+
+def test_every_term_has_a_topic():
+    assert all(t.get("topic") in ("debt", "acquisition", "other") for t in TERMS)
+
+
+def test_debt_and_acquisition_terms_run_first_alternating(tmp_path):
+    conn = _conn(tmp_path)
+    start = date(2026, 1, 1)
+    topics = []
+    first = sum(1 for t in TERMS if t["topic"] != "other")
+    by_name = {t["term"]: t["topic"] for t in TERMS}
+    for i in range(first):
+        day = start + timedelta(days=i)
+        term = _pick_term(conn, day, issues_dir=tmp_path)["term"]
+        topics.append(by_name[term])
+        _ran(conn, day, term)
+    assert "other" not in topics
+    assert topics[:4] == ["debt", "acquisition", "debt", "acquisition"]
+    # Then the leasing/operations terms.
+    nxt = _pick_term(conn, start + timedelta(days=first), issues_dir=tmp_path)["term"]
+    assert by_name[nxt] == "other"

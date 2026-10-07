@@ -1,305 +1,457 @@
-# Term of the Day rotation, in order. A term never repeats until every term has run,
-# and never within TERM_COOLDOWN_DAYS (src/factsheet.py). Terms sharing a `family`
-# count as one for that cooldown.
+# Term of the Day rotation. A term never repeats until every term has run, and never
+# within TERM_COOLDOWN_DAYS (src/factsheet.py). Terms sharing a `family` count as one
+# for that cooldown. `topic` sets the order: unused debt and acquisition (buy-side)
+# terms run first, alternating, in file order within each topic; `other` (leasing,
+# operations, property types) follows.
 - term: NNN lease
+  topic: other
   family: nnn
   hint: 'Triple-net lease: tenant pays property taxes, insurance and maintenance on top of base rent.'
 - term: CAM
+  topic: other
   hint: 'Common area maintenance: tenants'' share of costs for shared spaces like lobbies, parking and landscaping.'
 - term: Cap rate
+  topic: acquisition
   hint: Net operating income divided by price; a quick yardstick of yield and risk.
 - term: NOI
+  topic: acquisition
   hint: 'Net operating income: rent and other income minus operating expenses, before debt service.'
 - term: DSCR
+  topic: debt
   hint: 'Debt service coverage ratio: NOI divided by loan payments; lenders want it comfortably above 1.'
 - term: LTV
+  topic: debt
   hint: 'Loan-to-value: loan amount as a percent of the property''s value.'
 - term: Debt yield
+  topic: debt
   hint: NOI divided by loan amount; lender's return ignoring rate and amortization.
 - term: SOFR
+  topic: debt
   hint: 'Secured Overnight Financing Rate: the benchmark behind most floating-rate CRE loans.'
 - term: Interest rate swap
+  topic: debt
   hint: Contract that trades a floating rate for a fixed one, used to hedge loan costs.
 - term: CMBS
+  topic: debt
   hint: 'Commercial mortgage-backed securities: loans pooled and sold to bond investors.'
 - term: Special servicing
+  topic: debt
   hint: Loan servicer that takes over troubled CMBS loans to modify, extend or foreclose.
 - term: Extend and pretend
+  topic: debt
   hint: Lender extends a struggling loan's maturity instead of recognizing a loss.
 - term: Leasing commission
+  topic: other
   hint: Fee paid to brokers for securing a tenant, usually a percent of lease value.
 - term: TI allowance
+  topic: other
   hint: 'Tenant improvement allowance: landlord money toward building out a tenant''s space.'
 - term: GP/LP
+  topic: acquisition
   hint: General partner runs the deal; limited partners provide most of the capital.
 - term: Promote
+  topic: acquisition
   hint: GP's extra share of profits once investors hit return hurdles.
 - term: Preferred return
+  topic: acquisition
   hint: Minimum annual return investors get before the GP shares in profits.
 - term: Entitlements
+  topic: other
   hint: Government approvals (zoning, permits) needed to build or change a property's use.
 - term: FFO
+  topic: other
   hint: 'Funds from operations: REIT earnings adjusted by adding back depreciation and removing property gains.'
 - term: AFFO
+  topic: other
   hint: 'Adjusted FFO: FFO less recurring capex and straight-line rent; closer to distributable cash.'
 - term: NAV discount
+  topic: other
   hint: REIT share price trading below the estimated value of its underlying properties.
 - term: Absorption
+  topic: other
   hint: Net change in occupied space over a period; shows whether demand is outpacing supply.
 - term: Vacancy rate
+  topic: other
   hint: Percent of a market's or building's space that is empty and available.
 - term: Rent roll
+  topic: acquisition
   hint: Property-level list of tenants, lease terms, rents and expirations.
 - term: Mezzanine debt
+  topic: debt
   hint: Subordinate financing between the senior loan and equity, with higher interest.
 - term: Bridge loan
+  topic: debt
   hint: Short-term loan that covers a gap until a property is stabilized or refinanced.
 - term: 1031 exchange
+  topic: acquisition
   hint: Tax rule letting an owner defer capital gains by reinvesting sale proceeds in similar property.
 - term: Sale-leaseback
+  topic: acquisition
   hint: Owner sells a property and leases it back, freeing up capital but keeping occupancy.
 - term: Loss-to-lease
+  topic: acquisition
   hint: Gap between in-place rents and current market rents; potential upside on renewals.
 - term: Absolute NNN
+  topic: other
   family: nnn
   hint: Lease where the tenant also covers structural and roof costs; landlord has almost no responsibilities.
 - term: "Gross lease"
+  topic: other
   hint: "Landlord pays the property's operating costs; tenant pays one all-in rent."
 - term: "Modified gross lease"
+  topic: other
   hint: "A middle ground: tenant pays base rent plus some operating costs, landlord covers the rest."
 - term: "Percentage rent"
+  topic: other
   hint: "Extra retail rent tied to a store's sales above a set level."
 - term: "Base year"
+  topic: other
   hint: "The year whose operating costs set the baseline; tenants pay increases above it."
 - term: "Expense stop"
+  topic: other
   hint: "A cap on the operating costs a landlord absorbs; tenants pay anything above it."
 - term: "Escalation clause"
+  topic: other
   hint: "Lease term that raises rent on a schedule, either fixed steps or tied to inflation."
 - term: "Free rent"
+  topic: other
   hint: "Months of no rent a landlord gives to win a tenant, a common concession."
 - term: "Net effective rent"
+  topic: other
   hint: "Face rent minus concessions like free months and tenant improvements, spread over the lease term."
 - term: "Face rent"
+  topic: other
   hint: "The headline rent written in the lease, before concessions."
 - term: "Sublease"
+  topic: other
   hint: "A tenant renting its space to another company, often below the landlord's asking rent."
 - term: "Co-tenancy clause"
+  topic: other
   hint: "Retail clause letting a tenant pay less or leave if an anchor store closes."
 - term: "Anchor tenant"
+  topic: other
   hint: "A big draw tenant, like a grocery store, that brings traffic to a shopping center."
 - term: "Estoppel certificate"
+  topic: other
   hint: "A tenant's signed statement confirming lease terms, used when a building sells or is financed."
 - term: "SNDA"
+  topic: other
   hint: "Subordination, non-disturbance and attornment agreement: protects a tenant if the landlord's lender forecloses."
 - term: "Holdover tenant"
+  topic: other
   hint: "A tenant who stays after the lease ends, usually paying a higher holdover rent."
 - term: "Ground lease"
+  topic: other
   hint: "Long lease of land only; the tenant builds and owns the building until the lease ends."
 - term: "WALT"
+  topic: other
   hint: "Weighted average lease term: average remaining lease length across tenants, a gauge of income stability."
 - term: "Class A, B, C"
+  topic: acquisition
   hint: "Building quality tiers: A is newest and best located, C is older and cheaper."
 - term: "Trophy asset"
+  topic: acquisition
   hint: "A top-tier, iconic building in a prime location that commands record rents and prices."
 - term: "Core"
+  topic: acquisition
   hint: "Lowest-risk strategy: stable, fully leased buildings bought for steady income."
 - term: "Core-plus"
+  topic: acquisition
   hint: "Mostly stable buildings with small upgrades or leasing to boost returns."
 - term: "Value-add"
+  topic: acquisition
   hint: "Buying a property to improve it through renovation or better management, then raising rents."
 - term: "Opportunistic"
+  topic: acquisition
   hint: "Highest-risk strategy: development, distress or major repositioning for the biggest returns."
 - term: "IRR"
+  topic: acquisition
   hint: "Internal rate of return: the annual return that accounts for when each cash flow arrives."
 - term: "Equity multiple"
+  topic: acquisition
   hint: "Total cash returned divided by cash invested; 2.0x means you doubled your money."
 - term: "Cash-on-cash return"
+  topic: acquisition
   hint: "Annual cash flow after debt payments divided by the cash you put in."
 - term: "Exit cap rate"
+  topic: acquisition
   hint: "The cap rate assumed when selling at the end of a hold; it sets the projected sale price."
 - term: "Going-in cap rate"
+  topic: acquisition
   hint: "The cap rate at purchase: first-year NOI divided by the price paid."
 - term: "Cap rate compression"
+  topic: acquisition
   hint: "Cap rates falling, which pushes property values up for the same income."
 - term: "Positive leverage"
+  topic: debt
   hint: "When a property's yield is higher than the loan's interest rate, so debt boosts returns."
 - term: "Negative leverage"
+  topic: debt
   hint: "When the loan rate is higher than the property's yield, so borrowing drags down returns."
 - term: "Price per square foot"
+  topic: acquisition
   hint: "Sale price divided by building size, a quick way to compare deals."
 - term: "Replacement cost"
+  topic: acquisition
   hint: "What it would cost to build the same property today; buying below it can be a bargain."
 - term: "Comps"
+  topic: acquisition
   hint: "Comparable recent sales or leases used to price a property."
 - term: "Appraisal"
+  topic: acquisition
   hint: "A licensed professional's estimate of a property's market value, often required by lenders."
 - term: "BOV"
+  topic: acquisition
   hint: "Broker opinion of value: a broker's informal estimate of what a property would sell for."
 - term: "Offering memorandum"
+  topic: acquisition
   hint: "The marketing book for a property sale, with financials, photos and the investment story."
 - term: "Letter of intent"
+  topic: acquisition
   hint: "A short, mostly nonbinding letter setting the main terms of a deal before the contract."
 - term: "Due diligence"
+  topic: acquisition
   hint: "The buyer's investigation of a property's leases, condition and finances before closing."
 - term: "Earnest money"
+  topic: acquisition
   hint: "A deposit a buyer puts down to show commitment; it can be lost if they walk away late."
 - term: "Transfer tax"
+  topic: acquisition
   hint: "A tax charged by a city or state when property changes hands."
 - term: "Title insurance"
+  topic: acquisition
   hint: "Insurance that protects a buyer or lender if ownership turns out to be disputed."
 - term: "Phase I ESA"
+  topic: acquisition
   hint: "An environmental site assessment checking a property's history for contamination risk."
 - term: "Zoning"
+  topic: other
   hint: "Local rules on what can be built where, from building height to allowed uses."
 - term: "Variance"
+  topic: other
   hint: "Permission to build in a way the zoning code would normally not allow."
 - term: "Air rights"
+  topic: other
   hint: "The right to build in the space above a property, which can be sold to neighbors."
 - term: "FAR"
+  topic: other
   hint: "Floor area ratio: total building floor area allowed divided by the lot size."
 - term: "Adaptive reuse"
+  topic: other
   hint: "Converting a building to a new use, like turning offices into apartments."
 - term: "Build-to-suit"
+  topic: other
   hint: "A building constructed for one specific tenant, who signs a long lease before it is built."
 - term: "Spec development"
+  topic: other
   hint: "Building without tenants signed, betting space will lease up once it is finished."
 - term: "Pre-leasing"
+  topic: other
   hint: "Signing tenants before a building is finished, which lowers the developer's risk."
 - term: "Lease-up"
+  topic: other
   hint: "The period after a building opens while it fills with tenants."
 - term: "Stabilized"
+  topic: acquisition
   hint: "A property at normal long-term occupancy and income after lease-up or renovation."
 - term: "Construction loan"
+  topic: debt
   hint: "Short-term financing for a building project, paid out in stages as work is done."
 - term: "Permanent loan"
+  topic: debt
   hint: "Long-term financing on a finished, stabilized property."
 - term: "Recourse"
+  topic: debt
   hint: "A loan where the lender can go after the borrower's other assets if the property falls short."
 - term: "Non-recourse"
+  topic: debt
   hint: "A loan where the lender can only take the property, not the borrower's other assets."
 - term: "Bad-boy carve-outs"
+  topic: debt
   hint: "Exceptions that make a non-recourse loan personal if the borrower commits fraud or similar acts."
 - term: "Amortization"
+  topic: debt
   hint: "Paying down a loan's principal over time, not just interest."
 - term: "Interest-only"
+  topic: debt
   hint: "A loan period where the borrower pays only interest, with principal due later."
 - term: "Balloon payment"
+  topic: debt
   hint: "A large lump sum of principal due when a loan matures."
 - term: "Maturity wall"
+  topic: debt
   hint: "A cluster of loans coming due around the same time that must be refinanced or repaid."
 - term: "Refinancing gap"
+  topic: debt
   hint: "When a new loan would be smaller than the old one, so the owner must add cash to refinance."
 - term: "Prepayment penalty"
+  topic: debt
   hint: "A fee for paying off a loan early, protecting the lender's expected interest."
 - term: "Yield maintenance"
+  topic: debt
   hint: "A prepayment penalty that pays the lender the interest it would have earned."
 - term: "Defeasance"
+  topic: debt
   hint: "Replacing a loan's collateral with Treasury bonds so the property can be sold or refinanced."
 - term: "Loan covenant"
+  topic: debt
   hint: "A promise in a loan agreement, like keeping a minimum DSCR, that the borrower must meet."
 - term: "Cash sweep"
+  topic: debt
   hint: "When a lender traps a property's extra cash to pay down debt after a covenant is broken."
 - term: "Rate cap"
+  topic: debt
   hint: "A contract that limits how high a floating loan rate can go, often required by lenders."
 - term: "Spread"
+  topic: debt
   hint: "The extra interest a borrower pays over a benchmark rate like SOFR or the 10-year Treasury."
 - term: "Basis point"
+  topic: debt
   hint: "One hundredth of a percentage point; 25 basis points equals 0.25%."
 - term: "Yield curve"
+  topic: debt
   hint: "A line showing interest rates across loan lengths, from short-term to 30 years."
 - term: "Inverted yield curve"
+  topic: debt
   hint: "When short-term rates are above long-term rates, often read as a slowdown signal."
 - term: "Agency lending"
+  topic: debt
   hint: "Apartment loans backed by Fannie Mae and Freddie Mac, usually the cheapest multifamily debt."
 - term: "Life company loan"
+  topic: debt
   hint: "A loan from an insurance company, usually low-leverage and on high-quality property."
 - term: "Debt fund"
+  topic: debt
   hint: "A private lender that makes riskier, shorter loans than banks, often for transitional deals."
 - term: "Private credit"
+  topic: debt
   hint: "Loans made by investment funds instead of banks, a growing source of real estate debt."
 - term: "Loan modification"
+  topic: debt
   hint: "Changing a loan's terms, like extending maturity or lowering payments, instead of foreclosing."
 - term: "Deed in lieu"
+  topic: debt
   hint: "An owner handing the property to the lender to avoid a foreclosure."
 - term: "Foreclosure"
+  topic: debt
   hint: "The lender taking a property after the borrower stops paying the loan."
 - term: "Receivership"
+  topic: debt
   hint: "A court-appointed manager runs a troubled property while the loan dispute is sorted out."
 - term: "Note sale"
+  topic: debt
   hint: "A lender selling a troubled loan to another investor, often at a discount."
 - term: "Watchlist"
+  topic: debt
   hint: "A list of loans servicers monitor closely because they show signs of trouble."
 - term: "Loss severity"
+  topic: debt
   hint: "How much a lender loses on a defaulted loan, as a share of the loan amount."
 - term: "Capital stack"
+  topic: debt
   hint: "The layers of money funding a deal, from senior debt at the bottom to common equity at the top."
 - term: "Senior debt"
+  topic: debt
   hint: "The first-priority loan, repaid before anyone else if a property is sold or foreclosed."
 - term: "Preferred equity"
+  topic: debt
   hint: "Investment that sits between debt and common equity and gets paid before common owners."
 - term: "Waterfall"
+  topic: acquisition
   hint: "The rules for splitting a deal's profits between investors and the sponsor."
 - term: "Sponsor"
+  topic: acquisition
   hint: "The firm that finds, runs and puts money into a real estate deal for outside investors."
 - term: "Joint venture"
+  topic: acquisition
   hint: "Two or more investors owning a property together, sharing costs, control and profits."
 - term: "Recapitalization"
+  topic: acquisition
   hint: "Changing a property's ownership or financing mix, such as bringing in a new equity partner."
 - term: "Syndication"
+  topic: acquisition
   hint: "Pooling money from many smaller investors to buy a property."
 - term: "Dry powder"
+  topic: acquisition
   hint: "Money investors have raised but not yet spent."
 - term: "Capex"
+  topic: acquisition
   hint: "Capital expenditures: big spending like roofs, HVAC or renovations, separate from routine costs."
 - term: "Replacement reserves"
+  topic: other
   hint: "Money set aside for future repairs and replacements, often required by lenders."
 - term: "Operating expenses"
+  topic: other
   hint: "The day-to-day costs of running a property, like taxes, insurance, utilities and repairs."
 - term: "Gross potential rent"
+  topic: other
   hint: "The rent a property would collect if every unit were leased at market rate."
 - term: "Economic occupancy"
+  topic: other
   hint: "Rent actually collected as a share of gross potential rent, after vacancy and bad debt."
 - term: "Concessions"
+  topic: other
   hint: "Incentives like free rent or upgrades used to sign tenants."
 - term: "Net absorption"
+  topic: other
   hint: "Space newly leased minus space vacated over a period; positive means demand is growing."
 - term: "Supply pipeline"
+  topic: other
   hint: "New buildings under construction that will compete for tenants when they open."
 - term: "Flight to quality"
+  topic: other
   hint: "Tenants moving to the best buildings, leaving older ones emptier."
 - term: "Last-mile logistics"
+  topic: other
   hint: "Warehouses close to customers that handle the final step of a delivery."
 - term: "Cold storage"
+  topic: other
   hint: "Refrigerated warehouses for food and medicine, expensive to build and in steady demand."
 - term: "Hyperscaler"
+  topic: other
   hint: "A giant tech company, like Amazon or Microsoft, that leases or builds huge data centers."
 - term: "Build-to-rent"
+  topic: other
   hint: "Single-family homes built specifically to be rented, not sold."
 - term: "Student housing"
+  topic: other
   hint: "Apartments built near universities and often leased by the bed."
 - term: "Senior housing"
+  topic: other
   hint: "Housing for older adults, from independent living to assisted living and memory care."
 - term: "Medical office"
+  topic: other
   hint: "Office buildings for doctors and outpatient care, valued for steady, sticky tenants."
 - term: "Life science"
+  topic: other
   hint: "Lab buildings for biotech and research companies, with special ventilation and power."
 - term: "Self-storage"
+  topic: other
   hint: "Buildings renting storage units by the month, known for low operating costs."
 - term: "Payout ratio"
+  topic: other
   hint: "The share of a REIT's cash earnings paid out as dividends."
 - term: "Same-store NOI"
+  topic: other
   hint: "NOI growth at properties owned in both periods, stripping out buying and selling."
 - term: "UPREIT"
+  topic: other
   hint: "A structure letting property owners swap a building for REIT units and defer taxes."
 - term: "Opportunity zone"
+  topic: acquisition
   hint: "A designated low-income area where investors get tax breaks for long-term investment."
 - term: "Depreciation"
+  topic: acquisition
   hint: "A tax deduction that spreads a building's cost over its useful life."
 - term: "Cost segregation"
+  topic: acquisition
   hint: "A tax study that speeds up depreciation by splitting out shorter-lived building parts."
 - term: "Tenant rep broker"
+  topic: other
   hint: "A broker who represents tenants looking for space, not the landlord."
 - term: "Investment sales"
+  topic: acquisition
   hint: "The brokerage business of selling whole properties to investors."
 - term: "Capital markets"
+  topic: acquisition
   hint: "The part of real estate that arranges debt and equity for deals."
