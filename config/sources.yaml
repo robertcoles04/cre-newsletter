@@ -104,6 +104,11 @@ reit_tickers:
   - ADC
   - NNN
   - STAG
+  - HPP
+  - VNO
+  - BXP
+  - SPG
+  - WELL
 
 # Plain-English names for the Market Summary's biggest gain/drop REIT rows.
 # type = the row's hint; group = used in "it may have moved with other {group} REITs".
@@ -119,6 +124,11 @@ reit_info:
   ADC: {name: Agree Realty, type: "Owns net-lease retail like grocery and auto parts stores", group: net-lease retail}
   NNN: {name: NNN REIT, type: "Owns single-tenant retail like convenience stores", group: net-lease retail}
   STAG: {name: STAG Industrial, type: "Owns warehouses and factories", group: warehouse}
+  HPP: {name: Hudson Pacific Properties, type: "Owns West Coast offices and studios", group: office}
+  VNO: {name: Vornado Realty Trust, type: "Owns New York City offices and retail", group: office}
+  BXP: {name: BXP, type: "Owns trophy offices in major U.S. cities", group: office}
+  SPG: {name: Simon Property Group, type: "Owns malls and outlet centers", group: mall}
+  WELL: {name: Welltower, type: "Owns senior housing and medical buildings", group: senior housing}
 
 # Display names for story sources (Google News often reports a lowercase or domain-style
 # name). Keys match case-insensitively; anything not listed is shown as reported.
