@@ -43,6 +43,17 @@ def _snip(line: str) -> str:
     return line.strip()[:80]
 
 
+import re as _re
+
+# A model talking to the editor instead of writing the issue ("Here is the edited issue.
+# I reviewed the draft..."). Reader-facing first person ("I'd point out") is not matched.
+MODEL_CHATTER = _re.compile(
+    r"\bhere (?:is|are) the (?:edited|revised|updated|final|corrected) (?:issue|draft|version)\b"
+    r"|\bI (?:have |'ve )?(?:reviewed|edited|trimmed|revised|checked|made)\b"
+    r"|\bthe only changes? I\b|\beverything checks out\b|\bthe (?:voice rules|fact sheet)\b",
+    _re.I)
+
+
 def check(md: str) -> list[str]:
     """Plain-English reasons the draft cannot be published; empty when clean."""
     lines = md.lstrip(BOM).replace("\r\n", "\n").split("\n")
@@ -53,6 +64,8 @@ def check(md: str) -> list[str]:
          lambda s: "{{" in s),
         ("this is the fact-sheet-only fallback (Claude was unavailable)",
          lambda s: " ".join(s.split()).startswith(FALLBACK_PREFIX)),
+        ("the AI's notes to the editor are in the text, not part of the issue",
+         lambda s: not s.lstrip().startswith(">") and MODEL_CHATTER.search(s)),
     ]
     reasons = []
     for message, hit in rules:

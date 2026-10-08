@@ -11,6 +11,21 @@ EMPTY_WHY = re.compile(r"^\s*\*\*Why .* moved:\*\*\s*(?:n/a)?\s*$")
 NA_WHY = re.compile(r"\*\*Why n/a moved:\*\*", re.I)
 
 
+def strip_chatter(md: str) -> str:
+    """Drop anything a model wrote outside the issue itself: text before the first heading
+    (e.g. "Here is the edited issue. I reviewed...") and text after the footer line."""
+    lines = md.split("\n")
+    first = next((i for i, ln in enumerate(lines) if HEADING.match(ln)), None)
+    if first is not None:
+        # Keep "[CHECK] ..." markers (e.g. an editor hold): they block publishing on purpose.
+        holds = [ln for ln in lines[:first] if ln.lstrip().startswith("[CHECK]")]
+        lines = holds + ([""] if holds else []) + lines[first:]
+    if FOOTER in (ln.strip() for ln in lines):
+        last = max(i for i, ln in enumerate(lines) if ln.strip() == FOOTER)
+        lines = lines[:last + 1]
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
 def _is_body(line: str) -> bool:
     s = COMMENT.sub("", line).strip()
     return bool(s) and s != FOOTER

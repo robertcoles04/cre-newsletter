@@ -22,7 +22,7 @@ from src.checks import FOOTER, check_issue, load_banned
 from src.collect import calendar, google_news, kalshi, polymarket, prices, reits, rss
 from src.config import ET, env, http_client, load_sources
 from src.factsheet import _day, build_factsheet, day_type, next_meeting
-from src.cleanup import tidy
+from src.cleanup import strip_chatter, tidy
 from src.fill import fill
 from src.markets import HEADINGS, REGIONS
 from src.rates import collect_rates
@@ -506,15 +506,16 @@ def _write_issue(factsheet: dict, problems: list[str], claude, repo_root=REPO_RO
     except Exception as exc:  # LLMError or anything unexpected: same fallback
         problems.append(f"claude: {_err(exc)}")
         return fallback_markdown(factsheet)
+    md = strip_chatter(md)  # each model pass may wrap the issue in commentary
     try:
-        md = draft.edit(md, factsheet, run=claude)
+        md = strip_chatter(draft.edit(md, factsheet, run=claude))
     except Exception as exc:
         problems.append(f"claude: {_err(exc)}")
-    md = balance.balance_debt(md, factsheet, claude, problems)  # never raises
+    md = strip_chatter(balance.balance_debt(md, factsheet, claude, problems))  # never raises
     # Editor fact-check (src/review.py), still before fill. Never raises; a hold adds a
     # "[CHECK] Editor hold" line that the publish gate blocks on.
-    md = review.run_review(md, factsheet, repo_root, run_date or factsheet["date"], claude,
-                           problems)
+    md = strip_chatter(review.run_review(md, factsheet, repo_root,
+                                         run_date or factsheet["date"], claude, problems))
     try:
         for p in check_issue(md, factsheet, load_banned()):
             problems.append(f"check/{p['kind']}: {p['detail']}")
