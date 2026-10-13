@@ -233,6 +233,22 @@ def test_recent_list_shows_from_three_issues(tmp_path):
     assert 'href="issues/2026-10-05/"' in home and "Monday, October 5, 2026" in home
 
 
+def test_recent_list_keeps_two_previous_issues_and_links_archive(tmp_path):
+    root = tmp_path / "repo"
+    days = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09"]
+    for d in days:
+        _issue(root, d, MD_06)
+    _published(root, days)
+    out = tmp_path / "site"
+    site.build(root, out)
+    home = _read(out / "index.html")
+    recent = home.split('<section class="recent">', 1)[1].split("</section>", 1)[0]
+    assert 'href="issues/2026-10-08/"' in recent and 'href="issues/2026-10-07/"' in recent
+    assert 'href="issues/2026-10-09/"' not in recent  # today is the page itself
+    assert 'href="issues/2026-10-06/"' not in recent and 'href="issues/2026-10-05/"' not in recent
+    assert 'href="archive/">All past issues' in recent
+
+
 def test_rss_feed_parses_and_is_linked(built):
     import xml.etree.ElementTree as ET_xml
     _, out, _ = built

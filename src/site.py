@@ -22,7 +22,7 @@ from src.render_html import (CHART_NAMES, EDITION_NOTE, SITE_ROOT, _md, default_
 SITE_URL = SITE_ROOT
 FONTS_DIR = Path(__file__).resolve().parent.parent / "fonts"  # woff2 + OFL licenses
 SITE_NAME = "CRE Blurb"
-RECENT = 10
+RECENT = 2  # previous issues on the home page; the rest live on the Archive page
 RECENT_MIN = 3  # the home page's "Recent issues" list shows once there are this many
 FEED_ITEMS = 20
 DESC_MAX = 155
@@ -561,8 +561,10 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
 
     if issues:
         newest = issues[0]
+        # the issues before today (today is the page itself), then a link to the rest
         recent = (f'<section class="recent"><h2>Recent issues</h2>'
-                  f"{_link_list(issues[:RECENT], '')}</section>"
+                  f"{_link_list(issues[1:1 + RECENT], '', headlines=True)}"
+                  f'<p class="all-issues"><a href="archive/">All past issues</a></p></section>'
                   if len(issues) >= RECENT_MIN else "")
         home = _issue_page(newest, "", f"issues/{newest['date']}/", site_url,
                            extra_body=return_line(site_url) + recent + issue_nav(issues, 0, ""),
