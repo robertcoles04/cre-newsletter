@@ -114,7 +114,7 @@ reit_tickers:
 # type = the row's hint; group = used in "it may have moved with other {group} REITs".
 reit_info:
   O: {name: Realty Income, type: "Owns net-lease retail like drugstores and dollar stores", group: net-lease retail}
-  PLD: {name: Prologis, type: "Owns warehouses and distribution centers", group: warehouse}
+  PLD: {name: Prologis, type: "Owns warehouses and distribution centers", group: industrial}
   EQIX: {name: Equinix, type: "Owns data centers", group: data center}
   DLR: {name: Digital Realty, type: "Owns data centers", group: data center}
   VICI: {name: VICI Properties, type: "Owns casinos and resorts", group: casino}
@@ -123,7 +123,7 @@ reit_info:
   MAA: {name: Mid-America Apartment, type: "Owns Sun Belt apartments", group: apartment}
   ADC: {name: Agree Realty, type: "Owns net-lease retail like grocery and auto parts stores", group: net-lease retail}
   NNN: {name: NNN REIT, type: "Owns single-tenant retail like convenience stores", group: net-lease retail}
-  STAG: {name: STAG Industrial, type: "Owns warehouses and factories", group: warehouse}
+  STAG: {name: STAG Industrial, type: "Owns warehouses and factories", group: industrial}
   HPP: {name: Hudson Pacific Properties, type: "Owns West Coast offices and studios", group: office}
   VNO: {name: Vornado Realty Trust, type: "Owns New York City offices and retail", group: office}
   BXP: {name: BXP, type: "Owns trophy offices in major U.S. cities", group: office}

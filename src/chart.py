@@ -186,7 +186,7 @@ def _moves(moves: list[dict] | None) -> list[dict]:
 
 
 def reit_label(m: dict) -> str:
-    """"PLD · warehouse": ticker, a middle dot, the short property type."""
+    """"PLD · industrial": ticker, a middle dot, the short property type."""
     kind = (m.get("type") or "").strip()
     return f"{m['ticker']} · {kind}" if kind else m["ticker"]
 

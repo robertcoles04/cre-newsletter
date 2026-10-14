@@ -100,7 +100,7 @@ def test_factsheet_reit_moves_skip_vnq_and_stay_out_of_the_model_sheet(tmp_path)
     sheet = build_factsheet(conn, D, None, quotes, [], None)
     assert sheet["reit_moves"] == [
         {"ticker": "NNN", "name": "NNN REIT", "type": "net-lease retail", "chg_pct": 1.94},
-        {"ticker": "PLD", "name": "Prologis", "type": "warehouse", "chg_pct": -0.42}]
+        {"ticker": "PLD", "name": "Prologis", "type": "industrial", "chg_pct": -0.42}]
     assert "reit_moves" not in _sheet_for_model(sheet)
     assert reit_moves([], {}) == []
 

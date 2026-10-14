@@ -516,7 +516,7 @@ def _market_values(quotes: list[ReitQuote]) -> dict:
 def reit_moves(quotes: list[ReitQuote], info: dict) -> list[dict]:
     """Every tracked REIT's daily move for the REIT scoreboard chart, best first.
     VNQ (the fund) is left out; tickers whose quote failed are simply absent. `type` is
-    the short property type (`group` in reit_info), e.g. "warehouse"."""
+    the short property type (`group` in reit_info), e.g. "industrial"."""
     rows = []
     for q in quotes:
         if q.ticker == VNQ_TICKER:
