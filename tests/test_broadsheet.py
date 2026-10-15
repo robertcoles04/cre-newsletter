@@ -327,6 +327,7 @@ def test_markets_page_shows_the_latest_numbers_without_stories(tmp_path):
     assert 'href="../issues/2026-10-06/"' in page  # the issue the numbers come from
     assert 'id="numbers"' in page and "10-Yr <b>5.31%</b>" in page
     assert 'id="top-stories"' not in page and 'id="term-h"' not in page
+    assert 'id="debt-markets"' not in page  # a story section: it stays on the issue
     assert "markets/" in (out / "sitemap.xml").read_text(encoding="utf-8")
 
 

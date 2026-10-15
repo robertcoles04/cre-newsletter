@@ -496,10 +496,10 @@ def sitemap_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
 
 
 def _markets(issues: list[dict], site_url: str) -> str:
-    """The Markets page: the latest issue's numbers, charts, Debt Markets and Data Room.
-    Charts load from that issue's folder."""
+    """The Markets page: the latest issue's numbers, charts and Data Room. Charts load
+    from that issue's folder."""
     i = issues[0]
-    head = _head(f"{SITE_NAME} | Markets", "Rates, Fed odds, REITs and debt markets from "
+    head = _head(f"{SITE_NAME} | Markets", "Rates, Fed odds, REITs and credit data from "
                  "the latest CRE Blurb.", f"{site_url}markets/", "website", site_url=site_url)
     body = (f'<h1>Markets</h1><p class="asof">From the issue of '
             f'<a href="../issues/{i["date"]}/">{_label(i["day"])}</a>. '

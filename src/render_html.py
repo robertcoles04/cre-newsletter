@@ -1118,17 +1118,12 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
 
 def markets_body(md: str, factsheet: dict, charts: dict | None = None) -> str:
     """The Markets page: one issue's The Numbers (rates, Fed odds, REITs and their
-    charts), Debt Markets and the Data Room, without the stories."""
+    charts) and the Data Room. Story sections, Debt Markets included, stay on the issue."""
     values = factsheet.get("values") or {}
     run_date = date.fromisoformat(factsheet["date"]) if factsheet.get("date") else None
-    used = {"summary-h", "dataroom-h", "numbers", "content", "top"}
-    prose, debt = "", ""
-    for heading, text in _split(prepare_md(md))[1]:
-        if heading == "The Numbers" and not prose:
-            prose = _numbers_prose(text)
-        elif heading == "Debt Markets" and not debt:
-            debt = style_section(_decorate(_md(f"## {heading}{text}"), used), heading)
-    parts = [market_summary(values, charts, prose), debt, data_room(values, run_date)]
+    prose = next((_numbers_prose(text) for heading, text in _split(prepare_md(md))[1]
+                  if heading == "The Numbers"), "")
+    parts = [market_summary(values, charts, prose), data_room(values, run_date)]
     return _first_eager("\n".join(x for x in parts if x))
 
 
