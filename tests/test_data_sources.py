@@ -449,7 +449,7 @@ def test_mover_news_story_found_by_name_or_ticker():
     assert sheet["mover_news"]["up"] is None
     v = sheet["values"]
     assert v["MOVER_UP_NOTE"] == ("No company-specific news today; it may have moved with "
-                                  "other net-lease retail REITs.")
+                                  "other retail REITs.")
     conn2 = connect(":memory:")
     _add(conn2, 3, "NNN raises guidance")  # ticker match (3+ letters, case-sensitive)
     assert build_factsheet(conn2, TUE, None, _quotes(), [], None)["mover_news"]["up"]["url"] \
@@ -466,7 +466,7 @@ def test_mover_rows_labels_and_fallback_lines():
     vals = {"REIT_UP": "NNN +1.9%", "REIT_UP_NAME": "NNN REIT (NNN)",
             "REIT_UP_TYPE": "Owns single-tenant retail like convenience stores",
             "MOVER_UP_NOTE": "No company-specific news today; it may have moved with other "
-                             "net-lease retail REITs."}
+                             "retail REITs."}
     html = market_summary(vals, None, "")
     assert "Biggest gain today" in html and ">NNN REIT (NNN)</span>" in html
     assert 'class="chg up"' in html and "+1.9%" in html

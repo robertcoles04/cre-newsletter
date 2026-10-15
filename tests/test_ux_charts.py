@@ -18,8 +18,8 @@ from src.store import connect, save_rates
 PNG = b"\x89PNG\r\n\x1a\n"
 D = date(2026, 10, 6)
 MOVES = [{"ticker": t, "name": t, "type": ty, "chg_pct": c} for t, ty, c in [
-    ("NNN", "net-lease retail", 1.9), ("PLD", "warehouse", -0.4), ("EQIX", "data center", 1.2),
-    ("UDR", "apartment", -1.2), ("VICI", "casino", 0.0)]]
+    ("NNN", "retail", 1.9), ("PLD", "warehouse", -0.4), ("EQIX", "data center", 1.2),
+    ("UDR", "multifamily", -1.2), ("VICI", "casino", 0.0)]]
 CURVE = [("2Y", 3.95, 4.05), ("5Y", 4.02, 4.00), ("10Y", 4.28, 4.15), ("30Y", 4.81, 4.70)]
 ODDS = {"cut": "15.0%", "hold": "82.5%", "hike": "2.5%"}
 
@@ -99,7 +99,7 @@ def test_factsheet_reit_moves_skip_vnq_and_stay_out_of_the_model_sheet(tmp_path)
               ReitQuote("NNN", D, 41.0, 1.94)]
     sheet = build_factsheet(conn, D, None, quotes, [], None)
     assert sheet["reit_moves"] == [
-        {"ticker": "NNN", "name": "NNN REIT", "type": "net-lease retail", "chg_pct": 1.94},
+        {"ticker": "NNN", "name": "NNN REIT", "type": "retail", "chg_pct": 1.94},
         {"ticker": "PLD", "name": "Prologis", "type": "industrial", "chg_pct": -0.42}]
     assert "reit_moves" not in _sheet_for_model(sheet)
     assert reit_moves([], {}) == []
