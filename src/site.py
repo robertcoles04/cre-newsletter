@@ -17,7 +17,8 @@ from xml.sax.saxutils import escape as xml_escape
 
 from src.publish import _valid_date, check, load_published, strip_banner
 from src.render_html import (CHART_NAMES, EDITION_NOTE, SITE_ROOT, _md, default_alt,
-                              prepare_md, render_issue_html, render_page, slug, split_term)
+                              markets_body, prepare_md, render_issue_html, render_page, slug,
+                              split_term)
 
 SITE_URL = SITE_ROOT
 FONTS_DIR = Path(__file__).resolve().parent.parent / "fonts"  # woff2 + OFL licenses
@@ -256,13 +257,10 @@ def headline(md: str, day: date) -> str:
     return describe(md, day)
 
 
-def _nav(p: str, current: str | None = None, latest: str | None = None,
-         markets: str | None = None) -> str:
-    """Site nav: Today, Markets (The Numbers of the latest issue), Archive, Glossary,
-    About. `current` (home, archive, glossary, about) gets aria-current="page".
-    `markets` overrides the Markets link (the home page uses "#numbers")."""
-    if markets is None and latest:
-        markets = f"{p}issues/{latest}/#numbers"
+def _nav(p: str, current: str | None = None, latest: str | None = None) -> str:
+    """Site nav: Today, Markets (its own page, once an issue exists), Archive, Glossary,
+    About. `current` (home, markets, archive, glossary, about) gets aria-current="page"."""
+    markets = f"{p}markets/" if latest else None
     links = [("home", p or "./", "Today"), ("markets", markets, "Markets"),
              ("archive", f"{p}archive/", "Archive"), ("glossary", f"{p}glossary/", "Glossary"),
              ("about", f"{p}about/", "About")]
@@ -364,6 +362,18 @@ def _charts(issues_dir: Path, d: str, factsheet: dict) -> dict:
     return out
 
 
+def _chart_srcs(issue: dict, img_base: str) -> dict:
+    """The issue's charts as render_html wants them, with srcs under `img_base`."""
+    charts = {}
+    for name, c in issue.get("charts", {}).items():
+        charts[name] = {"src": f"{img_base}{name}.png", "alt": c["alt"],
+                        "width": c["width"], "height": c["height"]}
+        if c.get("sm"):
+            charts[name]["sm"] = {"src": f"{img_base}{name}-sm.png",
+                                  "width": c["sm"]["width"], "height": c["sm"]["height"]}
+    return charts
+
+
 def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                 extra_body: str = "", current: str | None = None,
                 latest: str | None = None, today: bool = False) -> str:
@@ -372,13 +382,7 @@ def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
     d, day = issue["date"], issue["day"]
     url = f"{site_url}issues/{d}/"
     title = f"{SITE_NAME} | {day:%B} {day.day}, {day.year}"
-    charts = {}
-    for name, c in ({} if img_base is None else issue.get("charts", {})).items():
-        charts[name] = {"src": f"{img_base}{name}.png", "alt": c["alt"],
-                        "width": c["width"], "height": c["height"]}
-        if c.get("sm"):
-            charts[name]["sm"] = {"src": f"{img_base}{name}-sm.png",
-                                  "width": c["sm"]["width"], "height": c["sm"]["height"]}
+    charts = {} if img_base is None else _chart_srcs(issue, img_base)
     # Link previews use the 10-Year chart: its 2:1 shape suits preview cards, and the
     # REIT scoreboard's height changes with the ticker count.
     og = issue.get("charts", {}).get("chart") if charts else None
@@ -388,8 +392,7 @@ def _issue_page(issue: dict, prefix: str, img_base: str | None, site_url: str,
                  image_size=png_size(og["file"]) if og else None)
     return render_issue_html(issue["md"], issue["factsheet"], [], None, charts=charts,
                              head_extra=head, base=prefix,
-                             nav=_nav(prefix, "home" if today else current, latest or d,
-                                      "#numbers" if current == "home" else None),
+                             nav=_nav(prefix, "home" if today else current, latest or d),
                              extra_body=extra_body, title=title)
 
 
@@ -475,11 +478,13 @@ def robots_txt(site_url: str = SITE_URL) -> str:
 
 
 def sitemap_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
-    """Home, archive, glossary, the info pages (about, privacy, terms, accessibility) and
+    """Home, archive, glossary, markets, the info pages (about, privacy, terms, accessibility) and
     every issue page."""
     urls = [(site_url, issues[0]["date"] if issues else None),
             (f"{site_url}archive/", issues[0]["date"] if issues else None),
             (f"{site_url}glossary/", issues[0]["date"] if issues else None)]
+    if issues:
+        urls.append((f"{site_url}markets/", issues[0]["date"]))
     urls += [(f"{site_url}{folder}/", None) for folder, *_ in INFO_PAGES]
     urls += [(f"{site_url}issues/{i['date']}/", i["date"]) for i in issues]
     rows = "".join(f"<url><loc>{xml_escape(u)}</loc>"
@@ -488,6 +493,21 @@ def sitemap_xml(issues: list[dict], site_url: str = SITE_URL) -> str:
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
             + rows + "</urlset>\n")
 
+
+
+def _markets(issues: list[dict], site_url: str) -> str:
+    """The Markets page: the latest issue's numbers, charts, Debt Markets and Data Room.
+    Charts load from that issue's folder."""
+    i = issues[0]
+    head = _head(f"{SITE_NAME} | Markets", "Rates, Fed odds, REITs and debt markets from "
+                 "the latest CRE Blurb.", f"{site_url}markets/", "website", site_url=site_url)
+    body = (f'<h1>Markets</h1><p class="asof">From the issue of '
+            f'<a href="../issues/{i["date"]}/">{_label(i["day"])}</a>. '
+            "Updated with every issue.</p>"
+            + markets_body(i["md"], i["factsheet"], _chart_srcs(i, f"../issues/{i['date']}/")))
+    return render_page(f"{SITE_NAME} | Markets", body, head_extra=head, base="../",
+                       nav=_nav("../", "markets", i["date"]), factsheet=i["factsheet"],
+                       wide=True)
 
 
 def _archive(issues: list[dict], site_url: str) -> str:
@@ -582,6 +602,8 @@ def build(root: Path, out: Path, site_url: str = SITE_URL) -> list[str]:
     latest = issues[0]["date"] if issues else None
     latest_fs = issues[0]["factsheet"] if issues else None
     _write(out / "glossary" / "index.html", _glossary(issues, site_url))
+    if issues:  # no issue yet means no numbers, and the nav has no Markets link
+        _write(out / "markets" / "index.html", _markets(issues, site_url))
     for folder, name, body, desc in INFO_PAGES:
         title = f"{SITE_NAME} | {name}"
         _write(out / folder / "index.html", render_page(

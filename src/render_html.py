@@ -1116,19 +1116,37 @@ def render_issue_html(md: str, factsheet: dict | None, problems: list[str],
         footer=_esc(FOOTER), footer_links=links)
 
 
+def markets_body(md: str, factsheet: dict, charts: dict | None = None) -> str:
+    """The Markets page: one issue's The Numbers (rates, Fed odds, REITs and their
+    charts), Debt Markets and the Data Room, without the stories."""
+    values = factsheet.get("values") or {}
+    run_date = date.fromisoformat(factsheet["date"]) if factsheet.get("date") else None
+    used = {"summary-h", "dataroom-h", "numbers", "content", "top"}
+    prose, debt = "", ""
+    for heading, text in _split(prepare_md(md))[1]:
+        if heading == "The Numbers" and not prose:
+            prose = _numbers_prose(text)
+        elif heading == "Debt Markets" and not debt:
+            debt = style_section(_decorate(_md(f"## {heading}{text}"), used), heading)
+    parts = [market_summary(values, charts, prose), debt, data_room(values, run_date)]
+    return _first_eager("\n".join(x for x in parts if x))
+
+
 def render_page(title: str, body_html: str, *, head_extra: str = "", nav: str = "",
                 factsheet: dict | None = None, base: str | None = None,
-                fonts_base: str | None = None) -> str:
-    """A non-issue page (About, Archive, Glossary, Privacy, Terms, Accessibility, 404) in
-    the same shell, with the latest issue's date, edition and ticker in the masthead
-    (`factsheet`), and no editor notes. `base` / `fonts_base`: see _shell."""
+                fonts_base: str | None = None, wide: bool = False) -> str:
+    """A non-issue page (About, Archive, Glossary, Markets, Privacy, Terms, Accessibility,
+    404) in the same shell, with the latest issue's date, edition and ticker in the
+    masthead (`factsheet`), and no editor notes. `wide` drops the reading-width limit
+    (Markets needs the full grid). `base` / `fonts_base`: see _shell."""
     fs = factsheet or {}
     run_date = date.fromisoformat(fs["date"]) if fs.get("date") else None
     fonts, faces, links = _shell(base, fonts_base)
     return PAGE.format(
         title=_esc(title), head_extra=_slot(head_extra), fonts=fonts, css=faces + CSS,
         masthead=masthead(run_date, fs.get("day_type"), None, fs.get("values"), nav),
-        notes="", body=f'<div class="page">{body_html}</div>', extra_body="",
+        notes="", body=f'<div class="page{" wide" if wide else ""}">{body_html}</div>',
+        extra_body="",
         footer=_esc(FOOTER), footer_links=links)
 
 
@@ -1406,6 +1424,8 @@ footer .foot-links .sep { color: var(--hairline); }
 
 /* Archive, About, Glossary, 404 */
 .page { max-width: 820px; margin: 0 auto; }
+.page.wide { max-width: none; }
+.page.wide > .asof { margin: 0; color: var(--muted); }
 .page h2 { margin-top: 40px; }
 .page h1 + h2, .page h1 + p + h2 { margin-top: 24px; }
 .issue-list { list-style: none; margin: 0; padding: 0; }

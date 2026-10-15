@@ -82,7 +82,7 @@ def test_issue_page_clean(built):
         assert "{{" not in page
         today = ' aria-current="page"' if d == "2026-10-06" else ""  # latest = Today
         assert (f'<nav class="site-nav" aria-label="Site"><a href="../../"{today}>Today</a>'
-                '<a href="../../issues/2026-10-06/#numbers">Markets</a>') in page
+                '<a href="../../markets/">Markets</a>') in page
         assert 'property="og:type" content="article"' in page
 
 
@@ -108,7 +108,7 @@ def test_missing_chart_no_img_no_og_image(built):
 def test_relative_links_resolve(built):
     _, out, _ = built
     pages = [p for p in out.rglob("*.html") if p.name != "404.html"]
-    assert len(pages) == 9
+    assert len(pages) == 10
     for page in pages:
         text = _read(page)
         refs = re.findall(r'(?:href|src)="([^"]*)"', text) + re.findall(r'url\("([^"]*)"\)', text)

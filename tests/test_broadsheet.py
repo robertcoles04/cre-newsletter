@@ -302,7 +302,7 @@ def test_glossary_merges_repeated_terms():
 def test_every_page_has_the_masthead_and_latest_ticker(tmp_path):
     out = _build(tmp_path)
     for rel in ("index.html", "archive/index.html", "about/index.html", "glossary/index.html",
-                "404.html", "issues/2026-10-05/index.html"):
+                "markets/index.html", "404.html", "issues/2026-10-05/index.html"):
         page = (out / rel).read_text(encoding="utf-8")
         assert '<header class="site-head" id="top">' in page, rel
         assert 'class="double-rule"' in page and 'class="site-nav"' in page, rel
@@ -311,11 +311,23 @@ def test_every_page_has_the_masthead_and_latest_ticker(tmp_path):
     assert "10-Yr <b>5.31%</b>" in (out / "about/index.html").read_text(encoding="utf-8")
     old = (out / "issues/2026-10-05/index.html").read_text(encoding="utf-8")
     assert "10-Yr <b>4.00%</b>" in old
-    assert 'href="../../issues/2026-10-06/#numbers">Markets</a>' in old
+    assert '<a href="../../markets/">Markets</a>' in old
     home = (out / "index.html").read_text(encoding="utf-8")
-    assert '<a href="#numbers">Markets</a>' in home and 'id="numbers"' in home
-    assert 'href="https://creblurb.org/issues/2026-10-06/#numbers">Markets</a>' in \
+    assert '<a href="markets/">Markets</a>' in home and 'id="numbers"' in home
+    assert 'href="https://creblurb.org/markets/">Markets</a>' in \
         (out / "404.html").read_text(encoding="utf-8")
+
+
+def test_markets_page_shows_the_latest_numbers_without_stories(tmp_path):
+    out = _build(tmp_path)
+    page = (out / "markets/index.html").read_text(encoding="utf-8")
+    assert "<title>CRE Blurb | Markets</title>" in page
+    assert '<a href="../markets/" aria-current="page">Markets</a>' in page
+    assert '<div class="page wide"><h1>Markets</h1>' in page
+    assert 'href="../issues/2026-10-06/"' in page  # the issue the numbers come from
+    assert 'id="numbers"' in page and "10-Yr <b>5.31%</b>" in page
+    assert 'id="top-stories"' not in page and 'id="term-h"' not in page
+    assert "markets/" in (out / "sitemap.xml").read_text(encoding="utf-8")
 
 
 def test_ticker_pause_control_markup_and_css():
