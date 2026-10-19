@@ -8,6 +8,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 from rapidfuzz import fuzz
 
+from src.dedupe import common_words, same_deal
 from src.models import Item, RatePoint, ReitQuote
 
 SIMILARITY_THRESHOLD = 85
@@ -120,17 +121,37 @@ def record_used_stories(conn: sqlite3.Connection, run_date: date, md: str,
 
 def used_story_keys(conn: sqlite3.Connection, run_date: date,
                     days: int = REPEAT_DAYS) -> tuple[set[str], set[str]]:
-    """(canonical URLs, title keys) used in issues dated within `days` before run_date."""
+    """(canonical URLs, title keys) used in issues dated within `days` before run_date.
+    Rows recorded without a title (backfilled or hand-edited issues) borrow the
+    headline of the matching item, so the same-deal check still has words to compare."""
     rows = conn.execute(
-        "SELECT canonical_url, title_key FROM used_stories"
-        " WHERE issue_date >= ? AND issue_date < ?",
+        "SELECT u.canonical_url, u.title_key, i.title FROM used_stories u"
+        " LEFT JOIN items i ON i.canonical_url = u.canonical_url"
+        " WHERE u.issue_date >= ? AND u.issue_date < ?",
         ((run_date - timedelta(days=days)).isoformat(), run_date.isoformat())).fetchall()
-    return ({r[0] for r in rows if r[0]}, {r[1] for r in rows if r[1]})
+    titles = {r[1] or (title_key(r[2]) if r[2] else None) for r in rows}
+    return ({r[0] for r in rows if r[0]}, {t for t in titles if t})
 
 
-def drop_used(rows: list, urls: set[str], titles: set[str]) -> list:
+COMMON_WORDS_DAYS = 60
+
+
+def common_headline_words(conn: sqlite3.Connection, run_date: date,
+                          days: int = COMMON_WORDS_DAYS) -> frozenset[str]:
+    """Words too frequent in recent headlines to identify a deal (see dedupe.common_words)."""
+    since = datetime(run_date.year, run_date.month, run_date.day,
+                     tzinfo=timezone.utc) - timedelta(days=days)
+    rows = conn.execute("SELECT title FROM items WHERE published_at >= ?", (_iso(since),))
+    return common_words(title_key(r[0]) for r in rows if r[0])
+
+
+def drop_used(rows: list, urls: set[str], titles: set[str],
+              common: frozenset[str] = frozenset()) -> list:
+    """Rows not already used: not the same URL, headline or deal as a recent story."""
     return [r for r in rows
-            if canonical_url(r["url"]) not in urls and title_key(r["title"]) not in titles]
+            if canonical_url(r["url"]) not in urls
+            and (key := title_key(r["title"])) not in titles
+            and not any(same_deal(key, t, common) for t in titles)]
 
 
 def _utc(dt: datetime) -> datetime:
