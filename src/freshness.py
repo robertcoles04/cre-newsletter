@@ -29,7 +29,9 @@ SERIES = {
     "BANK_CRE_DQ": ("Bank CRE delinquency", "quarterly"),
 }
 # Stale when older than this: business days for daily/weekly, calendar days otherwise.
-LIMITS = {"daily": 3, "weekly": 10, "monthly": 45, "quarterly": 200}
+# Quarterly FRED dates are the quarter's first day and the next quarter lands about
+# eight months later (Q2 = Apr 1, Q3 released late Nov), so 250 days.
+LIMITS = {"daily": 3, "weekly": 10, "monthly": 45, "quarterly": 250}
 CORE = ("DGS10", "SOFR")  # hard stop: the issue must not auto-publish if these are stale
 CORE_LIMIT = 5  # business days
 

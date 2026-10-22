@@ -50,9 +50,9 @@ def test_monthly_threshold_is_more_than_45_days():
     assert stale({"CMBS_DQ": old}) == {"CMBS delinquency": old}
 
 
-def test_quarterly_threshold_is_more_than_200_days():
-    assert stale({"BANK_CRE_DQ": (FRI - timedelta(days=200)).isoformat()}) == {}
-    old = (FRI - timedelta(days=201)).isoformat()
+def test_quarterly_threshold_is_more_than_250_days():
+    assert stale({"BANK_CRE_DQ": (FRI - timedelta(days=250)).isoformat()}) == {}
+    old = (FRI - timedelta(days=251)).isoformat()
     assert stale({"BANK_CRE_DQ": old}) == {"Bank CRE delinquency": old}
 
 

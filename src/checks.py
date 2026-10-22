@@ -56,7 +56,7 @@ RATE_UNIT = r"(?:%|percent\b|per cent\b|pct\b|bps?\b|basis[- ]points?\b)"
 NUMBER = re.compile(
     r"\d+(?:\.\d+)?[\s-]{0,2}" + RATE_UNIT +
     r"|\$\d+(?:,\d{3})*(?:\.\d+)?"
-    r"(?:\s?(?:million|billion|trillion|bn|tn|mm|m|b|k)\b)?",
+    r"(?:[\s-]?(?:million|billion|trillion|bn|tn|mm|m|b|k)\b)?",
     re.I)
 # Extra forms that only count in market-data sections: bare decimals ("4.62"),
 # "91 dollars" and odds like "81 to 19". "10Y", "5Y" and "Oct 28" do not match.
@@ -129,8 +129,8 @@ DOLLAR_SCALE = {"": 1, "k": 10**3, "m": 10**6, "mm": 10**6, "million": 10**6,
 
 
 def _dollars(text: str) -> float | None:
-    """'$631M', '$631 million' -> 631e6. None if not a dollar amount."""
-    m = re.fullmatch(r"\$([\d,]+(?:\.\d+)?)\s?([a-z]*)", _norm(text))
+    """'$631M', '$631 million', '$631-million' -> 631e6. None if not a dollar amount."""
+    m = re.fullmatch(r"\$([\d,]+(?:\.\d+)?)[\s-]?([a-z]*)", _norm(text))
     if not m or m.group(2) not in DOLLAR_SCALE:
         return None
     return float(m.group(1).replace(",", "")) * DOLLAR_SCALE[m.group(2)]

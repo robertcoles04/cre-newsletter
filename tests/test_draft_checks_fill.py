@@ -376,6 +376,11 @@ def test_dollar_unit_spellings_match_each_other():
     top2 = [story(1, summary="A $1.2 billion loan closed.")]
     ok2 = issue("## Top Stories\n\nA $1.2B loan closed. [Src](https://x.com/1)")
     assert check_issue(ok2, sheet(top=top2), BANNED) == []
+    # Source hyphenates the unit ("$635.82-billion universe").
+    top3 = [story(1, summary="$11.6 billion of the $635.82-billion universe was delinquent.")]
+    ok3 = issue("## Top Stories\n\n$11.6 billion of the $635.82 billion universe was "
+                "delinquent. [Src](https://x.com/1)")
+    assert check_issue(ok3, sheet(top=top3), BANNED) == []
 
 
 def test_percent_spellings_match_each_other():
