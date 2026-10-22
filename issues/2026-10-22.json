@@ -9,7 +9,7 @@
     "DGS30": "2026-10-21",
     "DGS5": "2026-10-21",
     "HY_OAS": "2026-10-21",
-    "MORTGAGE30US": "2026-10-15",
+    "MORTGAGE30US": "2026-10-22",
     "REIT": "2026-10-21",
     "SOFR": "2026-10-21",
     "VNQ": "2026-10-21"
@@ -39,7 +39,7 @@
       "width": 800
     },
     "mortgage": {
-      "alt": "Line chart of the 30-year mortgage rate over the last six months, from 6.23% on Apr 23 to 7.40% on Oct 15.",
+      "alt": "Line chart of the 30-year mortgage rate over the last six months, from 6.30% on Apr 30 to 7.32% on Oct 22.",
       "height": 260,
       "width": 360
     },
@@ -124,9 +124,9 @@
     "HY_OAS_CHG": "-6 bps",
     "HY_OAS_DATE": "2026-10-21",
     "KALSHI_HOLD": "90.0%",
-    "MORTGAGE30US": "7.40%",
-    "MORTGAGE30US_ASOF": "Oct 15",
-    "MORTGAGE30US_CHG": "0 bps",
+    "MORTGAGE30US": "7.32%",
+    "MORTGAGE30US_ASOF": "Oct 22",
+    "MORTGAGE30US_CHG": "-8 bps",
     "MOVER_DOWN_NOTE": "No company-specific news today; it may have moved with other retail REITs.",
     "MOVER_UP_NOTE": "No company-specific news today; it may have moved with other multifamily REITs.",
     "RATES_ASOF": "Oct 21",
