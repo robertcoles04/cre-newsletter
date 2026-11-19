@@ -140,3 +140,12 @@ def test_refuses_to_overwrite_published_date(conn, tmp_path):
     assert not (issues / f"{D.isoformat()}.html").exists()
     assert not (issues / f"{D.isoformat()}.json").exists()
     assert gh.calls == []
+
+
+def test_banner_keeps_multiline_problem_inside_blockquote():
+    from src import deliver, publish
+    problem = "news/X: 429 Too Many Requests\nFor more information check: https://e.com"
+    text = deliver._banner([problem]) + "# T\n"
+    banner = text.split("\n\n")[0]
+    assert all(line.startswith(">") for line in banner.splitlines())
+    assert publish.strip_banner(text) == "# T\n"

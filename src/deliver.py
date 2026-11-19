@@ -21,7 +21,10 @@ def run_gh(args: list[str]) -> str:
 
 
 def _banner(problems: list[str]) -> str:
-    lines = ["> **Review before publishing:**"] + [f"> - {p}" for p in problems]
+    # One line per problem: a multi-line error message would break out of the
+    # blockquote, and the leftover lines would be published on the site.
+    lines = ["> **Review before publishing:**"] + [
+        f"> - {' '.join(str(p).split())}" for p in problems]
     return "\n".join(lines) + "\n\n"
 
 
